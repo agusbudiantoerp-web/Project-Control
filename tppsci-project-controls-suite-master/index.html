@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TPPSCI — Project Planning, Scheduling &amp; Control Intelligence</title>
+  <meta name="description" content="A client-side Primavera P6 project controls suite: XER viewer and Gantt, DCMA 14-point schedule assessment, and Monte Carlo schedule risk analysis. No file ever leaves your browser." />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./public/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/style.css" />
+  <script>
+    // Applied before first paint so a dark-theme reload never flashes white.
+    (function () {
+      try {
+        var saved = localStorage.getItem('tppsci-theme');
+        if (saved === 'dark' || saved === 'light') {
+          document.documentElement.setAttribute('data-theme', saved);
+        }
+      } catch (e) { /* private mode — fall back to the OS preference */ }
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-container">
+    <header class="site-header">
+      <div class="brand-nav">
+        <span class="brand-badge">TPPSCI</span>
+        <span class="brand-title">Project Planning, Scheduling &amp; Control Intelligence</span>
+      </div>
+      <div class="header-actions">
+        <span class="muted" id="privacyBadge">Runs entirely in your browser</span>
+        <button class="icon-btn" id="themeToggle" aria-label="Toggle colour theme" title="Toggle light / dark">◐</button>
+      </div>
+    </header>
+
+    <nav class="tab-bar" role="tablist" aria-label="Modules">
+      <button class="tab-btn active" data-tab="gantt" role="tab" aria-selected="true">XER Viewer</button>
+      <button class="tab-btn" data-tab="dcma" role="tab" aria-selected="false">DCMA 14-Point</button>
+      <button class="tab-btn" data-tab="risk" role="tab" aria-selected="false">Schedule Risk</button>
+      <button class="tab-btn" data-tab="path" role="tab" aria-selected="false">Path Analyser</button>
+      <button class="tab-btn" data-tab="mentor" role="tab" aria-selected="false">Schedule Mentor</button>
+      <button class="tab-btn" data-tab="compare" role="tab" aria-selected="false">Comparison <span class="tag tag-beta">beta</span></button>
+      <button class="tab-btn" data-tab="anonymiser" role="tab" aria-selected="false">Anonymiser <span class="tag tag-beta">beta</span></button>
+      <button class="tab-btn" data-tab="rollup" role="tab" aria-selected="false">Progress Roll-Up <span class="tag tag-alpha">alpha</span></button>
+      <button class="tab-btn" data-tab="linear" role="tab" aria-selected="false">Time–Chainage <span class="tag tag-beta">beta</span></button>
+      <button class="tab-btn" data-tab="msp" role="tab" aria-selected="false">MS Project Fixer</button>
+    </nav>
+
+    <main style="flex:1; display:flex; flex-direction:column; min-height:0;">
+
+      <!-- XER VIEWER -->
+      <section id="tab-gantt" class="tab-content" style="display:flex; flex-direction:column; flex:1; min-height:0;">
+        <div class="toolbar-top">
+          <div class="toolbar-row">
+            <span class="toolbar-label">Project</span>
+            <select id="projectSelect" class="select-input" style="min-width:260px; font-weight:600;" aria-label="Sample project"></select>
+
+            <input type="text" id="viewerSearchInput" placeholder="Search activity ID or name…" class="text-input" style="min-width:220px;" aria-label="Search activities" />
+
+            <select id="viewerStatusSelect" class="select-input" aria-label="Filter by status">
+              <option value="ALL">All statuses</option>
+              <option value="TK_NotStart">Not started</option>
+              <option value="TK_Active">In progress</option>
+              <option value="TK_Complete">Completed</option>
+            </select>
+
+            <label class="checkbox-label"><input type="checkbox" id="viewerCriticalCheck" /> Critical only</label>
+            <label class="checkbox-label"><input type="checkbox" id="viewerMilestoneCheck" /> Milestones only</label>
+
+            <input type="file" id="fileInput" accept=".xer" style="display:none" />
+            <button class="pill-btn active" id="openXerBtn">Open XER…</button>
+          </div>
+
+          <div class="toolbar-row">
+            <span class="toolbar-label">Total float &lt;</span>
+            <input type="number" id="viewerFloatInput" class="number-input" style="width:72px;" aria-label="Maximum total float in days" />
+            <span class="toolbar-label">days</span>
+
+            <button class="pill-btn" id="viewerClearBtn">Clear filters</button>
+
+            <span style="width:1px; height:20px; background:var(--border);"></span>
+
+            <button class="pill-btn" id="expandAllBtn">Expand all</button>
+            <button class="pill-btn" id="collapseAllBtn">Collapse all</button>
+            <button class="pill-btn active" id="modeGroupedBtn">WBS grouped</button>
+            <button class="pill-btn" id="modeFlatBtn">Flat</button>
+
+            <span class="toolbar-label">Zoom</span>
+            <select id="zoomSelect" class="select-input" style="width:92px;" aria-label="Timeline zoom">
+              <option value="Month">Month</option>
+              <option value="Week">Week</option>
+              <option value="Day">Day</option>
+            </select>
+
+            <button class="pill-btn" id="exportCsvBtn">Export CSV</button>
+
+            <span class="muted" style="margin-left:auto;" id="activityCountBadge" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="gantt-split-container">
+          <div class="gantt-left-pane">
+            <table class="gantt-table">
+              <thead>
+                <tr>
+                  <th style="width:120px;">Activity ID</th>
+                  <th style="width:190px;">Activity name</th>
+                  <th style="width:80px;">Start</th>
+                  <th style="width:80px;">Finish</th>
+                </tr>
+              </thead>
+              <tbody id="ganttTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="gantt-right-pane">
+            <div class="gantt-header-timeline" id="ganttTimelineHeader"></div>
+            <div class="gantt-bars-container" id="ganttBarsContainer"></div>
+          </div>
+        </div>
+
+        <div class="bottom-legend">
+          <div class="legend-item"><div class="legend-box" style="background:var(--bar);"></div><span>Remaining</span></div>
+          <div class="legend-item"><div class="legend-box" style="background:var(--bar-progress);"></div><span>Progressed</span></div>
+          <div class="legend-item"><div class="legend-box" style="background:var(--bar-critical);"></div><span>Critical</span></div>
+          <div class="legend-item"><div class="legend-box" style="background:var(--text); width:11px; height:11px; transform:rotate(45deg);"></div><span>Milestone</span></div>
+          <div class="legend-item" style="margin-left:auto;"><span>Drop an .xer file anywhere to load it.</span></div>
+        </div>
+      </section>
+
+      <section id="tab-dcma" class="tab-content tab-pad" style="display:none;"></section>
+      <section id="tab-risk" class="tab-content tab-pad" style="display:none;"></section>
+
+      <section id="tab-path" class="tab-content tab-pad" style="display:none;">
+        <div id="pathAnalyserContainer"></div>
+      </section>
+
+      <section id="tab-mentor" class="tab-content tab-pad" style="display:none;">
+        <div class="mentor-layout">
+          <div class="card">
+            <h3>Schedule mentor rules</h3>
+            <div id="mentorSidebar"></div>
+          </div>
+          <div id="mentorContent"></div>
+        </div>
+      </section>
+
+      <section id="tab-compare" class="tab-content tab-pad" style="display:none;"></section>
+      <section id="tab-anonymiser" class="tab-content tab-pad" style="display:none;"></section>
+      <section id="tab-rollup" class="tab-content tab-pad" style="display:none;"></section>
+      <section id="tab-linear" class="tab-content tab-pad" style="display:none;"></section>
+      <section id="tab-msp" class="tab-content tab-pad" style="display:none;">
+        <div id="mspFixerContainer"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
