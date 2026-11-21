@@ -7,16 +7,14 @@ Working branch: ai-project-control-integration
 
 ## 1. Repository baseline
 
-The repository is public and currently contains four project folders:
+The repository contains four source projects:
 
 - `tppsci-project-controls-suite-master/`
 - `pmcontrols-main/`
 - `project-controls-dashboard-main/`
 - `EVM_Project-main/`
 
-The file `Manajemen Proyek` is a 1-byte file and is not a usable project module.
-
-The screenshot titled PROJECT CONTROL V10 was supplied in conversation, but its source code is not present in the repository root or the four audited project folders as currently indexed. The V10 application must be located before its importer, database, and module contracts can be integrated safely.
+The integration will be a new application in `ai_project_control/`. Existing upstream projects remain intact and are treated as reference/engine components.
 
 ## 2. Audited components
 
@@ -43,9 +41,9 @@ Verified capabilities described by its README:
 - Schedule mentor
 - XER anonymization
 
-Important limitation: the README explicitly labels Schedule Comparison, Progress Roll-Up, Time-Chainage, and MS Project Fixer as prototype tabs that are not yet computed from the loaded schedule. The CPM engine is described as screening-grade and calendar-free, not a replacement for Primavera recalculation.
+Important limitation: the README labels Schedule Comparison, Progress Roll-Up, Time-Chainage, and MS Project Fixer as prototype tabs that are not yet computed from the loaded schedule. Its CPM engine is screening-grade and calendar-free, not a replacement for Primavera recalculation.
 
-### B. pmcontrols — validated Python calculation library
+### B. pmcontrols — Python calculation library
 
 Location: `pmcontrols-main/`
 
@@ -62,9 +60,9 @@ Verified source files include:
 - `tests/validation_cases.json`
 - `pyproject.toml`
 
-The README and package metadata identify MIT licensing and dependencies numpy, pandas, scipy. The documented capabilities include CPM, PERT schedule risk, Monte Carlo completion percentiles, minimum-cost schedule crashing, EVM, earned schedule, EAC/ETC/VAC/TCPI, and optional charts. Results include structured alerts and provenance metadata.
+Package metadata identifies MIT licensing and dependencies numpy, pandas, scipy. Documented capabilities include CPM, PERT schedule risk, Monte Carlo completion percentiles, minimum-cost schedule crashing, EVM, earned schedule, EAC/ETC/VAC/TCPI, and optional charts.
 
-Integration recommendation: use this as the first candidate for a deterministic Python calculation service. Keep its validation tests and do not replace calculations with LLM-generated arithmetic.
+Integration recommendation: candidate deterministic Python calculation service. Preserve its validation tests. Confirm API and data assumptions before connecting it to the application.
 
 ### C. Project Controls Dashboard — management reporting and registers
 
@@ -81,11 +79,9 @@ Verified source files include:
 - `requirements.txt`
 - `tests/`
 
-Dependencies in requirements.txt: pandas and matplotlib.
+Dependencies include pandas and matplotlib. The metrics module calculates cumulative PV/EV/AC, SV/CV, SPI/CPI, EAC/ETC/VAC/TCPI, milestone slippage, risk exposure/overdue mitigation, and approved versus pending change impacts.
 
-The metrics module calculates cumulative PV/EV/AC, SV/CV, SPI/CPI, EAC/ETC/VAC/TCPI, milestone slippage, risk exposure/overdue mitigation, and approved versus pending change impacts. The README describes the application as a project-controls reporting cycle based on timeseries, milestone, risk, and change-register inputs.
-
-Integration recommendation: reuse the data model, reporting concepts, and visual/reporting patterns after reconciling them with the selected calculation engine. Avoid running duplicate EVM formulas in two competing places.
+Integration recommendation: reuse data model, reporting concepts, and visual patterns after reconciling formulas with the selected calculation engine. Avoid competing EVM implementations.
 
 ### D. EVM_Project — reference workflow and sample files
 
@@ -100,11 +96,11 @@ Verified files include:
 - `EVM_Performance_Dashboard.pbix`
 - `README.md`
 
-The Python script reads a Microsoft Project Excel export and computes basic PV, EV, AC, CV, SV, CPI, and SPI. The README describes a Power BI dashboard.
+The Python script reads a Microsoft Project Excel export and computes basic PV, EV, AC, CV, SV, CPI, and SPI. This is a reference workflow, not a complete platform. Review formula assumptions and zero-denominator handling before reuse.
 
-Important limitation: this is a simple example workflow, not a complete integrated project-control platform. Its EVM formula assumptions and zero-denominator fallback values must be reviewed before production use.
+## 3. New application architecture
 
-## 3. Proposed target architecture
+The new application will live in `ai_project_control/` and will be built incrementally:
 
 1. Project Data Hub: validated imports for XER, Excel/CSV, PDF, and drawings.
 2. Planning Engine: XER parsing, WBS, CPM, float, critical path, DCMA checks, schedule risk.
@@ -117,34 +113,31 @@ Important limitation: this is a simple example workflow, not a complete integrat
 
 ## 4. Integration rules
 
-- Keep `main` unchanged; all work begins on `ai-project-control-integration`.
+- Keep `main` unchanged; all new work is on `ai-project-control-integration`.
 - Do not copy entire repositories into one runtime without dependency and license review.
-- Keep source attribution and each upstream LICENSE file.
+- Keep source attribution and upstream LICENSE files.
 - Establish one canonical project/activity/WBS identifier mapping.
 - Store baseline, status date, source file, import timestamp, and data provenance.
-- Validate imported data before calculations; never silently convert missing or invalid inputs to zero.
-- Keep deterministic CPM/EVM/Monte Carlo calculations separate from LLM interpretation.
+- Validate imported data; never silently convert missing or invalid inputs to zero.
+- Keep deterministic calculations separate from LLM interpretation.
 - Treat photo-based progress and drawing-derived quantities as estimates requiring human review.
-- Do not claim the V10 application is integrated until its source code and import contracts are located.
+- Do not claim a module is integrated until its code path and tests are connected.
 
-## 5. Proposed implementation sequence
+## 5. Implementation sequence
 
-### Phase 0 — locate and understand V10
-Required: V10 source folder/repository, entry point, import/export handlers, database/storage implementation, dependency file, and sample input files. Confirm whether the screenshot application is a separate local project.
+### Phase 1 — new application foundation and data templates
+- Create an independent Streamlit application shell.
+- Provide downloadable CSV/Excel input templates with field descriptions.
+- Validate uploaded files and report missing/invalid columns.
+- Keep sample data separate from real project data.
 
-### Phase 1 — establish an integration test harness
-- Run and preserve upstream tests for pmcontrols.
-- Run TPPSCI typecheck/build/tests.
-- Record dashboard test results and supported input schemas.
-- Create synthetic test data with known expected CPM and EVM results.
-
-### Phase 2 — connect schedule intelligence
+### Phase 2 — schedule intelligence
 - Import XER.
 - Map project/WBS/activity/relationship fields to canonical records.
 - Expose CPM, float, critical path, DCMA checks, and QSRA outputs.
 - Reconcile screening-grade results against P6 dates and disclose differences.
 
-### Phase 3 — connect cost, progress, and EVM
+### Phase 3 — cost, progress, and EVM
 - Define baseline and reporting-period data contracts.
 - Connect progress and actual cost inputs.
 - Use one authoritative EVM engine.
@@ -152,17 +145,15 @@ Required: V10 source folder/repository, entry point, import/export handlers, dat
 
 ### Phase 4 — risk, AI, and decision support
 - Connect risk register and cost/schedule uncertainty.
-- Add AI explanations with citations to source records and calculated metrics.
+- Add AI explanations grounded in source records and calculated metrics.
 - Add predictions only after model validation and sufficient historical data.
 
 ### Phase 5 — drawings, resources, and outputs
 - Evaluate drawing takeoff separately.
 - Add human-reviewed quantity extraction.
-- Add manpower/equipment productivity and optimization only when the required resource data exists.
+- Add manpower/equipment productivity and optimization when required data exists.
 - Add approved Excel/PDF/Telegram reporting.
 
-## 6. Immediate next requirement
+## 6. Immediate next step
 
-The user must identify where the PROJECT CONTROL V10 source code is stored. The screenshot alone is not enough to determine accepted file formats, mandatory fields, database schema, or upload sequence.
-
-No application code has been changed in this audit step. This file is an audit and implementation plan only.
+Build and validate the independent Data Hub and its input templates first. Then connect the existing calculation engines behind stable, tested data contracts.
