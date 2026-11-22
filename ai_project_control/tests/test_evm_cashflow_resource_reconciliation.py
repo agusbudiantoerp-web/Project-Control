@@ -144,3 +144,30 @@ def test_change_impact_allows_approved_cost_reduction():
     assert stats["approved_cost_impact"] == pytest.approx(-100)
     assert stats["approved_schedule_days"] == pytest.approx(-3)
     assert stats["revised_budget"] == pytest.approx(900)
+
+def test_resource_load_rejects_non_finite_quantities_and_capacity():
+    resources = pd.DataFrame([{"rsrc_id":"R1","capacity_per_day":8}])
+    for value in [float("inf"), float("nan"), -1]:
+        assignments = pd.DataFrame([{
+            "rsrc_id":"R1","target_qty":value,"target_start_date":"2026-01-01",
+            "target_end_date":"2026-01-02",
+        }])
+        with pytest.raises(ValueError, match="target_qty must contain finite"):
+            calculate_resource_load(resources, assignments)
+    bad_resources = pd.DataFrame([{"rsrc_id":"R1","capacity_per_day":float("inf")}])
+    assignments = pd.DataFrame([{
+        "rsrc_id":"R1","target_qty":2,"target_start_date":"2026-01-01",
+        "target_end_date":"2026-01-02",
+    }])
+    with pytest.raises(ValueError, match="capacity_per_day must be finite"):
+        calculate_resource_load(bad_resources, assignments)
+
+
+def test_resource_load_rejects_blank_and_duplicate_resource_ids():
+    assignments = pd.DataFrame([{"rsrc_id":" ","target_qty":1}])
+    with pytest.raises(ValueError, match="non-blank rsrc_id"):
+        calculate_resource_load(pd.DataFrame(), assignments)
+    resources = pd.DataFrame([{"rsrc_id":"R1"},{"rsrc_id":"R1"}])
+    assignments = pd.DataFrame([{"rsrc_id":"R1","target_qty":1}])
+    with pytest.raises(ValueError, match="unique non-blank rsrc_id"):
+        calculate_resource_load(resources, assignments)
