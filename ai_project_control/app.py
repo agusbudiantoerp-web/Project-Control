@@ -496,7 +496,17 @@ with drawing_tab:
     takeoff_draft=st.session_state.get("drawing_takeoff_draft",takeoff_saved)
     if isinstance(takeoff_draft,pd.DataFrame) and not takeoff_draft.empty:
         st.markdown("#### Review and edit takeoff lines")
-        edited=st.data_editor(takeoff_draft,use_container_width=True,num_rows="dynamic",key="takeoff_editor")
+        st.caption("Assign each takeoff line to a project WBS before converting it into a BOQ draft. Unassigned lines remain draft-only and cannot be used in EVM.")
+        wbs_options=ds("wbs.csv")
+        if not wbs_options.empty and "wbs_id" in wbs_options:
+            valid_wbs=sorted(wbs_options["wbs_id"].dropna().astype(str).unique().tolist())
+            if "wbs_id" not in takeoff_draft.columns:
+                takeoff_draft["wbs_id"]=""
+            edited=st.data_editor(takeoff_draft,use_container_width=True,num_rows="dynamic",key="takeoff_editor",
+                column_config={"wbs_id":st.column_config.SelectboxColumn("WBS mapping",options=valid_wbs,required=False)})
+        else:
+            edited=st.data_editor(takeoff_draft,use_container_width=True,num_rows="dynamic",key="takeoff_editor")
+            st.warning("Import the project WBS first. BOQ draft lines will have no WBS mapping until assigned.")
         if st.button("Save reviewed takeoff to project database"):
             save_dataset(project_id,"drawing_takeoff.csv",edited)
             st.success("Takeoff draft saved. Review status remains under your control.")
