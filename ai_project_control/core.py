@@ -41,7 +41,7 @@ REQUIRED = {
  "progress.csv":["period_end","activity_id","boq_id","actual_quantity_to_date"],
  "actual_cost.csv":["transaction_date","amount","currency"],
  "risk_register.csv":["risk_id","risk_description","probability","cost_impact","schedule_impact_days"],
- "commitments.csv":["commitment_id","committed_amount","currency"],
+ "commitments.csv":["commitment_id","commitment_date","committed_amount","paid_amount","currency"],
  "resources.csv":["rsrc_id","rsrc_name","rsrc_type"],
  "resource_assignments.csv":["task_id","rsrc_id","target_qty"],
  "calendars.csv":["calendar_id","calendar_name","workdays_per_week","hours_per_day"],
