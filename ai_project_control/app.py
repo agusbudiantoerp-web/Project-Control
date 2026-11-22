@@ -393,23 +393,39 @@ with resources_tab:
     resource_data=ds("resources.csv")
     assignment_data=ds("resource_assignments.csv")
     if not assignment_data.empty:
-        resource_summary,daily_load=calculate_resource_load(resource_data,assignment_data)
-        st.markdown("#### Resource allocation summary")
-        show_df(resource_summary,350)
-        if not daily_load.empty:
-            st.markdown("#### Daily planned resource loading")
-            st.plotly_chart(px.line(daily_load,x="date",y="planned_load_per_day",color="rsrc_id",
-                title="Daily resource demand (assignment quantity spread over assigned dates)"),use_container_width=True)
-            if "over_capacity" in daily_load and daily_load["over_capacity"].any():
-                st.error(f"Capacity overload detected on {int(daily_load['over_capacity'].sum())} resource-days.")
-                show_df(daily_load[daily_load["over_capacity"]],250)
-            elif "capacity_per_day" not in daily_load or daily_load["capacity_per_day"].isna().all():
-                st.info("Capacity belum diisi. Isi capacity_per_day pada resources.csv untuk mengukur overload.")
-        st.download_button("Download resource allocation CSV",resource_summary.to_csv(index=False).encode("utf-8-sig"),
-            "resource_allocation_summary.csv","text/csv")
+        try:
+            resource_summary,daily_load=calculate_resource_load(resource_data,assignment_data)
+            st.markdown("#### Resource allocation & utilization")
+            metric_row([
+                ("Assigned resources",f"{resource_summary['rsrc_id'].nunique():,}"),
+                ("Planned quantity",f"{resource_summary['target_qty'].sum():,.2f}"),
+                ("Actual quantity",f"{resource_summary['actual_qty'].sum():,.2f}"),
+                ("Overloaded resource-days",f"{int(daily_load['over_capacity'].sum()) if not daily_load.empty else 0:,}")
+            ])
+            show_df(resource_summary,350)
+            if not daily_load.empty:
+                st.markdown("#### Daily resource demand and capacity")
+                chart=daily_load.copy()
+                chart["capacity_line"]=chart["capacity_per_day"]
+                st.plotly_chart(px.line(chart,x="date",y=["planned_load_per_day","capacity_line"],
+                    color="rsrc_id",facet_col="rsrc_id",title="Daily demand vs available capacity"),
+                    use_container_width=True)
+                if daily_load["over_capacity"].any():
+                    st.error(f"Capacity overload detected on {int(daily_load['over_capacity'].sum())} resource-days.")
+                    show_df(daily_load[daily_load["over_capacity"]],250)
+                elif daily_load["capacity_per_day"].isna().all():
+                    st.info("Capacity belum diisi. Isi capacity_per_day pada resources.csv untuk mengukur overload.")
+                st.download_button("Download daily resource loading CSV",
+                    daily_load.to_csv(index=False).encode("utf-8-sig"),
+                    "daily_resource_loading.csv","text/csv")
+            st.download_button("Download resource allocation summary CSV",
+                resource_summary.to_csv(index=False).encode("utf-8-sig"),
+                "resource_allocation_summary.csv","text/csv")
+        except Exception as exc:
+            st.error(f"Resource analysis needs data correction: {exc}")
     else:
         st.info("Impor resources.csv dan resource_assignments.csv, atau gunakan konversi XER Primavera untuk mengisi keduanya.")
-    st.caption("Resource loading ini adalah screening kuantitas terhadap tanggal penugasan. Resource leveling resmi harus tetap mempertimbangkan kalender, shift, skill, dan aturan P6.")
+    st.caption("Kapasitas dibandingkan dalam unit yang sama dengan target_qty per hari. Distribusi saat ini diratakan pada hari kalender, bukan shift/hari kerja. Ini adalah screening overload, bukan resource leveling resmi Primavera P6.")
 
 with milestones_tab:
     st.subheader("Milestone & Change Control")
