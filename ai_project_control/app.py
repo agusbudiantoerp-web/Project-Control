@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -106,13 +106,24 @@ with hub:
         if upload:
             try:
                 frame=pd.read_csv(upload) if upload.name.lower().endswith(".csv") else pd.read_excel(upload)
-                issues=validate_dataset(selected,frame,{n:ds(n) for n in TEMPLATES})
+                project_snapshot={n:ds(n) for n in TEMPLATES}
+                project_snapshot[selected]=frame
+                issues=validate_project_datasets(project_snapshot).get(selected,[])
+                cross_issues=validate_project_datasets(project_snapshot)
                 st.write(f"Rows: **{len(frame)}** | Columns: **{len(frame.columns)}**")
                 show_df(frame,300)
                 if issues:
                     for issue in issues: st.error(issue)
+                elif cross_issues:
+                    st.warning("Dataset ini lolos validasi lokal, tetapi ada masalah pada dataset proyek lain:")
+                    for dataset_name, findings in cross_issues.items():
+                        for issue in findings: st.error(f"{dataset_name}: {issue}")
+                    if st.button("Save dataset with other-dataset warnings",type="secondary"):
+                        save_dataset(project_id,selected,frame)
+                        st.warning(f"{selected} saved. Resolve the listed project-wide validation issues before relying on reports.")
+                        st.rerun()
                 else:
-                    st.success("Column and core business validation passed.")
+                    st.success("Project-wide dataset validation passed.")
                     if st.button("Save dataset to project",type="primary"):
                         save_dataset(project_id,selected,frame)
                         st.success(f"{selected} saved for {project_id}.")
