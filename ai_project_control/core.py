@@ -26,11 +26,11 @@ TEMPLATES = {
 REQUIRED = {
  "project_master.csv":["project_id","project_name","planned_start","planned_finish","status_date","currency"],
  "wbs.csv":["wbs_id","wbs_name"],
- "activities.csv":["activity_id","wbs_id","activity_name","duration_days","planned_start","planned_finish"],
+ "activities.csv":["activity_id","wbs_id","activity_name","duration_days","planned_start","planned_finish","predecessor_ids","weight_pct"],
  "boq_budget.csv":["boq_id","description","unit","budget_quantity","unit_rate"],
- "progress.csv":["period_end","activity_id","actual_quantity_to_date"],
+ "progress.csv":["period_end","activity_id","boq_id","actual_quantity_to_date"],
  "actual_cost.csv":["transaction_date","amount","currency"],
- "risk_register.csv":["risk_id","risk_description","probability"],
+ "risk_register.csv":["risk_id","risk_description","probability","cost_impact","schedule_impact_days"],
  "commitments.csv":["commitment_id","committed_amount","currency"],
 }
 
@@ -232,8 +232,8 @@ def risk_analysis(risks: pd.DataFrame, iterations=10000, seed=42):
     if risks.empty: raise ValueError("Risk register belum diimpor.")
     r=risks.copy()
     r["probability"]=pd.to_numeric(r["probability"],errors="coerce").fillna(0).clip(0,1)
-    r["cost_impact"]=pd.to_numeric(r.get("cost_impact",0),errors="coerce").fillna(0)
-    r["schedule_impact_days"]=pd.to_numeric(r.get("schedule_impact_days",0),errors="coerce").fillna(0)
+    r["cost_impact"]=pd.to_numeric(r["cost_impact"],errors="coerce").fillna(0)
+    r["schedule_impact_days"]=pd.to_numeric(r["schedule_impact_days"],errors="coerce").fillna(0)
     r["cost_exposure"]=r["probability"]*r["cost_impact"]
     r["schedule_exposure_days"]=r["probability"]*r["schedule_impact_days"]
     rng=np.random.default_rng(seed)
@@ -428,3 +428,56 @@ def calculate_dcma14(tables: dict[str,pd.DataFrame], hours_per_day=8):
         out.append({"DCMA Point":ident,"Metric":name,"Flagged":count,"Population":total,
                     "Value":value,"RAG":rag})
     return pd.DataFrame(out)
+
+
+def calculate_schedule_pert(activities: pd.DataFrame, iterations=10000, seed=42):
+    """Three-point schedule-risk analysis using the audited pmcontrols PERT engine."""
+    if activities.empty: raise ValueError("Activities belum diimpor.")
+    rows=[]
+    for _,r in activities.iterrows():
+        d=float(pd.to_numeric(r["duration_days"],errors="raise"))
+        pred=r.get("predecessor_ids","")
+        pred="" if pd.isna(pred) else str(pred)
+        rows.append({"id":str(r["activity_id"]),"predecessors":pred,
+          "optimistic":d*0.90 if d>0 else 0.0,"most_likely":d,"pessimistic":d*1.25 if d>0 else 0.0})
+    from pmcontrols.network import pert
+    result=pert(rows,n_sim=int(iterations),seed=int(seed),keep_samples=True)
+    return result.table,result.stats,result.meta
+
+def add_earned_schedule_metrics(evm_stats, project, activities, status_date):
+    """Use pmcontrols' PMB / earned-schedule engine when a valid time-phased baseline exists."""
+    from pmcontrols import plan, evm as pm_evm
+    if activities.empty or project.empty: return evm_stats
+    try:
+        start=pd.to_datetime(project.iloc[0]["planned_start"])
+        finish=pd.to_datetime(project.iloc[0]["planned_finish"])
+        sd=pd.Timestamp(status_date)
+        if pd.isna(start) or pd.isna(finish) or finish<=start: return evm_stats
+        a=activities.copy()
+        a["planned_start"]=pd.to_datetime(a["planned_start"],errors="coerce")
+        a["planned_finish"]=pd.to_datetime(a["planned_finish"],errors="coerce")
+        a["weight_pct"]=pd.to_numeric(a["weight_pct"],errors="coerce").fillna(0)
+        bac=float(evm_stats["BAC"])
+        budget=a["weight_pct"]*bac/100.0
+        duration=max(1,(finish-start).days)
+        pv_curve=[]
+        for day in range(duration+1):
+            current=start+pd.Timedelta(days=day)
+            total=0.0
+            for idx,row in a.iterrows():
+                s=row["planned_start"]; f=row["planned_finish"]
+                if pd.isna(s) or pd.isna(f): continue
+                span=max(1,(f-s).days+1)
+                fraction=min(1.0,max(0.0,((current-s).days+1)/span))
+                total+=float(budget.loc[idx])*fraction
+            pv_curve.append(min(bac,max(0.0,total)))
+        pv_curve[-1]=bac
+        pmb=plan(list(range(duration+1)),pv_curve)
+        at=max(0.0,min(float(duration),float((sd-start).days)))
+        result=pm_evm(pmb,ev=float(min(bac,max(0.0,evm_stats["EV"]))),
+                      ac=float(max(0.0,evm_stats["AC"])),at=at)
+        for key in ["es","sv_t","spi_t","ieac_t"]:
+            evm_stats[{"es":"ES","sv_t":"SV(t)","spi_t":"SPI(t)","ieac_t":"IEAC(t)"}[key]]=result.stats[key]
+        return evm_stats
+    except Exception:
+        return evm_stats

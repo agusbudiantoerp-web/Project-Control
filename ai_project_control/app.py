@@ -4,11 +4,12 @@ import math
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import requests
 
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -50,9 +51,9 @@ def metric_row(items):
         elif isinstance(value,float): value=f"{value:,.2f}"
         c.metric(label,value)
 
-overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, reports, guide = st.tabs([
+overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, ai_advisor, reports, guide = st.tabs([
     "Overview","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
-    "Optimization","Primavera XER","Reports","User Guide"
+    "Optimization","Primavera XER","AI Advisor","Reports","User Guide"
 ])
 
 with overview:
@@ -150,6 +151,7 @@ with cost:
     if not boq.empty and not activities.empty:
         try:
             evm=calculate_evm(master,activities,boq,prog,actual,status_date)
+            evm=add_earned_schedule_metrics(evm,master,activities,status_date)
             metric_row([(k,f"{v:,.2f}" if pd.notna(v) else "—") for k,v in evm.items() if k in ["BAC","PV","EV","AC"]])
             metric_row([(k,f"{v:,.3f}" if pd.notna(v) else "—") for k,v in evm.items() if k in ["SPI","CPI","EAC","ETC","VAC","TCPI"]])
             st.caption(f"Weighted earned value progress: {evm['physical_progress_pct']:.2f}%")
@@ -189,6 +191,12 @@ with risk_tab:
         iterations=st.slider("Simulation iterations",1000,50000,10000,1000)
         try:
             ranked,stats,samples=risk_analysis(risks,iterations)
+            schedule_pert,pert_stats,pert_meta=calculate_schedule_pert(ds("activities.csv"),iterations)
+            st.markdown("#### PERT schedule uncertainty (activity three-point estimate)")
+            metric_row([("PERT expected duration",pert_stats["expected_duration"]),
+              ("Schedule P50",pert_stats["mc_p50"]),("Schedule P80",pert_stats["mc_p80"]),
+              ("Schedule P95",pert_stats["mc_p95"])])
+            show_df(schedule_pert,300)
             metric_row([("Expected cost exposure",f"{stats['expected_cost_exposure']:,.0f}"),
                         ("Schedule exposure (days)",f"{stats['expected_schedule_exposure_days']:,.1f}"),
                         ("Cost P80",f"{stats['cost_p80']:,.0f}"),("Delay P80 (days)",f"{stats['delay_p80']:,.1f}")])
@@ -257,6 +265,57 @@ with xer_tab:
                 chosen.lower()+".csv","text/csv")
         except Exception as exc: st.exception(exc)
     st.warning("XER reader imports core PROJECT / PROJWBS / TASK / TASKPRED records. P6 calendars, resource assignments, cost accounts, codes and constraints are retained for future adapter extensions, not recalculated in CPM v1.")
+
+with ai_advisor:
+    st.subheader("AI Project Advisor & Prediction")
+    st.warning("Mengirim ringkasan proyek ke penyedia AI eksternal hanya setelah Anda menekan Analyze. Jangan kirim data rahasia klien tanpa persetujuan.")
+    provider=st.selectbox("AI provider",["Groq","Google Gemini"],key="ai_provider")
+    api_key=st.text_input("API key (hanya untuk sesi ini; tidak disimpan)",type="password",key="ai_api_key")
+    model=st.text_input("Model", "llama-3.3-70b-versatile" if provider=="Groq" else "gemini-2.5-flash",key="ai_model")
+    context={"project_code":project_id,"project_name":project_name,"status_date":str(status_date),
+      "dataset_rows":{n:len(ds(n)) for n in TEMPLATES}}
+    try:
+        if not ds("activities.csv").empty:
+            cpm_frame,cpm_stats=calculate_cpm(ds("activities.csv"))
+            context["schedule"]={"duration":cpm_stats["project_duration"],"critical_activities":cpm_frame.loc[cpm_frame["is_critical"],"activity_id"].tolist()}
+        if not ds("boq_budget.csv").empty and not ds("activities.csv").empty:
+            context["evm"]=calculate_evm(ds("project_master.csv"),ds("activities.csv"),ds("boq_budget.csv"),ds("progress.csv"),ds("actual_cost.csv"),status_date)
+        if not ds("risk_register.csv").empty:
+            _,risk_stats,_=risk_analysis(ds("risk_register.csv"),3000)
+            context["risk"]=risk_stats
+    except Exception as exc:
+        context["data_quality_note"]=str(exc)
+    st.json(context)
+    if st.button("Analyze project with AI",type="primary"):
+        if not api_key:
+            st.error("Masukkan API key Groq atau Gemini terlebih dahulu.")
+        else:
+            prompt=("You are a senior project controls advisor. Analyze the supplied project data. "
+              "Separate verified metrics from assumptions, identify schedule/cost/risk red flags, "
+              "give prioritized actions with owner and timing, and state missing data. Never invent values. "
+              "Respond in Indonesian. Project data: "+json.dumps(context,default=str))
+            try:
+                if provider=="Groq":
+                    response=requests.post("https://api.groq.com/openai/v1/chat/completions",
+                      headers={"Authorization":"Bearer "+api_key,"Content-Type":"application/json"},
+                      json={"model":model,"messages":[{"role":"user","content":prompt}],"temperature":0.2},timeout=90)
+                    response.raise_for_status()
+                    answer=response.json()["choices"][0]["message"]["content"]
+                else:
+                    url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                    response=requests.post(url,json={"contents":[{"parts":[{"text":prompt}]}]},timeout=90)
+                    response.raise_for_status()
+                    answer=response.json()["candidates"][0]["content"]["parts"][0]["text"]
+                st.markdown(answer)
+            except Exception as exc:
+                st.error(f"AI provider request failed: {exc}")
+    st.markdown("#### Predictive readiness")
+    historical=ds("progress.csv")
+    periods=historical["period_end"].nunique() if not historical.empty and "period_end" in historical else 0
+    if periods>=3:
+        st.success(f"Historical progress has {periods} reporting periods. Trend-based forecasting can be added to the next prediction release.")
+    else:
+        st.info(f"Currently {periods} reporting periods are available. Reliable machine-learning prediction requires several approved historical reporting periods and actual project outcomes.")
 
 with reports:
     st.subheader("Management Reports & Data Export")

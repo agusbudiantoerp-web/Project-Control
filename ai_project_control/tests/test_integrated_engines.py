@@ -1,12 +1,12 @@
 import pandas as pd
 import pytest
-from core import calculate_cpm, parse_xer, calculate_xer_cpm, risk_analysis
+from core import calculate_cpm, parse_xer, calculate_xer_cpm, risk_analysis, calculate_schedule_pert
 
 def test_cpm_forward_backward_and_critical_path():
     frame=pd.DataFrame([
-      {'activity_id':'A','activity_name':'A','wbs_id':'1','duration_days':3,'predecessor_ids':''},
-      {'activity_id':'B','activity_name':'B','wbs_id':'1','duration_days':4,'predecessor_ids':'A'},
-      {'activity_id':'C','activity_name':'C','wbs_id':'1','duration_days':2,'predecessor_ids':'A'},
+      {'activity_id':'A','activity_name':'A','wbs_id':'1','duration_days':3,'predecessor_ids':'','weight_pct':40},
+      {'activity_id':'B','activity_name':'B','wbs_id':'1','duration_days':4,'predecessor_ids':'A','weight_pct':40},
+      {'activity_id':'C','activity_name':'C','wbs_id':'1','duration_days':2,'predecessor_ids':'A','weight_pct':20},
     ])
     result,stats=calculate_cpm(frame)
     assert stats['project_duration']==7
@@ -26,8 +26,13 @@ def test_xer_parser_and_cpm():
     assert stats['project_duration_days']==3
     assert result['critical'].all()
 
-def test_risk_exposure_reproducibility():
+def test_risk_exposure_and_reproducibility():
     frame=pd.DataFrame([{'risk_id':'R1','risk_description':'rain','probability':0.5,'cost_impact':100,'schedule_impact_days':2}])
     _,stats,samples=risk_analysis(frame,1000,seed=7)
     assert stats['expected_cost_exposure']==50
     assert len(samples)==1000
+
+def test_pert_handles_zero_duration_milestones():
+    frame=pd.DataFrame([{'activity_id':'M','activity_name':'Milestone','wbs_id':'1','duration_days':0,'predecessor_ids':'','weight_pct':100}])
+    _,stats,_=calculate_schedule_pert(frame,1000)
+    assert stats['mc_p50']==0
