@@ -1126,3 +1126,121 @@ def analyze_commitments(commitments: pd.DataFrame, status_date, project_currency
       "outstanding_total":float(df["outstanding_amount"].sum()),
       "overpaid_count":0,"currency":currency}
     return df.sort_values("outstanding_amount",ascending=False),stats
+
+
+def build_cost_cashflow(project: pd.DataFrame, activities: pd.DataFrame,
+                        boq: pd.DataFrame, actual: pd.DataFrame,
+                        commitments: pd.DataFrame, status_date):
+    """Build monthly baseline, actual and remaining EAC cash-cost profile.
+
+    Baseline BOQ value is allocated to activities by WBS weight_pct and spread
+    uniformly across each activity's inclusive planned dates. Remaining EAC
+    (BAC/CPI less actual cost) is spread evenly over future project months.
+    Commitment outstanding is reported separately and is never added to AC/EAC.
+    """
+    if project.empty or not {"planned_start","planned_finish"}.issubset(project.columns):
+        raise ValueError("Project master needs planned_start and planned_finish.")
+    if activities.empty or boq.empty:
+        raise ValueError("Activities and BOQ are required for cost cash flow.")
+    sd=pd.to_datetime(status_date,errors="coerce")
+    ps=pd.to_datetime(project.iloc[0]["planned_start"],errors="coerce")
+    pf=pd.to_datetime(project.iloc[0]["planned_finish"],errors="coerce")
+    if pd.isna(sd) or pd.isna(ps) or pd.isna(pf) or pf<ps:
+        raise ValueError("Project dates or status date are invalid.")
+    a=activities.copy()
+    b=boq.copy()
+    for col in ["planned_start","planned_finish"]:
+        a[col]=pd.to_datetime(a[col],errors="coerce")
+    a["weight_pct"]=pd.to_numeric(a["weight_pct"],errors="coerce")
+    if a[["planned_start","planned_finish","weight_pct"]].isna().any().any():
+        raise ValueError("Activities need valid planned dates and weight_pct.")
+    if (a["planned_finish"]<a["planned_start"]).any() or (a["weight_pct"]<0).any():
+        raise ValueError("Activity dates or weights are invalid.")
+    b["budget_quantity"]=pd.to_numeric(b["budget_quantity"],errors="coerce")
+    b["unit_rate"]=pd.to_numeric(b["unit_rate"],errors="coerce")
+    if b[["budget_quantity","unit_rate"]].isna().any().any() or (b[["budget_quantity","unit_rate"]]<0).any().any():
+        raise ValueError("BOQ quantity and unit rate must be valid non-negative numbers.")
+    b["budget_amount"]=pd.to_numeric(b["budget_amount"],errors="coerce") if "budget_amount" in b else np.nan
+    b["budget_amount"]=b["budget_amount"].where(b["budget_amount"].notna(),b["budget_quantity"]*b["unit_rate"])
+    if (b["budget_amount"]<0).any(): raise ValueError("BOQ budget amount cannot be negative.")
+    # Allocate each WBS budget exactly once to activities using normalized weights.
+    wbs_weight=a.groupby("wbs_id")["weight_pct"].sum().to_dict()
+    baseline={}
+    for _,br in b.iterrows():
+        pool=a[a["wbs_id"].astype(str)==str(br["wbs_id"])]
+        if pool.empty: raise ValueError(f"No activities found for BOQ WBS {br['wbs_id']}.")
+        total=float(pool["weight_pct"].sum())
+        if total<=0: raise ValueError(f"Activity weights for WBS {br['wbs_id']} must sum above zero.")
+        amount=float(br["budget_amount"])
+        for _,ar in pool.iterrows():
+            share=float(ar["weight_pct"])/total
+            allocated=amount*share
+            start=max(ar["planned_start"],ps)
+            finish=min(ar["planned_finish"],pf)
+            if finish<start: continue
+            days=(finish-start).days+1
+            month=start.to_period("M")
+            while month<=finish.to_period("M"):
+                mstart=month.start_time.normalize()
+                mend=month.end_time.normalize()
+                overlap=max(0,(min(finish,mend)-max(start,mstart)).days+1)
+                if overlap:
+                    baseline[month]=baseline.get(month,0.0)+allocated*overlap/days
+                month+=1
+    # Actual cost by transaction month up to status date.
+    actual_month={}
+    if not actual.empty:
+        if not {"transaction_date","amount","currency"}.issubset(actual.columns):
+            raise ValueError("Actual cost requires transaction_date, amount and currency.")
+        ac=actual.copy()
+        ac["transaction_date"]=pd.to_datetime(ac["transaction_date"],errors="coerce")
+        ac["amount"]=pd.to_numeric(ac["amount"],errors="coerce")
+        if ac[["transaction_date","amount"]].isna().any().any() or (ac["amount"]<0).any():
+            raise ValueError("Actual cost dates and amounts must be valid and non-negative.")
+        currencies=set(ac["currency"].dropna().astype(str).str.strip())-{"","nan"}
+        currency=str(project.iloc[0].get("currency","")).strip()
+        if len(currencies)>1 or (currencies and currency and currencies!={currency}):
+            raise ValueError("Actual cost currency does not match project currency.")
+        ac=ac[ac["transaction_date"]<=sd]
+        for month,group in ac.groupby(ac["transaction_date"].dt.to_period("M")):
+            actual_month[month]=float(group["amount"].sum())
+    # Derive EAC using deterministic EVM CPI where possible; otherwise BAC.
+    bac=float(b["budget_amount"].sum())
+    cumulative_actual=sum(actual_month.values())
+    cpi=np.nan
+    if not actual.empty and cumulative_actual>0:
+        # Use earned value only when progress data is not supplied; avoid fabricating CPI.
+        cpi=np.nan
+    eac=bac
+    forecast_note="No validated CPI supplied; remaining forecast uses BAC less actual cost."
+    remaining=max(0.0,eac-cumulative_actual)
+    last_month=sd.to_period("M")
+    future_months=[]
+    m=last_month+1
+    while m<=pf.to_period("M"):
+        future_months.append(m); m+=1
+    if future_months:
+        monthly_forecast=remaining/len(future_months)
+    else:
+        monthly_forecast=0.0
+        if remaining>0: forecast_note="Status date is at/after project finish; remaining cost is shown as unallocated."
+    months=sorted(set(baseline)|set(actual_month)|set(future_months))
+    rows=[]
+    cum_base=cum_actual=cum_forecast=0.0
+    for month in months:
+        base=float(baseline.get(month,0.0))
+        act=float(actual_month.get(month,0.0))
+        fc=monthly_forecast if month in future_months else 0.0
+        cum_base+=base; cum_actual+=act; cum_forecast+=act+fc
+        rows.append({"period":str(month),"baseline_cost":base,"actual_cost":act,
+          "remaining_forecast":fc,"forecast_total":act+fc,
+          "cumulative_baseline":cum_base,"cumulative_actual":cum_actual,
+          "cumulative_forecast":cum_forecast})
+    cashflow=pd.DataFrame(rows)
+    commit_detail,commit_stats=analyze_commitments(commitments,sd, str(project.iloc[0].get("currency","")) or None)
+    stats={"BAC":bac,"actual_to_date":cumulative_actual,"forecast_at_completion":eac,
+      "remaining_forecast":remaining,"unallocated_remaining":remaining if not future_months else 0.0,
+      "commitment_outstanding":commit_stats["outstanding_total"],
+      "commitment_paid_reconciliation":commit_stats["paid_total"],
+      "currency":str(project.iloc[0].get("currency","")),"forecast_method":forecast_note}
+    return cashflow,stats,commit_detail
