@@ -483,12 +483,22 @@ def calculate_progress(activities, progress, boq=None):
         return pd.DataFrame(), {"weighted_progress_pct":0.0,"reported_activities":0,
           "total_activities":int(len(activities)),"unreported_activities":int(len(activities)),
           "status_date":None}
+    required_progress={"period_end","activity_id","actual_quantity_to_date"}
+    missing=required_progress-set(progress.columns)
+    if missing:
+        raise ValueError("Progress missing columns: "+", ".join(sorted(missing)))
     p=progress.copy()
-    p["period_end"]=pd.to_datetime(p.get("period_end"),errors="coerce")
-    p["actual_quantity_to_date"]=pd.to_numeric(p["actual_quantity_to_date"],errors="coerce").fillna(0)
+    p["period_end"]=pd.to_datetime(p["period_end"],errors="coerce")
+    if p["period_end"].isna().any():
+        raise ValueError("Progress contains invalid period_end dates.")
+    p["actual_quantity_to_date"]=pd.to_numeric(p["actual_quantity_to_date"],errors="coerce")
+    if p["actual_quantity_to_date"].isna().any() or (p["actual_quantity_to_date"]<0).any():
+        raise ValueError("actual_quantity_to_date must be valid and non-negative.")
     status_date=p["period_end"].max()
-    p=p[p["period_end"].isna() | (p["period_end"]<=status_date)]
     keys=["activity_id","boq_id"] if "boq_id" in p else ["activity_id"]
+    duplicate_reports=p.duplicated(["period_end"]+keys,keep=False)
+    if duplicate_reports.any():
+        raise ValueError("Progress contains duplicate rows for the same reporting period and activity/BOQ.")
     p=p.sort_values("period_end").drop_duplicates(keys,keep="last")
     reported=int(p["activity_id"].nunique())
     if boq is None or boq.empty:
