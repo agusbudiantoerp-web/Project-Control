@@ -1596,3 +1596,77 @@ def build_cost_cashflow(project: pd.DataFrame, activities: pd.DataFrame,
       "commitment_paid_reconciliation":commit_stats["paid_total"],
       "currency":str(project.iloc[0].get("currency","")),"forecast_method":forecast_note}
     return cashflow,stats,commit_detail
+
+def list_project_portfolio():
+    """Return a local-DB portfolio screening table; metrics remain project/currency scoped."""
+    init_db()
+    with sqlite3.connect(DB_PATH) as con:
+        project_ids=[row[0] for row in con.execute(
+            "SELECT DISTINCT project_id FROM datasets ORDER BY project_id"
+        )]
+    rows=[]
+    for pid in project_ids:
+        master=load_dataset(pid,"project_master.csv")
+        activities=load_dataset(pid,"activities.csv")
+        boq=load_dataset(pid,"boq_budget.csv")
+        progress=load_dataset(pid,"progress.csv")
+        actual=load_dataset(pid,"actual_cost.csv")
+        if master.empty:
+            rows.append({"project_id":pid,"project_name":"Project master missing",
+                "status_date":None,"currency":"","BAC":None,"AC":None,"EAC":None,
+                "SPI":None,"CPI":None,"critical_activities":None,
+                "activity_count":len(activities),"portfolio_status":"Data incomplete",
+                "data_readiness":"Missing project_master.csv"})
+            continue
+        project_name=str(master.iloc[0].get("project_name",pid))
+        currency=str(master.iloc[0].get("currency",""))
+        status_date=pd.to_datetime(master.iloc[0].get("status_date"),errors="coerce")
+        row={"project_id":pid,"project_name":project_name,
+            "status_date":status_date.date().isoformat() if pd.notna(status_date) else None,
+            "currency":currency,"BAC":None,"AC":None,"EAC":None,"SPI":None,"CPI":None,
+            "critical_activities":None,"activity_count":int(len(activities)),
+            "portfolio_status":"Data incomplete","data_readiness":""}
+        gaps=[]
+        if boq.empty: gaps.append("BOQ missing")
+        if activities.empty: gaps.append("Activities missing")
+        if progress.empty: gaps.append("Progress missing")
+        if actual.empty: gaps.append("Actual cost missing")
+        if pd.isna(status_date): gaps.append("Status date invalid")
+        if not boq.empty:
+            b=boq.copy()
+            if "budget_amount" in b:
+                amounts=pd.to_numeric(b["budget_amount"],errors="coerce")
+                if amounts.notna().all(): row["BAC"]=float(amounts.sum())
+            elif {"budget_quantity","unit_rate"}.issubset(b.columns):
+                q=pd.to_numeric(b["budget_quantity"],errors="coerce")
+                rate=pd.to_numeric(b["unit_rate"],errors="coerce")
+                if q.notna().all() and rate.notna().all(): row["BAC"]=float((q*rate).sum())
+        if not actual.empty and "amount" in actual:
+            dates=pd.to_datetime(actual.get("transaction_date"),errors="coerce")
+            amounts=pd.to_numeric(actual["amount"],errors="coerce")
+            if dates.notna().all() and amounts.notna().all() and pd.notna(status_date):
+                row["AC"]=float(amounts[dates<=status_date].sum())
+        if not activities.empty:
+            try:
+                cpm,cpm_stats=calculate_cpm(activities)
+                row["critical_activities"]=int(cpm["is_critical"].astype(bool).sum())
+            except Exception as exc:
+                gaps.append("CPM: "+str(exc)[:120])
+        if not boq.empty and not activities.empty and not progress.empty and not actual.empty and pd.notna(status_date):
+            try:
+                evm=calculate_evm(master,activities,boq,progress,actual,status_date)
+                for key in ["BAC","AC","EAC","SPI","CPI"]:
+                    value=evm.get(key)
+                    row[key]=float(value) if value is not None and pd.notna(value) and np.isfinite(float(value)) else None
+            except Exception as exc:
+                gaps.append("EVM: "+str(exc)[:160])
+        spi=row["SPI"]; cpi=row["CPI"]
+        if spi is not None and cpi is not None:
+            if spi<0.9 or cpi<0.9: row["portfolio_status"]="Critical"
+            elif spi<1 or cpi<1: row["portfolio_status"]="At Risk"
+            else: row["portfolio_status"]="Within KPI threshold"
+        elif row["critical_activities"] is not None:
+            row["portfolio_status"]="CPM only - EVM unavailable"
+        row["data_readiness"]="; ".join(gaps) if gaps else "Core datasets available"
+        rows.append(row)
+    return pd.DataFrame(rows)
