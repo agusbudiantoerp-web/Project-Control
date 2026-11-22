@@ -516,12 +516,30 @@ def optimize_crash(activities: pd.DataFrame, target_days: float):
     return result.table,result.stats
 
 def export_workbook(datasets: dict[str,pd.DataFrame], analyses: dict[str,pd.DataFrame]):
+    """Export datasets with safe, unique worksheet names and formula-injection guards."""
+    import re
     output=BytesIO()
+    used=set()
     with pd.ExcelWriter(output,engine="openpyxl") as writer:
         for name,df in {**datasets,**analyses}.items():
-            if isinstance(df,pd.DataFrame) and not df.empty:
-                sheet=name.replace(".csv","")[:31]
-                df.to_excel(writer,sheet_name=sheet,index=False)
+            if not isinstance(df,pd.DataFrame) or df.empty:
+                continue
+            base=re.sub(r"[\\[\\]:*?/\\\\]", "_", str(name).replace(".csv","")).strip() or "Sheet"
+            sheet=base[:31]
+            suffix=1
+            while sheet.casefold() in used:
+                tail=f"_{suffix}"
+                sheet=base[:31-len(tail)]+tail
+                suffix+=1
+            used.add(sheet.casefold())
+            safe=df.copy()
+            for col in safe.select_dtypes(include=["object","string"]).columns:
+                safe[col]=safe[col].map(
+                    lambda value: "'" + value if isinstance(value,str)
+                    and value.lstrip(" \\t\\r\\n").startswith(("=","+","-","@"))
+                    else value
+                )
+            safe.to_excel(writer,sheet_name=sheet,index=False)
     output.seek(0)
     return output.getvalue()
 
@@ -825,13 +843,14 @@ def generate_pdf_report(project_code, project_name, status_date, datasets, analy
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from xml.sax.saxutils import escape
     output=BytesIO()
     doc=SimpleDocTemplate(output,pagesize=landscape(A4),rightMargin=12*mm,leftMargin=12*mm,
       topMargin=12*mm,bottomMargin=12*mm,title=f"{project_code} Project Controls Report")
     styles=getSampleStyleSheet()
     styles.add(ParagraphStyle(name="ReportTitle",parent=styles["Title"],alignment=TA_CENTER,fontSize=18))
     story=[Paragraph("AI PROJECT CONTROL SYSTEM",styles["ReportTitle"]),
-      Paragraph(f"{project_name} | Project: {project_code} | Status date: {status_date}",styles["Heading2"]),
+      Paragraph(f"{escape(str(project_name))} | Project: {escape(str(project_code))} | Status date: {escape(str(status_date))}",styles["Heading2"]),
       Spacer(1,8)]
     metrics=metrics or {}
     if metrics:
@@ -846,7 +865,7 @@ def generate_pdf_report(project_code, project_name, status_date, datasets, analy
     for section,collection in [("Analysis Results",analyses),("Project Data Snapshot",datasets)]:
         for name,frame in collection.items():
             if not isinstance(frame,pd.DataFrame) or frame.empty: continue
-            story.append(Paragraph(f"{section}: {name}",styles["Heading3"]))
+            story.append(Paragraph(escape(f"{section}: {name}"),styles["Heading3"]))
             view=frame.head(25).copy().fillna("")
             data=[[str(c) for c in view.columns]]
             for _,row in view.iterrows():
