@@ -108,6 +108,10 @@ def build_integrated_forecast(
 
     # CPM baseline: identify critical path and total network duration.
     cpm_frame = activities.copy()
+    if "activity_name" not in cpm_frame:
+        cpm_frame["activity_name"] = cpm_frame["activity_id"].astype(str)
+    if "wbs_id" not in cpm_frame:
+        cpm_frame["wbs_id"] = ""
     if "duration_days" not in cpm_frame:
         cpm_frame["duration_days"] = (
             (_date(cpm_frame, "planned_finish") - _date(cpm_frame, "planned_start")).dt.days + 1
