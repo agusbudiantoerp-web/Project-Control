@@ -104,3 +104,45 @@ def test_risk_monte_carlo_is_reproducible_and_respects_certain_events():
     assert (samples["cost"] == 100).all()
     assert (samples["delay_days"] == 4).all()
     assert ranked.iloc[0]["risk_id"] == "R1"
+
+
+def test_xer_cpm_respects_relationship_type_and_lag():
+    from core import calculate_xer_cpm
+
+    tables = {
+        "TASK": pd.DataFrame([
+            {"task_id": "T1", "task_code": "A", "task_name": "A", "target_drtn_hr_cnt": 16},
+            {"task_id": "T2", "task_code": "B", "task_name": "B", "target_drtn_hr_cnt": 8},
+            {"task_id": "T3", "task_code": "C", "task_name": "C", "target_drtn_hr_cnt": 8},
+        ]),
+        "TASKPRED": pd.DataFrame([
+            {"task_id": "T2", "pred_task_id": "T1", "pred_type": "PR_FS", "lag_hr_cnt": 8},
+            {"task_id": "T3", "pred_task_id": "T2", "pred_type": "PR_SS", "lag_hr_cnt": 0},
+        ]),
+    }
+    result, stats = calculate_xer_cpm(tables, hours_per_day=8)
+    rows = result.set_index("task_id")
+    assert rows.loc["T1", "early_start_day"] == 0
+    assert rows.loc["T1", "early_finish_day"] == 2
+    assert rows.loc["T2", "early_start_day"] == 3
+    assert rows.loc["T3", "early_start_day"] == 3
+    assert stats["project_duration_days"] == 4
+
+
+def test_xer_cpm_rejects_missing_relationship_activity():
+    from core import calculate_xer_cpm
+
+    tables = {
+        "TASK": pd.DataFrame([
+            {"task_id": "T1", "task_code": "A", "task_name": "A", "target_drtn_hr_cnt": 8},
+        ]),
+        "TASKPRED": pd.DataFrame([
+            {"task_id": "T1", "pred_task_id": "MISSING", "pred_type": "PR_FS", "lag_hr_cnt": 0},
+        ]),
+    }
+    try:
+        calculate_xer_cpm(tables)
+    except ValueError as exc:
+        assert "unknown activity" in str(exc)
+    else:
+        raise AssertionError("Missing XER relationship activity must be rejected")
