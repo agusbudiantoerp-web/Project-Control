@@ -1613,17 +1613,23 @@ def list_project_portfolio():
         actual=load_dataset(pid,"actual_cost.csv")
         if master.empty:
             rows.append({"project_id":pid,"project_name":"Project master missing",
-                "status_date":None,"currency":"","BAC":None,"AC":None,"EAC":None,
-                "SPI":None,"CPI":None,"critical_activities":None,
+                "status_date":None,"planned_start":None,"baseline_finish":None,
+                "forecast_finish":None,"schedule_slip_days":None,"currency":"",
+                "BAC":None,"AC":None,"EAC":None,"SPI":None,"CPI":None,"critical_activities":None,
                 "activity_count":len(activities),"portfolio_status":"Data incomplete",
                 "data_readiness":"Missing project_master.csv"})
             continue
         project_name=str(master.iloc[0].get("project_name",pid))
         currency=str(master.iloc[0].get("currency",""))
         status_date=pd.to_datetime(master.iloc[0].get("status_date"),errors="coerce")
+        planned_start=pd.to_datetime(master.iloc[0].get("planned_start"),errors="coerce")
+        baseline_finish=pd.to_datetime(master.iloc[0].get("planned_finish"),errors="coerce")
         row={"project_id":pid,"project_name":project_name,
             "status_date":status_date.date().isoformat() if pd.notna(status_date) else None,
-            "currency":currency,"BAC":None,"AC":None,"EAC":None,"SPI":None,"CPI":None,
+            "planned_start":planned_start.date().isoformat() if pd.notna(planned_start) else None,
+            "baseline_finish":baseline_finish.date().isoformat() if pd.notna(baseline_finish) else None,
+            "forecast_finish":None,"schedule_slip_days":None,"currency":currency,
+            "BAC":None,"AC":None,"EAC":None,"SPI":None,"CPI":None,
             "critical_activities":None,"activity_count":int(len(activities)),
             "portfolio_status":"Data incomplete","data_readiness":""}
         gaps=[]
@@ -1660,6 +1666,10 @@ def list_project_portfolio():
                     row[key]=float(value) if value is not None and pd.notna(value) and np.isfinite(float(value)) else None
             except Exception as exc:
                 gaps.append("EVM: "+str(exc)[:160])
+        if row["SPI"] is not None and pd.notna(planned_start) and pd.notna(baseline_finish) and row["SPI"] > 0:
+            forecast_finish = (planned_start + (baseline_finish - planned_start) / row["SPI"]).round("D")
+            row["forecast_finish"] = forecast_finish.date().isoformat()
+            row["schedule_slip_days"] = int((forecast_finish.normalize() - baseline_finish.normalize()).days)
         spi=row["SPI"]; cpi=row["CPI"]
         if spi is not None and cpi is not None:
             if spi<0.9 or cpi<0.9: row["portfolio_status"]="Critical"
