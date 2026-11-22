@@ -68,6 +68,64 @@ with overview:
     st.subheader(project_name)
     metric_row([("Project code",project_id),("Status date",status_date.strftime("%d %b %Y")),
                 ("Activities",len(acts)),("WBS elements",len(wbs)),("BOQ items",len(boq))])
+    st.markdown("### Executive Project Health")
+    executive_cols = st.columns(4)
+    executive_cpm = None
+    executive_evm = None
+    executive_commitment_stats = None
+    executive_currency = str(master.iloc[0].get("currency", "IDR")) if not master.empty else "IDR"
+    if not acts.empty:
+        try:
+            executive_cpm, executive_cpm_stats = calculate_cpm(acts)
+            critical_count = int(executive_cpm["is_critical"].astype(bool).sum())
+            executive_cols[0].metric("CPM duration", f'{executive_cpm_stats.get("project_duration", 0):,.0f} days')
+            executive_cols[1].metric("Critical activities", critical_count)
+        except Exception as exc:
+            executive_cols[0].metric("CPM duration", "Unavailable")
+            executive_cols[1].metric("Critical activities", "Unavailable")
+            st.caption(f"CPM dashboard: {exc}")
+    else:
+        executive_cols[0].metric("CPM duration", "—")
+        executive_cols[1].metric("Critical activities", "—")
+    if not boq.empty and not acts.empty:
+        try:
+            executive_evm = calculate_evm(master, acts, boq, ds("progress.csv"), ds("actual_cost.csv"), status_date)
+            executive_cols[2].metric("SPI", f'{executive_evm["SPI"]:.2f}' if pd.notna(executive_evm["SPI"]) else "—")
+            executive_cols[3].metric("CPI", f'{executive_evm["CPI"]:.2f}' if pd.notna(executive_evm["CPI"]) else "—")
+        except Exception as exc:
+            executive_cols[2].metric("SPI", "Unavailable")
+            executive_cols[3].metric("CPI", "Unavailable")
+            st.caption(f"EVM dashboard: {exc}")
+    else:
+        executive_cols[2].metric("SPI", "—")
+        executive_cols[3].metric("CPI", "—")
+    health_findings = []
+    if executive_evm:
+        if pd.notna(executive_evm["SPI"]) and executive_evm["SPI"] < 1:
+            health_findings.append(("Schedule", f'SPI {executive_evm["SPI"]:.2f}: behind earned-value plan'))
+        if pd.notna(executive_evm["CPI"]) and executive_evm["CPI"] < 1:
+            health_findings.append(("Cost", f'CPI {executive_evm["CPI"]:.2f}: cost efficiency below plan'))
+    if executive_cpm is not None and not executive_cpm.empty:
+        near_critical = executive_cpm[pd.to_numeric(executive_cpm["total_float_days"], errors="coerce").between(0, 5)]
+        if not near_critical.empty:
+            health_findings.append(("Schedule risk", f"{len(near_critical)} activities have total float of 5 days or less"))
+    try:
+        _, executive_commitment_stats = analyze_commitments(
+            ds("commitments.csv"), status_date, executive_currency
+        )
+    except Exception as exc:
+        st.caption(f"Commitment reconciliation: {exc}")
+    if executive_commitment_stats:
+        st.caption(
+            f'Commitments: {executive_commitment_stats["commitment_count"]} active | '
+            f'Outstanding: {executive_currency} {executive_commitment_stats["outstanding_total"]:,.0f} '
+            f'(shown separately from actual cost)'
+        )
+    if health_findings:
+        st.warning(" | ".join(f"{name}: {detail}" for name, detail in health_findings))
+    else:
+        st.success("No schedule or cost warning identified from the available validated EVM metrics.")
+    st.caption("Executive health is a screening view. It does not replace approved project controls or management review.")
     st.markdown("### Integrated platform modules")
     modules=[
       ("Project Data Hub","CSV / Excel import, validation, project dataset storage"),
