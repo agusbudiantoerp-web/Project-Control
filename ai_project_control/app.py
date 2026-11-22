@@ -601,7 +601,11 @@ with reports:
         try:
             evm_values=calculate_evm(datasets["project_master.csv"],datasets["activities.csv"],
                 datasets["boq_budget.csv"],datasets["progress.csv"],datasets["actual_cost.csv"],status_date)
-            report_metrics.update({k:round(float(evm_values[k]),2) for k in ["BAC","PV","EV","AC","SPI","CPI","EAC","ETC","VAC"] if pd.notna(evm_values[k])})
+            evm_values=add_earned_schedule_metrics(evm_values,datasets["project_master.csv"],
+                datasets["activities.csv"],status_date)
+            report_metrics.update({k:round(float(evm_values[k]),2) for k in
+                ["BAC","PV","EV","AC","SPI","CPI","EAC","ETC","VAC","ES","SV(t)","SPI(t)","IEAC(t)"]
+                if k in evm_values and pd.notna(evm_values[k])})
             cashflow,cash_stats,commitment_detail=build_cost_cashflow(datasets["project_master.csv"],
                 datasets["activities.csv"],datasets["boq_budget.csv"],datasets["actual_cost.csv"],
                 datasets["commitments.csv"],status_date,datasets["progress.csv"])
