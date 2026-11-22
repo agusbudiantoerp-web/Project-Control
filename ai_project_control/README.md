@@ -17,7 +17,7 @@ Local-first Streamlit application consolidating compatible project-control capab
 - Executive Project Health dashboard with CPM critical activity count, SPI/CPI warning indicators and separate commitment exposure.
 - Management-report integration: CPM activity detail, risk-adjusted P80 finish/cost metrics, forecast cash flow and mitigation action register are added to Excel/PDF report analysis when the underlying inputs are available.
 - Rules-based mitigation action register for schedule, cost, risk and resource findings; recovery scenario cost, days saved and cost per day saved are shown only when crash duration and crash cost inputs are available and the target is feasible.
-- Optional AI Project Advisor through Groq or Google Gemini; API key is entered per session, sent in authorization headers, and is not stored in SQLite. User explicitly initiates transmission.
+- Optional AI Project Advisor through Groq or Google Gemini; API keys are read from environment variables or Streamlit secrets (`GROQ_API_KEY`, `GEMINI_API_KEY`), sent only to the selected provider, and are not stored in SQLite. User explicitly initiates transmission.
 - Trend-based completion and EAC projection from at least three valid progress reporting periods; clearly labelled as trend projection, not ML.
 - PDF management report and optional Telegram document delivery; bot token and chat ID are not saved by the application.
 - PDF drawing-to-BOQ draft extraction through Gemini vision, with editable takeoff review and BOQ draft export.
@@ -42,6 +42,22 @@ This branch contains the integrated V1 application and automated deterministic-e
 - AI output is advisory and depends on external provider credentials. Drawing pages are sent to Gemini only after explicit user action. Takeoff quantities require human verification and must not replace signed measurements.
 - AI output must not replace deterministic calculations or professional review.
 - Drawing-to-BOQ is an assisted draft workflow, not an automatic certified quantity survey. Resource capacity screening and float-constrained smoothing are planning aids, not full resource leveling or a substitute for Primavera P6 resource leveling. Telegram delivery is optional and user-triggered. PDF output is a management report, not a signed contractual report. Full P6 calendar/resource semantics remain outside the current release.
+
+## Optional AI provider configuration
+
+AI narrative analysis is disabled until a provider key is configured. The user must explicitly click **Generate AI project analysis** before project context is sent to the selected provider.
+
+Configure one or both keys using environment variables:
+- `GROQ_API_KEY`
+- `GEMINI_API_KEY`
+
+Or create `.streamlit/secrets.toml` in this application folder with:
+```toml
+GROQ_API_KEY = "your-groq-api-key"
+GEMINI_API_KEY = "your-gemini-api-key"
+```
+
+Never commit `secrets.toml`, paste keys into source code, or include keys in screenshots. The repository ignores the local `.streamlit` directory. The Groq default model is `llama-3.3-70b-versatile`; Gemini default is `gemini-2.5-flash`. Model names can be overridden in the AI Advisor UI. Provider requests require internet access and may incur provider usage charges.
 
 ## Run
 
