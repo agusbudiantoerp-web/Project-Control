@@ -30,3 +30,10 @@ def test_recovery_scenario_does_not_invent_crash_cost():
     result=compare_recovery_scenarios(schedule(),5)
     assert result["scenario_available"] is False
     assert pd.isna(result["incremental_crash_cost"])
+
+
+
+def test_advisor_reads_resource_engine_capacity_column():
+    resources = pd.DataFrame([{"rsrc_id":"R1","peak_capacity_utilization_pct":135}])
+    result = build_mitigation_advice(schedule(), resource_summary=resources)
+    assert result["actions"]["finding"].str.contains("exceed 100% capacity").any()
