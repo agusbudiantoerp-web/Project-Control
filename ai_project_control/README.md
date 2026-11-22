@@ -27,6 +27,10 @@ Local-first Streamlit application consolidating compatible project-control capab
 - project-controls-dashboard-main/src/metrics.py: adapted EVM performance indices and SPI finish forecast in dashboard_metrics.py; MIT.
 - EVM_Project-main: reference-only workbook EVM workflow; not used as the authoritative calculation engine.
 
+## Release readiness
+
+This branch contains the integrated V1 application and automated deterministic-engine tests. The latest GitHub Actions runs for commit `5330cf9` completed successfully. This confirms the tested Python engines and imports in CI; it does not replace end-to-end acceptance testing with representative Primavera XER, project BOQ, progress, cost, resource, and risk datasets. Do not treat the system as production-certified until those acceptance tests and operational deployment checks are completed.
+
 ## Engineering boundaries
 - CSV CPM uses FS links and relative working periods. XER CPM supports FS / SS / FF / SF and lag but is calendar-free. Neither replaces native P6 recalculation with calendars, constraints, resource levelling and full project settings.
 - PyP6Xer DCMA14 uses the upstream library's own analysis model. Validate source data and P6 settings before treating any quality score as contractual evidence.
@@ -34,10 +38,38 @@ Local-first Streamlit application consolidating compatible project-control capab
 - Monte Carlo assumes independent risk occurrence and uses supplied three-point duration multipliers for PERT unless richer uncertainty data is provided.
 - AI output is advisory and depends on external provider credentials. Drawing pages are sent to Gemini only after explicit user action. Takeoff quantities require human verification and must not replace signed measurements.
 - AI output must not replace deterministic calculations or professional review.
-- Drawing-to-BOQ, full resource optimization, Telegram automation, PDF output, and full P6 calendar/resource semantics remain subsequent releases.
+- Drawing-to-BOQ is an assisted draft workflow, not an automatic certified quantity survey. Resource capacity screening is not full resource leveling. Telegram delivery is optional and user-triggered. PDF output is a management report, not a signed contractual report. Full P6 calendar/resource semantics remain outside the current release.
 
 ## Run
-Install requirements.txt and run: streamlit run app.py
+
+On Windows PowerShell, from the `ai_project_control` folder:
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+On macOS/Linux:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+## Automated tests
+
+```bash
+python -m pytest -q tests
+python -m compileall -q .
+```
+
+GitHub Actions runs the deterministic test suite on pushes to this integration branch. Keep sample project data synthetic; never commit real client data, API keys, Telegram tokens, or the SQLite database.
 
 ## Local data
 SQLite file: %LOCALAPPDATA%\\AIProjectControl\\project_control.db on Windows (or the user's home directory on other platforms). The database is stored outside the PyInstaller bundle so application updates do not overwrite project records. Back it up. Never commit confidential project data or the database to a public repository.
