@@ -25,6 +25,14 @@ TEMPLATES = {
  "actual_cost.csv": (["transaction_date","wbs_id","boq_id","cost_code","cost_category","vendor","description","amount","currency","document_reference"], ["2026-03-31","1.1","BOQ-001","CIV-001","Material","Demo Vendor","Sample cost","25000000","IDR","INV-001"]),
  "risk_register.csv": (["risk_id","risk_description","cause","probability","cost_impact","schedule_impact_days","owner","response_strategy","mitigation_action","due_date","status"], ["R-001","Heavy rain","Seasonal weather","0.3","50000000","5","Project Manager","Mitigate","Prepare drainage","2026-04-15","Open"]),
  "commitments.csv": (["commitment_id","commitment_date","wbs_id","vendor","contract_or_po","description","committed_amount","paid_amount","currency","status"], ["COM-001","2026-02-01","1.1","Demo Vendor","PO-001","Equipment rental","100000000","25000000","IDR","Active"]),
+ "resources.csv": (["rsrc_id","rsrc_name","rsrc_type","unit_of_measure","capacity_per_day"], ["R-CRANE-01","Mobile Crane","Equipment","hour","8"]),
+ "resource_assignments.csv": (["task_id","rsrc_id","target_qty","actual_qty","target_cost","actual_cost","target_start_date","target_end_date"], ["A100","R-CRANE-01","40","0","10000000","0","2026-01-01","2026-01-05"]),
+ "calendars.csv": (["calendar_id","calendar_name","workdays_per_week","hours_per_day","holidays"], ["CAL-01","Six-day workweek","6","8",""]),
+ "relationships.csv": (["task_id","pred_task_id","pred_type","lag_hr_cnt"], ["A110","A100","PR_FS","0"]),
+ "milestones.csv": (["milestone_id","milestone_name","planned_date","forecast_date","actual_date","status","owner"], ["M-001","Foundation Complete","2026-02-12","2026-02-14","","At Risk","Project Manager"]),
+ "change_register.csv": (["change_id","date_raised","description","cost_impact","schedule_impact_days","status","approved_by"], ["CR-001","2026-03-01","Additional drainage scope","15000000","3","Pending",""]),
+ "drawing_takeoff.csv": (["drawing_id","page","discipline","item_code","description","unit","quantity","measurement_method","confidence","assumptions","review_status"], ["DWG-001","1","Civil","ITM-001","Concrete slab","m3","","Scale / dimensions required","Low","Verify drawing scale and dimensions","Pending Review"]),
+}
 }
 REQUIRED = {
  "project_master.csv":["project_id","project_name","planned_start","planned_finish","status_date","currency"],
@@ -35,6 +43,13 @@ REQUIRED = {
  "actual_cost.csv":["transaction_date","amount","currency"],
  "risk_register.csv":["risk_id","risk_description","probability","cost_impact","schedule_impact_days"],
  "commitments.csv":["commitment_id","committed_amount","currency"],
+ "resources.csv":["rsrc_id","rsrc_name","rsrc_type"],
+ "resource_assignments.csv":["task_id","rsrc_id","target_qty"],
+ "calendars.csv":["calendar_id","calendar_name","workdays_per_week","hours_per_day"],
+ "relationships.csv":["task_id","pred_task_id","pred_type"],
+ "milestones.csv":["milestone_id","milestone_name","planned_date","status"],
+ "change_register.csv":["change_id","date_raised","description","cost_impact","schedule_impact_days","status"],
+ "drawing_takeoff.csv":["drawing_id","page","discipline","description","unit","quantity","confidence","review_status"],
 }
 
 def init_db():
@@ -698,3 +713,116 @@ def takeoff_to_boq_draft(takeoff: pd.DataFrame):
           'description':r.get('description',''),'unit':r.get('unit',''),'budget_quantity':r.get('quantity'),
           'unit_rate':'','budget_amount':''})
     return pd.DataFrame(rows)
+
+
+def calculate_milestones(milestones: pd.DataFrame, status_date):
+    if milestones.empty:
+        return pd.DataFrame(), {"total":0,"completed":0,"delayed":0,"at_risk":0}
+    df=milestones.copy()
+    for col in ["planned_date","forecast_date","actual_date"]:
+        if col not in df: df[col]=pd.NaT
+        df[col]=pd.to_datetime(df[col],errors="coerce")
+    sd=pd.Timestamp(status_date)
+    actual=df["actual_date"].notna()
+    forecast=df["forecast_date"].fillna(df["planned_date"])
+    df["slippage_days"]=np.where(actual,
+        (df["actual_date"]-df["planned_date"]).dt.days,
+        (forecast-df["planned_date"]).dt.days)
+    status=df.get("status",pd.Series("",index=df.index)).fillna("").astype(str).str.lower()
+    df["calculated_status"]=np.where(actual,"Completed",
+        np.where(forecast.isna(),"Date Missing",
+          np.where(forecast<sd,"Overdue",
+            np.where((forecast-df["planned_date"]).dt.days>0,"At Risk","On Track"))))
+    completed=int(actual.sum())
+    delayed=int(((df["calculated_status"]=="Overdue") | ((pd.to_numeric(df["slippage_days"],errors="coerce")>0)&actual)).sum())
+    at_risk=int(df["calculated_status"].isin(["At Risk","Overdue"]).sum())
+    return df,{"total":len(df),"completed":completed,"delayed":delayed,"at_risk":at_risk}
+
+def calculate_change_impact(changes: pd.DataFrame, original_bac: float):
+    if changes.empty:
+        return pd.DataFrame(),{"approved_cost_impact":0.0,"approved_schedule_days":0.0,
+          "revised_budget":float(original_bac),"pending_count":0,"pending_cost_exposure":0.0}
+    df=changes.copy()
+    df["cost_impact"]=pd.to_numeric(df["cost_impact"],errors="coerce").fillna(0)
+    df["schedule_impact_days"]=pd.to_numeric(df["schedule_impact_days"],errors="coerce").fillna(0)
+    status=df["status"].fillna("").astype(str).str.strip().str.lower()
+    approved=status.isin(["approved","accepted"])
+    pending=status.isin(["pending","submitted","under review","under_review"])
+    stats={"approved_cost_impact":float(df.loc[approved,"cost_impact"].sum()),
+      "approved_schedule_days":float(df.loc[approved,"schedule_impact_days"].sum()),
+      "revised_budget":float(original_bac)+float(df.loc[approved,"cost_impact"].sum()),
+      "pending_count":int(pending.sum()),
+      "pending_cost_exposure":float(df.loc[pending,"cost_impact"].sum())}
+    df["control_class"]=np.where(approved,"Approved baseline change",
+        np.where(pending,"Pending decision","Other / rejected"))
+    return df,stats
+
+def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
+    if assignments.empty: return pd.DataFrame(),pd.DataFrame()
+    a=assignments.copy()
+    for col in ["target_qty","actual_qty","target_cost","actual_cost"]:
+        if col not in a: a[col]=0
+        a[col]=pd.to_numeric(a[col],errors="coerce").fillna(0)
+    if resources.empty:
+        resource_summary=a.groupby("rsrc_id",dropna=False).agg(
+          target_qty=("target_qty","sum"),actual_qty=("actual_qty","sum"),
+          target_cost=("target_cost","sum"),actual_cost=("actual_cost","sum")).reset_index()
+        return resource_summary,pd.DataFrame()
+    r=resources.copy()
+    summary=a.groupby("rsrc_id",dropna=False).agg(
+      target_qty=("target_qty","sum"),actual_qty=("actual_qty","sum"),
+      target_cost=("target_cost","sum"),actual_cost=("actual_cost","sum")).reset_index()
+    summary=summary.merge(r,on="rsrc_id",how="left")
+    if not {"target_start_date","target_end_date"}.issubset(a.columns): return summary,pd.DataFrame()
+    daily=[]
+    for _,row in a.iterrows():
+        start=pd.to_datetime(row["target_start_date"],errors="coerce")
+        finish=pd.to_datetime(row["target_end_date"],errors="coerce")
+        if pd.isna(start) or pd.isna(finish) or finish<start: continue
+        days=pd.date_range(start.normalize(),finish.normalize(),freq="D")
+        qty=float(row["target_qty"])/max(1,len(days))
+        for day in days:
+            daily.append({"date":day,"rsrc_id":row["rsrc_id"],"planned_load_per_day":qty})
+    if not daily: return summary,pd.DataFrame()
+    load=pd.DataFrame(daily).groupby(["date","rsrc_id"],as_index=False)["planned_load_per_day"].sum()
+    if "capacity_per_day" in r:
+        caps=r[["rsrc_id","capacity_per_day"]].copy()
+        caps["capacity_per_day"]=pd.to_numeric(caps["capacity_per_day"],errors="coerce")
+        load=load.merge(caps,on="rsrc_id",how="left")
+        load["over_capacity"]=load["capacity_per_day"].notna() & (load["planned_load_per_day"]>load["capacity_per_day"])
+    else:
+        load["capacity_per_day"]=np.nan; load["over_capacity"]=False
+    return summary,load
+
+def export_project_backup(project_id: str):
+    import zipfile
+    output=BytesIO()
+    with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED) as archive:
+        manifest={"format":"AIProjectControlBackup","version":1,"project_id":project_id,
+          "datasets":list_datasets(project_id)}
+        archive.writestr("manifest.json",json.dumps(manifest,indent=2))
+        for name in manifest["datasets"]:
+            frame=load_dataset(project_id,name)
+            archive.writestr(f"datasets/{name}",frame.to_csv(index=False))
+    output.seek(0)
+    return output.getvalue()
+
+def import_project_backup(project_id: str, raw: bytes):
+    import zipfile
+    with zipfile.ZipFile(BytesIO(raw)) as archive:
+        names=set(archive.namelist())
+        if "manifest.json" not in names: raise ValueError("Backup manifest not found.")
+        manifest=json.loads(archive.read("manifest.json"))
+        if manifest.get("format")!="AIProjectControlBackup" or manifest.get("version")!=1:
+            raise ValueError("Unsupported backup format or version.")
+        restored=[]
+        for name in manifest.get("datasets",[]):
+            safe=Path(name).name
+            if safe!=name or safe not in TEMPLATES: continue
+            member=f"datasets/{safe}"
+            if member not in names: continue
+            frame=pd.read_csv(BytesIO(archive.read(member)))
+            issues=validate_dataset(safe,frame,{n:load_dataset(project_id,n) for n in TEMPLATES})
+            if issues: raise ValueError(f"{safe}: "+"; ".join(issues))
+            save_dataset(project_id,safe,frame); restored.append(safe)
+    return restored

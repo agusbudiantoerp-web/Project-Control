@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -27,8 +27,11 @@ st.caption("Integrated Project Intelligence Platform | Integrated V1")
 with st.sidebar:
     st.header("Project Workspace")
     project_id = st.text_input("Project code", "PRJ-001").strip() or "PRJ-001"
-    project_name = st.text_input("Project name", "Demo Construction Project")
-    status_date = st.date_input("Status date", date(2026,3,31))
+    saved_master=load_dataset(project_id,"project_master.csv")
+    saved_name=str(saved_master.iloc[0].get("project_name","")) if not saved_master.empty else ""
+    project_name = st.text_input("Project name", saved_name or "Demo Construction Project")
+    saved_status=pd.to_datetime(saved_master.iloc[0].get("status_date"),errors="coerce").date() if not saved_master.empty else date.today()
+    status_date = st.date_input("Status date", saved_status if pd.notna(saved_status) else date.today())
     st.divider()
     st.caption("Local project database")
     st.caption("Data is stored on this computer in project_control.db")
@@ -115,6 +118,18 @@ with hub:
                         st.success(f"{selected} saved for {project_id}.")
                         st.rerun()
             except Exception as exc: st.exception(exc)
+    st.divider()
+    st.markdown("#### Project backup & restore")
+    backup_bytes=export_project_backup(project_id)
+    st.download_button("Download full project backup (.zip)",backup_bytes,
+      f"{project_id}_AI_Project_Control_Backup.zip","application/zip")
+    backup_upload=st.file_uploader("Restore project from backup ZIP",type=["zip"],key="restore_project_zip")
+    if backup_upload and st.button("Restore backup into this project",type="secondary"):
+        try:
+            restored=import_project_backup(project_id,backup_upload.getvalue())
+            st.success(f"Restored {len(restored)} datasets: {', '.join(restored)}")
+            st.rerun()
+        except Exception as exc: st.error(f"Backup restore failed: {exc}")
     st.divider()
     st.markdown("#### Currently saved project data")
     for name in TEMPLATES:
