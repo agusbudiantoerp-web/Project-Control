@@ -7,8 +7,8 @@ from integrated_forecast import build_integrated_forecast
 
 def sample_inputs():
     activities = pd.DataFrame([
-        {"activity_id": "A1", "planned_start": "2026-01-01", "planned_finish": "2026-01-31"},
-        {"activity_id": "A2", "planned_start": "2026-02-01", "planned_finish": "2026-03-02"},
+        {"activity_id": "A1", "activity_name": "Preparation", "wbs_id": "1", "duration_days": 31, "predecessor_ids": "", "planned_start": "2026-01-01", "planned_finish": "2026-01-31"},
+        {"activity_id": "A2", "activity_name": "Execution", "wbs_id": "1", "duration_days": 30, "predecessor_ids": "A1", "planned_start": "2026-02-01", "planned_finish": "2026-03-02"},
     ])
     boq = pd.DataFrame([
         {"boq_id": "B1", "budget_quantity": 100, "unit_rate": 1000, "budget_amount": 100000},
@@ -41,6 +41,9 @@ def test_integrated_forecast_combines_cost_schedule_resources_and_risk():
     assert result["risk_cost_p80"] == pytest.approx(20000)
     assert result["risk_days_p80"] == pytest.approx(5)
     assert result["resource_overload_assignments"] == 1
+    assert result["cpm_project_duration_days"] == pytest.approx(61)
+    assert result["critical_activity_count"] == 2
+    assert set(result["critical_activity_ids"]) == {"A1", "A2"}
     assert result["risk_adjusted_finish_p80"] >= result["forecast_finish"]
 
 
