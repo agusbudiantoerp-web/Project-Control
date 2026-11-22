@@ -26,7 +26,12 @@ def simulate_resource_smoothing(
         raise ValueError("Resource assignments missing: "+", ".join(sorted(required_a-set(assignments.columns))))
     if required_r-set(resources.columns):
         raise ValueError("Resources missing: "+", ".join(sorted(required_r-set(resources.columns))))
-    cpm,_=calculate_cpm(activities)
+    cpm_frame=activities.copy()
+    if "activity_name" not in cpm_frame:
+        cpm_frame["activity_name"]=cpm_frame["activity_id"].astype(str)
+    if "wbs_id" not in cpm_frame:
+        cpm_frame["wbs_id"]=""
+    cpm,_=calculate_cpm(cpm_frame)
     float_map=dict(zip(cpm["activity_id"].astype(str),pd.to_numeric(cpm["total_float_days"],errors="coerce").fillna(0).clip(lower=0)))
     cap_map=dict(zip(resources["rsrc_id"].astype(str),pd.to_numeric(resources["capacity_per_day"],errors="coerce")))
     rows=assignments.copy().reset_index(drop=True)
