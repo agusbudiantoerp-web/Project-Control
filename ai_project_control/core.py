@@ -911,41 +911,81 @@ def calculate_change_impact(changes: pd.DataFrame, original_bac: float):
     return df,stats
 
 def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
-    if assignments.empty: return pd.DataFrame(),pd.DataFrame()
-    a=assignments.copy()
-    for col in ["target_qty","actual_qty","target_cost","actual_cost"]:
-        if col not in a: a[col]=0
-        a[col]=pd.to_numeric(a[col],errors="coerce").fillna(0)
+    """Build resource summary and calendar-day demand with capacity screening.
+
+    target_qty is spread evenly over the inclusive assignment window. This is
+    a transparent planning approximation, not Primavera resource leveling.
+    """
+    if assignments.empty:
+        return pd.DataFrame(), pd.DataFrame()
+    a = assignments.copy()
+    if "rsrc_id" not in a or a["rsrc_id"].isna().any():
+        raise ValueError("Every resource assignment must have rsrc_id.")
+    for col in ["target_qty", "actual_qty", "target_cost", "actual_cost"]:
+        if col not in a:
+            a[col] = 0.0
+        a[col] = pd.to_numeric(a[col], errors="coerce")
+        if a[col].isna().any() or (a[col] < 0).any():
+            raise ValueError(f"{col} must contain valid non-negative numbers.")
     if resources.empty:
-        resource_summary=a.groupby("rsrc_id",dropna=False).agg(
-          target_qty=("target_qty","sum"),actual_qty=("actual_qty","sum"),
-          target_cost=("target_cost","sum"),actual_cost=("actual_cost","sum")).reset_index()
-        return resource_summary,pd.DataFrame()
-    r=resources.copy()
-    summary=a.groupby("rsrc_id",dropna=False).agg(
-      target_qty=("target_qty","sum"),actual_qty=("actual_qty","sum"),
-      target_cost=("target_cost","sum"),actual_cost=("actual_cost","sum")).reset_index()
-    summary=summary.merge(r,on="rsrc_id",how="left")
-    if not {"target_start_date","target_end_date"}.issubset(a.columns): return summary,pd.DataFrame()
-    daily=[]
-    for _,row in a.iterrows():
-        start=pd.to_datetime(row["target_start_date"],errors="coerce")
-        finish=pd.to_datetime(row["target_end_date"],errors="coerce")
-        if pd.isna(start) or pd.isna(finish) or finish<start: continue
-        days=pd.date_range(start.normalize(),finish.normalize(),freq="D")
-        qty=float(row["target_qty"])/max(1,len(days))
+        summary = a.groupby("rsrc_id", dropna=False).agg(
+            target_qty=("target_qty", "sum"), actual_qty=("actual_qty", "sum"),
+            target_cost=("target_cost", "sum"), actual_cost=("actual_cost", "sum")
+        ).reset_index()
+        return summary, pd.DataFrame()
+
+    r = resources.copy()
+    if "rsrc_id" not in r or r["rsrc_id"].astype(str).duplicated().any():
+        raise ValueError("resources.csv must contain unique rsrc_id values.")
+    unknown = set(a["rsrc_id"].astype(str)) - set(r["rsrc_id"].astype(str))
+    if unknown:
+        raise ValueError("Assignments reference unknown resources: " + ", ".join(sorted(unknown)))
+    summary = a.groupby("rsrc_id", dropna=False).agg(
+        target_qty=("target_qty", "sum"), actual_qty=("actual_qty", "sum"),
+        target_cost=("target_cost", "sum"), actual_cost=("actual_cost", "sum")
+    ).reset_index().merge(r, on="rsrc_id", how="left")
+
+    if not {"target_start_date", "target_end_date"}.issubset(a.columns):
+        return summary, pd.DataFrame()
+    daily = []
+    for _, row in a.iterrows():
+        start = pd.to_datetime(row["target_start_date"], errors="coerce")
+        finish = pd.to_datetime(row["target_end_date"], errors="coerce")
+        if pd.isna(start) or pd.isna(finish) or finish < start:
+            raise ValueError(f"Invalid assignment date range for resource {row['rsrc_id']}.")
+        days = pd.date_range(start.normalize(), finish.normalize(), freq="D")
+        per_day = float(row["target_qty"]) / len(days)
         for day in days:
-            daily.append({"date":day,"rsrc_id":row["rsrc_id"],"planned_load_per_day":qty})
-    if not daily: return summary,pd.DataFrame()
-    load=pd.DataFrame(daily).groupby(["date","rsrc_id"],as_index=False)["planned_load_per_day"].sum()
+            daily.append({"date": day, "rsrc_id": row["rsrc_id"],
+                          "planned_load_per_day": per_day})
+    load = pd.DataFrame(daily).groupby(
+        ["date", "rsrc_id"], as_index=False
+    )["planned_load_per_day"].sum()
+    caps = r[["rsrc_id"]].copy()
     if "capacity_per_day" in r:
-        caps=r[["rsrc_id","capacity_per_day"]].copy()
-        caps["capacity_per_day"]=pd.to_numeric(caps["capacity_per_day"],errors="coerce")
-        load=load.merge(caps,on="rsrc_id",how="left")
-        load["over_capacity"]=load["capacity_per_day"].notna() & (load["planned_load_per_day"]>load["capacity_per_day"])
+        caps["capacity_per_day"] = pd.to_numeric(r["capacity_per_day"], errors="coerce")
+        invalid_capacity = caps["capacity_per_day"].notna() & (caps["capacity_per_day"] <= 0)
+        if invalid_capacity.any():
+            raise ValueError("capacity_per_day must be greater than zero when provided.")
     else:
-        load["capacity_per_day"]=np.nan; load["over_capacity"]=False
-    return summary,load
+        caps["capacity_per_day"] = np.nan
+    load = load.merge(caps, on="rsrc_id", how="left")
+    load["capacity_utilization_pct"] = np.where(
+        load["capacity_per_day"].notna(),
+        load["planned_load_per_day"] / load["capacity_per_day"] * 100,
+        np.nan
+    )
+    load["over_capacity"] = (
+        load["capacity_per_day"].notna()
+        & (load["planned_load_per_day"] > load["capacity_per_day"] + 1e-9)
+    )
+    utilization = load.groupby("rsrc_id").agg(
+        peak_daily_load=("planned_load_per_day", "max"),
+        peak_capacity_utilization_pct=("capacity_utilization_pct", "max"),
+        overloaded_days=("over_capacity", "sum")
+    ).reset_index()
+    summary = summary.merge(utilization, on="rsrc_id", how="left")
+    return summary, load
 
 def export_project_backup(project_id: str):
     import zipfile
