@@ -293,7 +293,7 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
     activity_wbs=set(a["wbs_id"].astype(str))
     missing_wbs=boq_wbs-activity_wbs
     if missing_wbs:
-        raise ValueError("BOQ WBS has no mapped activity: "+", ".join(sorted(missing_wbs)))
+        raise ValueError("BOQ WBS has no mapped activity; progress and activity must share the same WBS: "+", ".join(sorted(missing_wbs)))
     a["wbs_share"]=a["weight_pct"]/weight_by_wbs
     a["budget_value"]=0.0
     # Allocate each BOQ item to activities in the same WBS, proportionally to activity weights.
@@ -651,7 +651,7 @@ def calculate_schedule_pert(activities: pd.DataFrame, iterations=10000, seed=42)
         pred=r.get("predecessor_ids","")
         pred="" if pd.isna(pred) else str(pred)
         rows.append({"id":str(r["activity_id"]),"predecessors":pred,
-          "optimistic":d*0.90 if d>0 else 0.0,"most_likely":d,"pessimistic":d*1.25 if d>0 else 0.0})
+          "a":d*0.90 if d>0 else 0.0,"m":d,"b":d*1.25 if d>0 else 0.0})
     from pmcontrols.network import pert
     result=pert(rows,n_sim=int(iterations),seed=int(seed),keep_samples=True)
     return result.table,result.stats,result.meta
