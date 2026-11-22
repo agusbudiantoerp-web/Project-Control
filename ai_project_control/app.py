@@ -730,6 +730,14 @@ with forecast_tab:
         cols[1].metric("Forecast finish", result["forecast_finish"])
         cols[2].metric("Risk-adjusted P80", result["risk_adjusted_finish_p80"])
         cols[3].metric("Forecast basis", result["schedule_basis"])
+        st.markdown("#### CPM critical path")
+        cpm_cols = st.columns(3)
+        cpm_cols[0].metric("CPM network duration", f'{result["cpm_project_duration_days"]:.1f} days')
+        cpm_cols[1].metric("Critical activities", result["critical_activity_count"])
+        cpm_cols[2].metric("Activities in network", len(result["cpm_activity_detail"]))
+        if result["critical_activity_ids"]:
+            st.caption("Critical activity IDs: " + ", ".join(result["critical_activity_ids"][:40]))
+        st.dataframe(result["cpm_activity_detail"], use_container_width=True, hide_index=True)
         st.markdown("#### Cost & EVM outlook")
         if result["evm_available"]:
             cols = st.columns(5)
