@@ -1078,3 +1078,51 @@ def calculate_calendar_schedule(activities: pd.DataFrame,
             "hours_per_day": hours,
         })
     return pd.DataFrame(rows)
+
+
+def analyze_commitments(commitments: pd.DataFrame, status_date, project_currency=None):
+    """Reconcile approved/active purchase commitments without double-counting paid cost.
+
+    Paid amounts are shown as a reconciliation field only; they are not added to
+    actual cost. Outstanding commitment is committed_amount minus paid_amount.
+    """
+    if commitments.empty:
+        empty=pd.DataFrame(columns=["commitment_id","committed_amount","paid_amount","outstanding_amount","status"])
+        return empty,{"commitment_count":0,"committed_total":0.0,"paid_total":0.0,
+          "outstanding_total":0.0,"overpaid_count":0,"currency":project_currency}
+    required={"commitment_id","committed_amount","paid_amount","currency","status"}
+    missing=required-set(commitments.columns)
+    if missing:
+        raise ValueError("Commitments missing columns: "+", ".join(sorted(missing)))
+    df=commitments.copy()
+    if df["commitment_id"].astype(str).duplicated().any():
+        raise ValueError("Duplicate commitment_id values.")
+    for col in ["committed_amount","paid_amount"]:
+        df[col]=pd.to_numeric(df[col],errors="coerce")
+        if df[col].isna().any() or (df[col]<0).any():
+            raise ValueError(f"{col} must contain valid non-negative amounts.")
+    if (df["paid_amount"]>df["committed_amount"]).any():
+        raise ValueError("paid_amount cannot exceed committed_amount.")
+    if "commitment_date" in df:
+        df["commitment_date"]=pd.to_datetime(df["commitment_date"],errors="coerce")
+        if df["commitment_date"].isna().any():
+            raise ValueError("Commitment date contains invalid values.")
+        sd=pd.to_datetime(status_date,errors="coerce")
+        if pd.isna(sd): raise ValueError("Status date is invalid.")
+        df=df[df["commitment_date"]<=sd].copy()
+    currencies=set(df["currency"].dropna().astype(str).str.strip())-{"","nan"}
+    if len(currencies)>1:
+        raise ValueError("Commitments contain multiple currencies.")
+    currency=next(iter(currencies)) if currencies else project_currency
+    if project_currency and currency and str(project_currency).strip()!=currency:
+        raise ValueError("Commitment currency does not match project currency.")
+    status=df["status"].fillna("").astype(str).str.strip().str.lower()
+    included=~status.isin(["cancelled","canceled","rejected","void"])
+    df=df.loc[included].copy()
+    df["outstanding_amount"]=df["committed_amount"]-df["paid_amount"]
+    stats={"commitment_count":int(len(df)),
+      "committed_total":float(df["committed_amount"].sum()),
+      "paid_total":float(df["paid_amount"].sum()),
+      "outstanding_total":float(df["outstanding_amount"].sum()),
+      "overpaid_count":0,"currency":currency}
+    return df.sort_values("outstanding_amount",ascending=False),stats
