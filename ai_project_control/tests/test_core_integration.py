@@ -557,3 +557,36 @@ def test_business_validation_rejects_negative_risk_and_invalid_capacity():
         "rsrc_type":"Equipment","capacity_per_day":0}])
     issues=validate_dataset("resources.csv",resources,{})
     assert any("capacity_per_day" in issue for issue in issues)
+
+
+def test_workbook_export_uses_unique_safe_sheet_names_and_blocks_formulas():
+    from io import BytesIO
+    from openpyxl import load_workbook
+    from core import export_workbook
+
+    datasets={
+        "activities.csv":pd.DataFrame([{"activity_name":"=1+1","note":"  @SUM(A1:A2)"}]),
+        "activities_long_name_one.csv":pd.DataFrame([{"value":"+cmd"}]),
+        "activities_long_name_two.csv":pd.DataFrame([{"value":"-10"}]),
+        "bad/[sheet]:name?.csv":pd.DataFrame([{"value":"safe"}]),
+    }
+    raw=export_workbook(datasets,{})
+    workbook=load_workbook(BytesIO(raw),data_only=False)
+    names=workbook.sheetnames
+    assert len(names)==len(set(name.casefold() for name in names))
+    assert all(len(name)<=31 and not any(ch in name for ch in "[]:*?/\\\\") for name in names)
+    first=workbook["activities"]
+    assert first["A2"].value == "'=1+1"
+    assert first["B2"].value == "'  @SUM(A1:A2)"
+    assert workbook[names[1]]["A2"].value == "'+cmd"
+    assert workbook[names[2]]["A2"].value == "'-10"
+
+
+def test_pdf_report_escapes_untrusted_project_and_dataset_labels():
+    from core import generate_pdf_report
+
+    pdf=generate_pdf_report("<script>alert(1)</script>","<Project & Co>",
+        "2026-03-31",{},{"<img src=x onerror=1>":pd.DataFrame([{"value":"ok"}])},{})
+    assert pdf.startswith(b"%PDF")
+    assert b"<script>" not in pdf
+    assert b"<img" not in pdf
