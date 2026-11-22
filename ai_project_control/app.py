@@ -715,6 +715,8 @@ with forecast_tab:
                 resources=ds("resources.csv"),
                 resource_assignments=ds("resource_assignments.csv"),
                 risk_register=ds("risk_register.csv"),
+                project_master=ds("project_master.csv"),
+                commitments=ds("commitments.csv"),
                 status_date=status_date,
                 simulations=int(forecast_simulations),
             )
@@ -762,6 +764,20 @@ with forecast_tab:
         cols[3].metric("Schedule impact P80", f'{result["risk_days_p80"]:.1f} days')
         if pd.notna(result["risk_adjusted_cost_p80"]):
             st.metric("Risk-adjusted cost forecast P80", f'{result["risk_adjusted_cost_p80"]:,.0f}')
+        if result["cashflow_stats"]:
+            st.markdown("#### Integrated cost cash flow")
+            stats = result["cashflow_stats"]
+            cf_cols = st.columns(4)
+            cf_cols[0].metric("Cash flow BAC", f'{stats["BAC"]:,.0f}')
+            cf_cols[1].metric("Actual cost to date", f'{stats["actual_to_date"]:,.0f}')
+            cf_cols[2].metric("Forecast at completion", f'{stats["forecast_at_completion"]:,.0f}')
+            cf_cols[3].metric("Outstanding commitments", f'{stats["commitment_outstanding"]:,.0f}')
+            st.caption(stats["forecast_method"])
+            if not result["cashflow"].empty:
+                st.line_chart(result["cashflow"].set_index("period")[[
+                    "cumulative_baseline", "cumulative_actual", "cumulative_forecast"
+                ]])
+                st.dataframe(result["cashflow"], use_container_width=True, hide_index=True)
         st.markdown("#### Resource capacity screening")
         st.metric("Assignments above 100% capacity", result["resource_overload_assignments"])
         if not result["resource_summary"].empty:
