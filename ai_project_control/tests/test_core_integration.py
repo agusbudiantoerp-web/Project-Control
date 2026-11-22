@@ -7,7 +7,7 @@ import pandas as pd
 APP_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_DIR))
 
-from core import calculate_cpm, calculate_evm, risk_analysis, validate_dataset
+from core import calculate_cpm, calculate_evm, risk_analysis, validate_dataset, validate_project_datasets
 
 
 def test_cpm_forward_backward_pass_and_critical_path():
@@ -590,3 +590,27 @@ def test_pdf_report_escapes_untrusted_project_and_dataset_labels():
     assert pdf.startswith(b"%PDF")
     assert b"<script>" not in pdf
     assert b"<img" not in pdf
+
+
+def test_project_wide_validation_checks_cross_dataset_references():
+    datasets={
+        "project_master.csv":pd.DataFrame([{
+            "project_id":"P1","project_name":"Project","client":"Client","location":"Jakarta",
+            "project_type":"Construction","planned_start":"2026-01-01",
+            "planned_finish":"2026-12-31","status_date":"2026-03-31","currency":"IDR"
+        }]),
+        "wbs.csv":pd.DataFrame([{
+            "wbs_id":"1.1","parent_wbs_id":"","wbs_name":"Civil",
+            "description":"","responsible_party":"Team"
+        }]),
+        "activities.csv":pd.DataFrame([{
+            "activity_id":"A1","wbs_id":"1.1","activity_name":"Excavation",
+            "duration_days":10,"planned_start":"2026-01-01","planned_finish":"2026-01-10",
+            "predecessor_ids":"","calendar_id":"CAL-01","weight_pct":100
+        }])
+    }
+    assert validate_project_datasets(datasets)=={}
+    datasets["activities.csv"].loc[0,"wbs_id"]="UNKNOWN"
+    issues=validate_project_datasets(datasets)
+    assert "activities.csv" in issues
+    assert any("WBS tidak ditemukan" in item for item in issues["activities.csv"])
