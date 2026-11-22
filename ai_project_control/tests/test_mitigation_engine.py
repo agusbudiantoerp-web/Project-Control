@@ -47,7 +47,9 @@ def test_recovery_scenario_uses_achieved_duration_and_crash_cost():
     result = compare_recovery_scenarios(activities, 5)
     assert result["scenario_available"] is True
     assert result["scenario_duration_days"] == pytest.approx(10)
+    assert result["days_saved"] == pytest.approx(5)
     assert result["incremental_crash_cost"] == pytest.approx(700)
+    assert result["cost_per_day_saved"] == pytest.approx(140)
     assert not result["crash_detail"].empty
 
 
