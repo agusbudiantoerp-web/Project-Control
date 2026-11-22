@@ -357,6 +357,10 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
     sd=pd.to_datetime(status_date,errors="coerce")
     if pd.isna(sd): raise ValueError("Status date tidak valid.")
     a=activities.copy()
+    if a["activity_id"].isna().any() or a["activity_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("Activities contain blank activity_id values.")
+    if a["wbs_id"].isna().any() or a["wbs_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("Activities contain blank wbs_id values.")
     if a["activity_id"].astype(str).duplicated().any():
         raise ValueError("Activities contain duplicate activity_id values.")
     a["planned_start"]=pd.to_datetime(a["planned_start"],errors="coerce")
