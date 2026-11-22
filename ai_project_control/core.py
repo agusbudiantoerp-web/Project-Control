@@ -427,21 +427,18 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
                 raise ValueError("Progress activity and BOQ must belong to the same WBS.")
             if (p["budget_quantity"]<=0).any():
                 raise ValueError("BOQ budget_quantity must be greater than zero for reported progress.")
-            # A BOQ quantity is a shared ceiling across every activity mapped to
-            # that item. Checking each activity row independently can still allow
-            # the same BOQ quantity to be earned more than once.
-            boq_reported = p.groupby("boq_id", as_index=False).agg(
-                reported_quantity=("actual_quantity_to_date", "sum"),
-                budget_quantity=("budget_quantity", "first"),
-            )
-            overreported = boq_reported["reported_quantity"] > boq_reported["budget_quantity"]
+            # Progress quantities are activity-specific. Each activity earns
+            # only its normalized share of the WBS BOQ budget; summing quantities
+            # across activities would reject valid allocations where each activity
+            # reports completion against its own assigned work package.
+            overreported = p["actual_quantity_to_date"] > p["budget_quantity"]
             if overreported.any():
-                examples = boq_reported.loc[overreported].head(5)
+                examples = p.loc[overreported, ["activity_id", "boq_id", "actual_quantity_to_date", "budget_quantity"]].head(5)
                 detail = "; ".join(
-                    f"{row.boq_id}: {row.reported_quantity} > {row.budget_quantity}"
+                    f"{row.activity_id}/{row.boq_id}: {row.actual_quantity_to_date} > {row.budget_quantity}"
                     for row in examples.itertuples(index=False)
                 )
-                raise ValueError("Total reported quantity across activities exceeds BOQ budget quantity; correct progress allocation or approved BOQ: " + detail)
+                raise ValueError("Reported cumulative quantity exceeds BOQ budget quantity for its activity allocation: " + detail)
             p["earned_value"]=p["budget_amount"]*p["wbs_share"]*(p["actual_quantity_to_date"]/p["budget_quantity"])
             ev=float(p["earned_value"].sum())
             ev_detail=p.groupby(["activity_id","wbs_id_activity"],as_index=False).agg(
