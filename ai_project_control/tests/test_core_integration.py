@@ -631,7 +631,8 @@ def test_gemini_drawing_api_key_is_sent_in_header_not_url(monkeypatch):
         return response
     monkeypatch.setattr(requests,"post",fake_post)
     result=analyze_drawing_page_gemini(b"fake-png","secret-test-key")
-    assert result==[]
+    assert isinstance(result,pd.DataFrame)
+    assert result.empty
     assert "secret-test-key" not in calls["url"]
     assert "?" not in calls["url"]
     assert calls["headers"]["x-goog-api-key"]=="secret-test-key"
