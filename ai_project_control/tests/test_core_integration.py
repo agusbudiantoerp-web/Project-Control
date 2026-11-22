@@ -316,3 +316,57 @@ def test_commitments_reject_overpayment_and_currency_mismatch():
         assert "multiple currencies" in str(exc)
     else:
         raise AssertionError("Mixed commitment currencies must be rejected")
+
+
+def test_monthly_cashflow_reconciles_baseline_actual_and_remaining_forecast():
+    from core import build_cost_cashflow
+
+    project=pd.DataFrame([{"planned_start":"2026-01-01","planned_finish":"2026-03-31",
+        "status_date":"2026-01-31","currency":"IDR"}])
+    activities=pd.DataFrame([{"activity_id":"A1","wbs_id":"1.1","activity_name":"Work",
+        "duration_days":90,"planned_start":"2026-01-01","planned_finish":"2026-03-31",
+        "predecessor_ids":"","weight_pct":100}])
+    boq=pd.DataFrame([{"boq_id":"B1","wbs_id":"1.1","description":"Work","unit":"lot",
+        "budget_quantity":1,"unit_rate":900,"budget_amount":900}])
+    actual=pd.DataFrame([{"transaction_date":"2026-01-15","amount":100,"currency":"IDR"}])
+    commitments=pd.DataFrame([{"commitment_id":"PO1","commitment_date":"2026-01-10",
+        "committed_amount":300,"paid_amount":100,"currency":"IDR","status":"Active"}])
+    progress=pd.DataFrame()
+    cashflow,stats,_=build_cost_cashflow(project,activities,boq,actual,commitments,
+        "2026-01-31",progress)
+    assert round(cashflow["baseline_cost"].sum(),2)==900
+    assert stats["actual_to_date"]==100
+    assert stats["forecast_at_completion"]==900
+    assert stats["remaining_forecast"]==800
+    assert stats["commitment_outstanding"]==200
+    assert round(cashflow["remaining_forecast"].sum(),2)==800
+
+
+def test_cashflow_rejects_invalid_activity_dates_and_mixed_actual_currency():
+    from core import build_cost_cashflow
+
+    project=pd.DataFrame([{"planned_start":"2026-01-01","planned_finish":"2026-02-28","currency":"IDR"}])
+    activities=pd.DataFrame([{"activity_id":"A1","wbs_id":"1.1","activity_name":"Work",
+        "duration_days":10,"planned_start":"2026-02-10","planned_finish":"2026-01-10",
+        "predecessor_ids":"","weight_pct":100}])
+    boq=pd.DataFrame([{"boq_id":"B1","wbs_id":"1.1","description":"Work","unit":"lot",
+        "budget_quantity":1,"unit_rate":100,"budget_amount":100}])
+    try:
+        build_cost_cashflow(project,activities,boq,pd.DataFrame(),pd.DataFrame(),"2026-01-31")
+    except ValueError as exc:
+        assert "Activity dates" in str(exc)
+    else:
+        raise AssertionError("Invalid activity date range must fail")
+
+    activities.loc[0,"planned_start"]="2026-01-01"
+    activities.loc[0,"planned_finish"]="2026-01-10"
+    actual=pd.DataFrame([
+        {"transaction_date":"2026-01-02","amount":10,"currency":"IDR"},
+        {"transaction_date":"2026-01-03","amount":10,"currency":"USD"},
+    ])
+    try:
+        build_cost_cashflow(project,activities,boq,actual,pd.DataFrame(),"2026-01-31")
+    except ValueError as exc:
+        assert "currency" in str(exc).lower()
+    else:
+        raise AssertionError("Mixed actual cost currencies must fail")
