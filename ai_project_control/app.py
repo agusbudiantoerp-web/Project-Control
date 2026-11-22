@@ -8,7 +8,7 @@ import requests
 
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
-from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix, build_predictive_warnings, diagnose_project_drivers
+from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix, build_predictive_warnings, diagnose_project_drivers, build_root_cause_action_plan
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -694,6 +694,22 @@ with ai_advisor:
         for gap in driver_diagnosis["data_gaps"]:
             st.warning(gap)
         st.caption("Diagnosis menunjukkan sinyal yang didukung data; penyebab akhir tetap memerlukan verifikasi lapangan dan pemeriksaan cut-off.")
+        st.markdown("#### Root Cause Review & Corrective Action Register")
+        action_plan_result = build_root_cause_action_plan(
+            driver_findings, status_date=status_date
+        )
+        action_plan = action_plan_result["action_plan"]
+        if not action_plan.empty:
+            show_df(action_plan, 420)
+            st.download_button(
+                "Download RCA & corrective action register",
+                action_plan.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_rca_action_register.csv",
+                mime="text/csv",
+            )
+        else:
+            st.info(action_plan_result["message"])
+        st.caption("Root-cause entries are hypotheses to verify, not automatically confirmed causes. Due dates are proposed from the project status date.")
         st.markdown("#### Recovery scenario comparison")
         reduction = st.number_input("Target duration reduction (days)", min_value=1, max_value=365,
             value=5, step=1, key="recovery_target_reduction")
