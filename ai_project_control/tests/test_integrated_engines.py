@@ -74,3 +74,31 @@ def test_resource_load_rollup():
     assert summary.iloc[0]["target_qty"]==40
     assert len(daily)==5
     assert not daily["over_capacity"].any()
+
+
+def test_schedule_only_xer_activity_weights_can_be_zero():
+    from core import validate_dataset
+    frame=pd.DataFrame([{"activity_id":"A","wbs_id":"1","activity_name":"A","duration_days":1,
+      "planned_start":"2026-01-01","planned_finish":"2026-01-01","predecessor_ids":"","weight_pct":0}])
+    assert validate_dataset("activities.csv",frame,{})==[]
+
+def test_milestone_forecast_slippage_is_counted_before_due_date():
+    from core import calculate_milestones
+    milestones=pd.DataFrame([{"milestone_id":"M1","milestone_name":"Gate","planned_date":"2026-01-10",
+      "forecast_date":"2026-01-12","actual_date":"","status":"At Risk","owner":"PM"}])
+    _,stats=calculate_milestones(milestones,"2026-01-11")
+    assert stats["delayed"]==1
+    assert stats["at_risk"]==1
+
+def test_backup_roundtrip_restores_project_datasets(tmp_path,monkeypatch):
+    import core
+    monkeypatch.setattr(core,"DATA_DIR",tmp_path)
+    monkeypatch.setattr(core,"DB_PATH",tmp_path/"test.db")
+    core.init_db()
+    frame=pd.DataFrame([{"project_id":"P1","project_name":"Test","planned_start":"2026-01-01",
+      "planned_finish":"2026-12-31","status_date":"2026-01-31","currency":"IDR"}])
+    core.save_dataset("P1","project_master.csv",frame)
+    raw=core.export_project_backup("P1")
+    core.import_project_backup("P2",raw)
+    restored=core.load_dataset("P2","project_master.csv")
+    assert restored.iloc[0]["project_name"]=="Test"

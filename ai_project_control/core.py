@@ -150,8 +150,8 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
             if missing_wbs: issues.append("WBS tidak ditemukan: "+", ".join(sorted(missing_wbs)))
         try:
             weights=pd.to_numeric(df.get("weight_pct",0),errors="coerce")
-            if hasattr(weights,"sum") and len(df) and abs(float(weights.sum())-100)>0.01:
-                issues.append(f"Total weight_pct = {weights.sum():.2f}%, seharusnya 100%.")
+            if hasattr(weights,"sum") and len(df) and float(pd.to_numeric(weights,errors="coerce").fillna(0).abs().sum())>0 and abs(float(weights.sum())-100)>0.01:
+                issues.append(f"Total weight_pct = {weights.sum():.2f}%, seharusnya 100%. Isi 0 semua diperbolehkan untuk data jadwal XER tanpa pembobotan EVM.")
         except Exception: pass
     if name=="wbs.csv" and df["wbs_id"].astype(str).duplicated().any(): issues.append("wbs_id duplikat.")
     if name=="boq_budget.csv":
@@ -734,7 +734,7 @@ def calculate_milestones(milestones: pd.DataFrame, status_date):
           np.where(forecast<sd,"Overdue",
             np.where((forecast-df["planned_date"]).dt.days>0,"At Risk","On Track"))))
     completed=int(actual.sum())
-    delayed=int(((df["calculated_status"]=="Overdue") | ((pd.to_numeric(df["slippage_days"],errors="coerce")>0)&actual)).sum())
+    delayed=int((pd.to_numeric(df["slippage_days"],errors="coerce")>0).sum())
     at_risk=int(df["calculated_status"].isin(["At Risk","Overdue"]).sum())
     return df,{"total":len(df),"completed":completed,"delayed":delayed,"at_risk":at_risk}
 
