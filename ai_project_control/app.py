@@ -119,6 +119,11 @@ with portfolio_tab:
                 "project_name": project_row.get("project_name"),
                 "spi": project_row.get("SPI"),
                 "cpi": project_row.get("CPI"),
+                "forecast_variance_pct": (
+                    (float(project_row.get("EAC")) - float(project_row.get("BAC"))) / float(project_row.get("BAC")) * 100
+                    if pd.notna(project_row.get("EAC")) and pd.notna(project_row.get("BAC"))
+                    and float(project_row.get("BAC")) > 0 else None
+                ),
                 "currency": project_row.get("currency"),
             })
         risk_rows = pd.DataFrame(rank_portfolio(risk_inputs))
@@ -136,6 +141,38 @@ with portfolio_tab:
                 mime="text/csv",
             )
         st.caption("Risk score saat ini menggunakan SPI dan CPI yang tersedia dari EVM. Indikator float, risk exposure/capacity, dan forecast variance tidak diasumsikan; lengkapi dataset terkait sebelum menggunakannya untuk keputusan manajemen.")
+
+        st.markdown("### Portfolio Cost Forecast by Currency")
+        forecast_rows = portfolio.copy()
+        forecast_rows["BAC"] = pd.to_numeric(forecast_rows["BAC"], errors="coerce")
+        forecast_rows["EAC"] = pd.to_numeric(forecast_rows["EAC"], errors="coerce")
+        forecast_rows["forecast_variance"] = forecast_rows["EAC"] - forecast_rows["BAC"]
+        forecast_rows["forecast_variance_pct"] = (
+            forecast_rows["forecast_variance"] / forecast_rows["BAC"].where(forecast_rows["BAC"] > 0) * 100
+        )
+        forecast_available = forecast_rows.dropna(subset=["BAC", "EAC"])
+        if forecast_available.empty:
+            st.info("Forecast biaya belum dapat dibandingkan. Pastikan BAC dan EAC tersedia untuk proyek.")
+        else:
+            currency_summary = (
+                forecast_available.groupby("currency", dropna=False)
+                .agg(projects=("project_id", "count"), total_bac=("BAC", "sum"),
+                     total_eac=("EAC", "sum"), total_variance=("forecast_variance", "sum"))
+                .reset_index()
+            )
+            st.dataframe(currency_summary, use_container_width=True, hide_index=True)
+            forecast_detail = forecast_available[[
+                "project_id", "project_name", "currency", "BAC", "EAC",
+                "forecast_variance", "forecast_variance_pct", "portfolio_status"
+            ]].copy()
+            st.dataframe(forecast_detail, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download portfolio cost forecast",
+                forecast_detail.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_cost_forecast_by_currency.csv",
+                mime="text/csv",
+            )
+        st.caption("Rekap biaya hanya dijumlahkan dalam kelompok mata uang yang sama. Variance positif menunjukkan EAC di atas BAC; hasil ini merupakan screening forecast, bukan persetujuan perubahan anggaran.")
 
 with overview:
     master=ds("project_master.csv")
