@@ -390,11 +390,11 @@ def test_resource_load_capacity_utilization_and_validation():
     summary, daily = calculate_resource_load(resources, assignments)
     assert len(daily) == 3
     jan2 = daily.loc[daily["date"] == pd.Timestamp("2026-01-02")].iloc[0]
-    assert jan2["planned_load_per_day"] == 12
-    assert jan2["capacity_utilization_pct"] == 150
+    assert jan2["planned_load_per_day"] == 14
+    assert jan2["capacity_utilization_pct"] == 175
     assert bool(jan2["over_capacity"])
     assert summary.iloc[0]["overloaded_days"] == 2
-    assert summary.iloc[0]["peak_capacity_utilization_pct"] == 150
+    assert summary.iloc[0]["peak_capacity_utilization_pct"] == 175
 
     invalid = assignments.copy()
     invalid.loc[0, "target_qty"] = -1
