@@ -46,24 +46,24 @@ def assess_project(project: dict[str, Any]) -> dict[str, Any]:
 
     if spi is not None:
         # SPI <= 0.80 reaches the maximum schedule component.
-        components.append(("schedule", max(0.0, min(100.0, (1.0 - spi) / 0.20 * 100)))
+        components.append(("schedule", max(0.0, min(100.0, (1.0 - spi) / 0.20 * 100))))
         if spi < 1:
             evidence.append(f"SPI {spi:.2f} below 1.00")
     if cpi is not None:
-        components.append(("cost", max(0.0, min(100.0, (1.0 - cpi) / 0.20 * 100)))
+        components.append(("cost", max(0.0, min(100.0, (1.0 - cpi) / 0.20 * 100))))
         if cpi < 1:
             evidence.append(f"CPI {cpi:.2f} below 1.00")
     if total_float is not None:
-        components.append(("float", max(0.0, min(100.0, (10.0 - total_float) / 10.0 * 100)))
+        components.append(("float", max(0.0, min(100.0, (10.0 - total_float) / 10.0 * 100))))
         if total_float <= 5:
             evidence.append(f"Total float {total_float:g} days (low float)")
     if exposure is not None and capacity is not None and capacity > 0:
         ratio = exposure / capacity
-        components.append(("risk", max(0.0, min(100.0, ratio * 100)))
+        components.append(("risk", max(0.0, min(100.0, ratio * 100))))
         if ratio >= 0.75:
             evidence.append(f"Risk exposure uses {ratio:.0%} of risk capacity")
     if variance is not None:
-        components.append(("forecast", max(0.0, min(100.0, variance / 20.0 * 100)))
+        components.append(("forecast", max(0.0, min(100.0, variance / 20.0 * 100))))
         if variance > 0:
             evidence.append(f"Forecast variance +{variance:.1f}%")
 
