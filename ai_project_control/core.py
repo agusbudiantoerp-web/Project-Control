@@ -153,7 +153,53 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
             if hasattr(weights,"sum") and len(df) and float(pd.to_numeric(weights,errors="coerce").fillna(0).abs().sum())>0 and abs(float(weights.sum())-100)>0.01:
                 issues.append(f"Total weight_pct = {weights.sum():.2f}%, seharusnya 100%. Isi 0 semua diperbolehkan untuk data jadwal XER tanpa pembobotan EVM.")
         except Exception: pass
-    if name=="wbs.csv" and df["wbs_id"].astype(str).duplicated().any(): issues.append("wbs_id duplikat.")
+    unique_keys={"project_master.csv":"project_id","wbs.csv":"wbs_id","boq_budget.csv":"boq_id",
+      "risk_register.csv":"risk_id","resources.csv":"rsrc_id","milestones.csv":"milestone_id",
+      "change_register.csv":"change_id","resource_assignments.csv":None}
+    key=unique_keys.get(name)
+    if key and key in df and df[key].astype(str).duplicated().any():
+        issues.append(f"{key} duplikat.")
+    if name=="wbs.csv":
+        wbs_ids=set(df["wbs_id"].astype(str))
+        parents=df.get("parent_wbs_id",pd.Series("",index=df.index)).fillna("").astype(str)
+        for wbs_id,parent in zip(df["wbs_id"].astype(str),parents):
+            if parent and parent!="nan" and parent not in wbs_ids:
+                issues.append(f"Parent WBS {parent} untuk {wbs_id} tidak ditemukan.")
+            if parent==wbs_id: issues.append(f"WBS {wbs_id} tidak boleh menjadi parent dirinya sendiri.")
+    if name=="activities.csv":
+        start=pd.to_datetime(df["planned_start"],errors="coerce")
+        finish=pd.to_datetime(df["planned_finish"],errors="coerce")
+        if (finish<start).any(): issues.append("planned_finish tidak boleh lebih awal daripada planned_start.")
+        if (df["activity_id"].astype(str)==df.get("predecessor_ids",pd.Series("",index=df.index)).fillna("").astype(str)).any():
+            issues.append("Aktivitas tidak boleh menjadi predecessor dirinya sendiri.")
+    if name=="boq_budget.csv":
+        if df["boq_id"].astype(str).duplicated().any(): issues.append("boq_id duplikat.")
+        if "budget_amount" in df:
+            amounts=pd.to_numeric(df["budget_amount"],errors="coerce")
+            if amounts.notna().any() and (amounts.dropna()<0).any(): issues.append("budget_amount tidak boleh negatif.")
+        acts=existing.get("activities.csv",pd.DataFrame())
+        wbs=existing.get("wbs.csv",pd.DataFrame())
+        valid_wbs=set(wbs["wbs_id"].astype(str)) if not wbs.empty else set()
+        if valid_wbs:
+            missing=set(df["wbs_id"].astype(str))-valid_wbs
+            if missing: issues.append("WBS BOQ tidak ditemukan: "+", ".join(sorted(missing)))
+    if name=="resource_assignments.csv":
+        resources=existing.get("resources.csv",pd.DataFrame())
+        if not resources.empty:
+            missing=set(df["rsrc_id"].astype(str))-set(resources["rsrc_id"].astype(str))
+            if missing: issues.append("Resource tidak ditemukan: "+", ".join(sorted(missing)))
+        activities=existing.get("activities.csv",pd.DataFrame())
+        if not activities.empty:
+            missing=set(df["task_id"].astype(str))-set(activities["activity_id"].astype(str))
+            if missing: issues.append("Activity assignment tidak ditemukan: "+", ".join(sorted(missing)))
+    if name=="milestones.csv":
+        planned=pd.to_datetime(df["planned_date"],errors="coerce")
+        if planned.isna().any(): issues.append("planned_date harus berisi tanggal yang valid.")
+    if name=="change_register.csv":
+        for col in ["cost_impact","schedule_impact_days"]:
+            vals=pd.to_numeric(df[col],errors="coerce")
+            if vals.isna().any(): issues.append(col+" harus berupa angka.")
+
     if name=="boq_budget.csv":
         for c in ["budget_quantity","unit_rate"]:
             if c in df and (pd.to_numeric(df[c],errors="coerce").isna().any() or (pd.to_numeric(df[c],errors="coerce")<0).any()):
