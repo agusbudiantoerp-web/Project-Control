@@ -274,3 +274,45 @@ def test_earned_schedule_metrics_produce_time_variance_and_duration_forecast():
     assert result["SV(t)"] == -1.0
     assert result["SPI(t)"] == 0.75
     assert result["IEAC(t)"] == 12.0
+
+
+def test_commitment_reconciliation_excludes_cancelled_and_prevents_double_counting():
+    from core import analyze_commitments
+
+    commitments = pd.DataFrame([
+        {"commitment_id":"PO-1","commitment_date":"2026-03-01","committed_amount":1000,
+         "paid_amount":250,"currency":"IDR","status":"Active"},
+        {"commitment_id":"PO-2","commitment_date":"2026-03-02","committed_amount":500,
+         "paid_amount":0,"currency":"IDR","status":"Cancelled"},
+        {"commitment_id":"PO-3","commitment_date":"2026-04-01","committed_amount":300,
+         "paid_amount":0,"currency":"IDR","status":"Active"},
+    ])
+    detail, stats = analyze_commitments(commitments, "2026-03-31", "IDR")
+    assert list(detail["commitment_id"]) == ["PO-1"]
+    assert stats["committed_total"] == 1000
+    assert stats["paid_total"] == 250
+    assert stats["outstanding_total"] == 750
+
+
+def test_commitments_reject_overpayment_and_currency_mismatch():
+    from core import analyze_commitments
+
+    overpaid = pd.DataFrame([{"commitment_id":"PO-1","committed_amount":100,
+        "paid_amount":120,"currency":"IDR","status":"Active"}])
+    try:
+        analyze_commitments(overpaid, "2026-03-31", "IDR")
+    except ValueError as exc:
+        assert "cannot exceed" in str(exc)
+    else:
+        raise AssertionError("Overpaid commitment must be rejected")
+
+    mixed = pd.DataFrame([
+        {"commitment_id":"PO-1","committed_amount":100,"paid_amount":0,"currency":"IDR","status":"Active"},
+        {"commitment_id":"PO-2","committed_amount":100,"paid_amount":0,"currency":"USD","status":"Active"},
+    ])
+    try:
+        analyze_commitments(mixed, "2026-03-31", "IDR")
+    except ValueError as exc:
+        assert "multiple currencies" in str(exc)
+    else:
+        raise AssertionError("Mixed commitment currencies must be rejected")
