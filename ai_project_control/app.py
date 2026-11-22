@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -51,9 +51,9 @@ def metric_row(items):
         elif isinstance(value,float): value=f"{value:,.2f}"
         c.metric(label,value)
 
-overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, resources_tab, milestones_tab, ai_advisor, reports, guide = st.tabs([
+overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, resources_tab, milestones_tab, drawing_tab, ai_advisor, reports, guide = st.tabs([
     "Overview","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
-    "Optimization","Primavera XER","Resources & Manpower","Milestones & Change","AI Advisor","Reports","User Guide"
+    "Optimization","Primavera XER","Resources & Manpower","Milestones & Change","Drawing to BOQ","AI Advisor","Reports","User Guide"
 ])
 
 with overview:
@@ -71,7 +71,10 @@ with overview:
       ("Progress Engine","Physical quantities, reporting period, weighted progress"),
       ("Risk Engine","Risk exposure and Monte Carlo cost / schedule scenarios"),
       ("Optimization Engine","Minimum-cost schedule crashing where crash data is supplied"),
-      ("Primavera XER","XER table extraction and conversion to WBS/activity datasets"),
+      ("Primavera XER","PyP6Xer P6 object model, calendars, resources and DCMA14"),
+      ("Resources & Manpower","Resource assignments, planned loading and capacity screening"),
+      ("Milestones & Change Control","Milestone slippage and approved / pending change impact"),
+      ("Drawing to BOQ","Gemini vision takeoff draft from PDF drawings with manual review"),
       ("AI Project Advisor","Optional Groq / Gemini analysis and prioritized action recommendations"),
       ("AI Reporting","Integrated Excel management workbook and CSV exports"),
     ]
@@ -338,6 +341,49 @@ with milestones_tab:
         show_df(change_result,350)
     else:
         st.info("Impor change_register.csv untuk mengendalikan perubahan scope, biaya, dan jadwal.")
+
+with drawing_tab:
+    st.subheader("AI Drawing to BOQ — PDF Takeoff Draft")
+    st.warning("AI takeoff is an initial quantity-survey draft. Verify drawing scale, dimensions, units, scope and every quantity before using it as a contractual BOQ.")
+    drawing_file=st.file_uploader("Upload engineering drawing PDF",type=["pdf"],key="drawing_pdf")
+    if drawing_file:
+        try:
+            page_count=render_pdf_page(drawing_file.getvalue(),0)[2]
+            page_number=st.number_input("Drawing page",min_value=1,max_value=max(1,page_count),value=1,step=1)
+            image_bytes,page_text,_=render_pdf_page(drawing_file.getvalue(),int(page_number)-1)
+            st.image(image_bytes,caption=f"{drawing_file.name} — page {page_number}",use_container_width=True)
+            with st.expander("Selectable text extracted from this page"):
+                st.text_area("PDF text",page_text,height=140,disabled=True)
+            gemini_key=st.text_input("Google Gemini API key (not stored)",type="password",key="drawing_gemini_key")
+            gemini_model=st.text_input("Gemini model","gemini-2.5-flash",key="drawing_gemini_model")
+            if st.button("Analyze drawing and draft BOQ items",type="primary"):
+                if not gemini_key:
+                    st.error("Gemini API key is required for drawing image analysis.")
+                else:
+                    try:
+                        takeoff=analyze_drawing_page_gemini(image_bytes,gemini_key,gemini_model)
+                        takeoff["drawing_id"]=drawing_file.name
+                        takeoff["page"]=int(page_number)
+                        st.session_state["drawing_takeoff_draft"]=takeoff
+                    except Exception as exc:
+                        st.error(f"Drawing analysis failed: {exc}")
+        except Exception as exc:
+            st.error(f"Could not read drawing PDF: {exc}")
+    takeoff_saved=ds("drawing_takeoff.csv")
+    takeoff_draft=st.session_state.get("drawing_takeoff_draft",takeoff_saved)
+    if isinstance(takeoff_draft,pd.DataFrame) and not takeoff_draft.empty:
+        st.markdown("#### Review and edit takeoff lines")
+        edited=st.data_editor(takeoff_draft,use_container_width=True,num_rows="dynamic",key="takeoff_editor")
+        if st.button("Save reviewed takeoff to project database"):
+            save_dataset(project_id,"drawing_takeoff.csv",edited)
+            st.success("Takeoff draft saved. Review status remains under your control.")
+        boq_draft=takeoff_to_boq_draft(edited)
+        st.markdown("#### BOQ draft — unit rates intentionally blank")
+        show_df(boq_draft,300)
+        st.download_button("Download BOQ draft CSV",boq_draft.to_csv(index=False).encode("utf-8-sig"),
+            "BOQ_DRAFT_from_Drawing.csv","text/csv")
+    else:
+        st.info("Upload a PDF drawing and run Gemini vision analysis to create a takeoff draft.")
 
 with ai_advisor:
     st.subheader("AI Project Advisor & Prediction")
