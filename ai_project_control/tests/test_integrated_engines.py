@@ -286,7 +286,7 @@ def test_xer_cpm_rejects_non_finite_hours_duration_and_lag():
     with pytest.raises(ValueError,match="hours_per_day must be a finite"):
         calculate_xer_cpm({"TASK":base},hours_per_day=float("inf"))
     for duration in [float("inf"),float("nan"),-1]:
-        task=base.copy()
+        task=base.astype({"target_drtn_hr_cnt":"float64"}).copy()
         task.loc[0,"target_drtn_hr_cnt"]=duration
         with pytest.raises(ValueError,match="Invalid target duration"):
             calculate_xer_cpm({"TASK":task})
