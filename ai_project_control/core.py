@@ -382,13 +382,21 @@ def calculate_xer_cpm(tables: dict[str,pd.DataFrame], hours_per_day=8):
         duration[str(r["task_id"])]=max(0.0,float(value)/hours_per_day) if pd.notna(value) else 0.0
     preds={i:[] for i in ids}; succs={i:[] for i in ids}
     if not rel.empty:
-        for _,r in rel.iterrows():
-            s=str(r.get("task_id","")); p=str(r.get("pred_task_id",""))
-            if s not in index or p not in index: continue
-            typ=str(r.get("pred_type","PR_FS") or "PR_FS")
-            if typ not in {"PR_FS","PR_SS","PR_FF","PR_SF"}: typ="PR_FS"
+        supported_types={"PR_FS","PR_SS","PR_FF","PR_SF"}
+        for row_no,r in rel.iterrows():
+            s=str(r.get("task_id","")).strip(); p=str(r.get("pred_task_id","")).strip()
+            if s not in index or p not in index:
+                raise ValueError(
+                    f"XER relationship row {row_no} references an unknown activity "
+                    f"(successor={s!r}, predecessor={p!r}); import the complete TASK table."
+                )
+            typ=str(r.get("pred_type","PR_FS") or "PR_FS").strip()
+            if typ not in supported_types:
+                raise ValueError(f"Unsupported P6 relationship type {typ!r} at XER relationship row {row_no}.")
             lag=pd.to_numeric(r.get("lag_hr_cnt",0),errors="coerce")
-            lag=float(lag)/hours_per_day if pd.notna(lag) else 0.0
+            if pd.isna(lag):
+                raise ValueError(f"Invalid relationship lag at XER relationship row {row_no}.")
+            lag=float(lag)/hours_per_day
             preds[s].append((p,typ,lag)); succs[p].append((s,typ,lag))
     indeg={i:len(preds[i]) for i in ids}
     queue=[i for i in ids if indeg[i]==0]; order=[]
