@@ -170,3 +170,20 @@ def test_schedule_pert_rejects_invalid_iteration_count():
     ])
     with pytest.raises(ValueError, match="minimal 100"):
         calculate_schedule_pert(frame, 99)
+
+
+def test_evm_rejects_duplicate_progress_rows_in_same_reporting_period():
+    from core import calculate_evm
+
+    project = pd.DataFrame([{"currency": "IDR"}])
+    activities = pd.DataFrame([{"activity_id": "A1", "wbs_id": "1",
+        "planned_start": "2026-01-01", "planned_finish": "2026-01-10", "weight_pct": 100}])
+    boq = pd.DataFrame([{"boq_id": "Q1", "wbs_id": "1", "budget_quantity": 100,
+        "unit_rate": 10, "budget_amount": 1000}])
+    progress = pd.DataFrame([
+        {"period_end": "2026-01-05", "activity_id": "A1", "boq_id": "Q1", "actual_quantity_to_date": 20},
+        {"period_end": "2026-01-05", "activity_id": "A1", "boq_id": "Q1", "actual_quantity_to_date": 25},
+    ])
+
+    with pytest.raises(ValueError, match="duplicate rows"):
+        calculate_evm(project, activities, boq, progress, pd.DataFrame(), "2026-01-05")
