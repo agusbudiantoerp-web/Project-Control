@@ -481,3 +481,68 @@ def add_earned_schedule_metrics(evm_stats, project, activities, status_date):
         return evm_stats
     except Exception:
         return evm_stats
+
+
+def parse_xer_with_pyp6xer(raw: bytes):
+    """Parse XER with PyP6Xer v2 object model and run its full DCMA14 analysis."""
+    import os, tempfile
+    from xerparser.reader import Reader
+    from xerparser.dcma14 import DCMA14
+    handle=tempfile.NamedTemporaryFile(prefix="aipc_",suffix=".xer",delete=False)
+    path=handle.name
+    try:
+        handle.write(raw); handle.close()
+        reader=Reader(path)
+        activities=list(reader.activities.activities)
+        projects=list(reader.projects)
+        resources=list(reader.resources)
+        calendars=list(reader.calendars)
+        relations=list(reader.relations)
+        assignments=list(reader.activityresources)
+        wbs=list(reader.wbss)
+        def records(items, fields):
+            output=[]
+            for item in items:
+                row={}
+                for field in fields:
+                    value=getattr(item,field,None)
+                    if isinstance(value,(str,int,float,bool)) or value is None:
+                        row[field]=value
+                    else:
+                        row[field]=str(value)
+                output.append(row)
+            return pd.DataFrame(output)
+        activity_frame=records(activities,["task_id","task_code","task_name","wbs_id","status_code",
+          "duration","target_drtn_hr_cnt","remain_drtn_hr_cnt","total_float_hr_cnt","free_float_hr_cnt",
+          "target_start_date","target_end_date","early_start_date","early_end_date","act_start_date",
+          "act_end_date","phys_complete_pct","calendar_id"])
+        resource_frame=records(resources,["rsrc_id","rsrc_name","rsrc_type","unit_of_measure"])
+        assignment_frame=records(assignments,["task_id","rsrc_id","target_qty","act_reg_qty","target_cost","act_reg_cost","act_ot_cost"])
+        calendar_frame=records(calendars,["clndr_id","clndr_name","day_hr_cnt","week_hr_cnt","month_hr_cnt","year_hr_cnt"])
+        wbs_frame=records(wbs,["wbs_id","wbs_name","parent_wbs_id","proj_id"])
+        relation_frame=records(relations,["task_id","pred_task_id","pred_type","lag_hr_cnt"])
+        dcma=DCMA14(reader).analysis()["analysis"]
+        metric_rows=[]
+        labels={"successors":"Activities without successors","predecessors":"Activities without predecessors",
+          "lags":"Positive relationship lags","leads":"Negative relationship leads","relations":"Finish-to-Start relationships",
+          "constraints":"Hard constraints","totalfloat":"High total float","negativefloat":"Negative total float",
+          "duration":"Long duration activities","invaliddates":"Invalid dates","resources":"Missing resource assignments",
+          "slippage":"Schedule slippage","critical_test":"Critical path continuity","cpli":"Critical Path Length Index",
+          "bei":"Baseline Execution Index"}
+        for key,value in dcma.items():
+            if not isinstance(value,dict): continue
+            count=value.get("cnt",value.get("fs_cnt",value.get("cstr_cnt")))
+            pct=value.get("pct")
+            score=value.get("cpli",value.get("bei"))
+            passed=value.get("passed")
+            metric_rows.append({"DCMA check":labels.get(key,key),"Count":count,
+              "Percentage":pct,"Score":score,"Passed":passed})
+        summary={"projects":len(projects),"activities":len(activities),"relationships":len(relations),
+          "WBS elements":len(wbs),"resources":len(resources),"resource assignments":len(assignments),
+          "calendars":len(calendars)}
+        return {"summary":summary,"activities":activity_frame,"resources":resource_frame,
+          "resource_assignments":assignment_frame,"calendars":calendar_frame,"wbs":wbs_frame,
+          "relationships":relation_frame,"dcma14":pd.DataFrame(metric_rows)}
+    finally:
+        try: os.unlink(path)
+        except OSError: pass

@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -252,12 +252,28 @@ with xer_tab:
             except Exception as exc:
                 st.warning(f"XER CPM: {exc}")
             try:
-                dcma=calculate_dcma14(tables)
-                st.markdown("#### DCMA 14-point schedule health screening")
-                show_df(dcma,430)
-                st.caption("Metrics 12–14 are marked Not Assessed until baseline continuity / critical path reference data is fully available.")
+                p6_detail=parse_xer_with_pyp6xer(xer_file.getvalue())
+                st.markdown("#### PyP6Xer — complete P6 object model")
+                metric_row([(k,v) for k,v in p6_detail["summary"].items()])
+                st.markdown("#### DCMA 14-point schedule quality analysis")
+                show_df(p6_detail["dcma14"],430)
+                with st.expander("Activities parsed by PyP6Xer"):
+                    show_df(p6_detail["activities"],350)
+                with st.expander("Resources and resource assignments"):
+                    st.markdown("**Resources**"); show_df(p6_detail["resources"],220)
+                    st.markdown("**Assignments**"); show_df(p6_detail["resource_assignments"],220)
+                with st.expander("P6 calendars, WBS and relationships"):
+                    st.markdown("**Calendars**"); show_df(p6_detail["calendars"],220)
+                    st.markdown("**WBS**"); show_df(p6_detail["wbs"],220)
+                    st.markdown("**Relationships**"); show_df(p6_detail["relationships"],220)
             except Exception as exc:
-                st.warning(f"DCMA screening: {exc}")
+                st.warning(f"PyP6Xer detailed parser / DCMA14 could not complete; raw XER parser remains available. Details: {exc}")
+                try:
+                    dcma=calculate_dcma14(tables)
+                    st.markdown("#### Fallback DCMA schedule-health screening")
+                    show_df(dcma,430)
+                except Exception as fallback_exc:
+                    st.warning(f"Fallback DCMA screening: {fallback_exc}")
             if st.button("Convert XER to project WBS + activities",type="primary"):
                 act_frame,wbs_frame=xer_to_frames(tables)
                 save_dataset(project_id,"activities.csv",act_frame)
