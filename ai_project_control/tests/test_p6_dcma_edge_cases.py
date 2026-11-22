@@ -45,3 +45,31 @@ def test_xer_cpm_supports_all_four_p6_relationship_types_and_lag():
     assert by_id.loc["C", "early_start_day"] == 1
     assert by_id.loc["D", "early_start_day"] == 0
     assert stats["relationship_count"] == 3
+
+
+def test_dcma14_rejects_invalid_xer_identifiers_and_relationships():
+    valid_task=pd.DataFrame([{
+        "task_id":"T1","status_code":"TK_NotStart","target_drtn_hr_cnt":8,
+        "remain_drtn_hr_cnt":8,"total_float_hr_cnt":0,
+    }])
+    for task in [
+        pd.DataFrame([{**valid_task.iloc[0].to_dict(),"task_id":""}]),
+        pd.DataFrame([valid_task.iloc[0].to_dict(),valid_task.iloc[0].to_dict()]),
+    ]:
+        with pytest.raises(ValueError,match="blank or duplicate task_id"):
+            calculate_dcma14({"TASK":task})
+    relation=pd.DataFrame([{"task_id":"T1","pred_task_id":"MISSING","lag_hr_cnt":0}])
+    with pytest.raises(ValueError,match="unknown activity"):
+        calculate_dcma14({"TASK":valid_task,"TASKPRED":relation})
+
+
+def test_dcma14_rejects_non_finite_hours_and_lag():
+    task=pd.DataFrame([{
+        "task_id":"T1","status_code":"TK_NotStart","target_drtn_hr_cnt":8,
+        "remain_drtn_hr_cnt":8,"total_float_hr_cnt":0,
+    }])
+    with pytest.raises(ValueError,match="hours_per_day must be a finite"):
+        calculate_dcma14({"TASK":task},hours_per_day=float("inf"))
+    rel=pd.DataFrame([{"task_id":"T1","pred_task_id":"T1","lag_hr_cnt":float("inf")}])
+    with pytest.raises(ValueError,match="Invalid relationship lag"):
+        calculate_dcma14({"TASK":task,"TASKPRED":rel})
