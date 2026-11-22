@@ -374,12 +374,23 @@ def calculate_xer_cpm(tables: dict[str,pd.DataFrame], hours_per_day=8):
     task=tables.get("TASK",pd.DataFrame()).copy()
     rel=tables.get("TASKPRED",pd.DataFrame()).copy()
     if task.empty: raise ValueError("XER TASK table is empty.")
+    if hours_per_day<=0:
+        raise ValueError("hours_per_day must be greater than zero.")
+    if "task_id" not in task:
+        raise ValueError("XER TASK table is missing task_id.")
+    if task["task_id"].isna().any() or task["task_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("XER TASK contains a blank task_id.")
     ids=task["task_id"].astype(str).tolist()
+    if len(set(ids)) != len(ids):
+        raise ValueError("XER TASK contains duplicate task_id values.")
     index={v:i for i,v in enumerate(ids)}
     duration={}
     for _,r in task.iterrows():
-        value=pd.to_numeric(r.get("target_drtn_hr_cnt",0),errors="coerce")
-        duration[str(r["task_id"])]=max(0.0,float(value)/hours_per_day) if pd.notna(value) else 0.0
+        raw_duration=r.get("target_drtn_hr_cnt",0)
+        value=pd.to_numeric(raw_duration,errors="coerce")
+        if pd.isna(value) or float(value)<0:
+            raise ValueError(f"Invalid target duration for P6 task {r['task_id']!r}.")
+        duration[str(r["task_id"])]=float(value)/hours_per_day
     preds={i:[] for i in ids}; succs={i:[] for i in ids}
     if not rel.empty:
         supported_types={"PR_FS","PR_SS","PR_FF","PR_SF"}
