@@ -658,11 +658,11 @@ def calculate_xer_cpm(tables: dict[str,pd.DataFrame], hours_per_day=8):
     task=tables.get("TASK",pd.DataFrame()).copy()
     rel=tables.get("TASKPRED",pd.DataFrame()).copy()
     if task.empty: raise ValueError("XER TASK table is empty.")
-    if hours_per_day<=0:
-        raise ValueError("hours_per_day must be greater than zero.")
+    if not np.isfinite(hours_per_day) or hours_per_day<=0:
+        raise ValueError("hours_per_day must be a finite number greater than zero.")
     if "task_id" not in task:
         raise ValueError("XER TASK table is missing task_id.")
-    if task["task_id"].isna().any() or task["task_id"].astype(str).str.strip().eq("").any():
+    if task["task_id"].isna().any() or task["task_id"].astype(str).str.strip().eq("").any() or task["task_id"].astype(str).str.strip().duplicated().any():
         raise ValueError("XER TASK contains a blank task_id.")
     ids=task["task_id"].astype(str).tolist()
     if len(set(ids)) != len(ids):
@@ -672,7 +672,7 @@ def calculate_xer_cpm(tables: dict[str,pd.DataFrame], hours_per_day=8):
     for _,r in task.iterrows():
         raw_duration=r.get("target_drtn_hr_cnt",0)
         value=pd.to_numeric(raw_duration,errors="coerce")
-        if pd.isna(value) or float(value)<0:
+        if pd.isna(value) or not np.isfinite(float(value)) or float(value)<0:
             raise ValueError(f"Invalid target duration for P6 task {r['task_id']!r}.")
         duration[str(r["task_id"])]=float(value)/hours_per_day
     preds={i:[] for i in ids}; succs={i:[] for i in ids}
@@ -689,7 +689,7 @@ def calculate_xer_cpm(tables: dict[str,pd.DataFrame], hours_per_day=8):
             if typ not in supported_types:
                 raise ValueError(f"Unsupported P6 relationship type {typ!r} at XER relationship row {row_no}.")
             lag=pd.to_numeric(r.get("lag_hr_cnt",0),errors="coerce")
-            if pd.isna(lag):
+            if pd.isna(lag) or not np.isfinite(float(lag)):
                 raise ValueError(f"Invalid relationship lag at XER relationship row {row_no}.")
             lag=float(lag)/hours_per_day
             preds[s].append((p,typ,lag)); succs[p].append((s,typ,lag))
