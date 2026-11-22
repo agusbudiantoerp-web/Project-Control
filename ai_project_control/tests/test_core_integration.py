@@ -185,3 +185,72 @@ def test_calendar_rejects_unknown_calendar_and_invalid_week():
         assert "5, 6 or 7" in str(exc)
     else:
         raise AssertionError("Unsupported calendar workweek must fail")
+
+
+def test_evm_allocates_each_wbs_budget_once_across_activities():
+    from core import calculate_evm
+
+    activities = pd.DataFrame([
+        {"activity_id":"A1","wbs_id":"1.1","activity_name":"Part 1","duration_days":5,
+         "planned_start":"2026-01-01","planned_finish":"2026-01-05","predecessor_ids":"","weight_pct":25},
+        {"activity_id":"A2","wbs_id":"1.1","activity_name":"Part 2","duration_days":5,
+         "planned_start":"2026-01-01","planned_finish":"2026-01-05","predecessor_ids":"","weight_pct":75},
+    ])
+    boq = pd.DataFrame([
+        {"boq_id":"B1","wbs_id":"1.1","description":"Package","unit":"m3",
+         "budget_quantity":100,"unit_rate":10,"budget_amount":1000}
+    ])
+    progress = pd.DataFrame([
+        {"period_end":"2026-01-05","activity_id":"A1","boq_id":"B1","actual_quantity_to_date":100},
+        {"period_end":"2026-01-05","activity_id":"A2","boq_id":"B1","actual_quantity_to_date":100},
+    ])
+    result = calculate_evm(pd.DataFrame(),activities,boq,progress,pd.DataFrame(),"2026-01-05")
+    assert result["BAC"] == 1000
+    assert result["EV"] == 1000
+    assert result["physical_progress_pct"] == 100
+
+
+def test_evm_rejects_progress_activity_boq_wbs_mismatch():
+    from core import calculate_evm
+
+    activities = pd.DataFrame([{
+        "activity_id":"A1","wbs_id":"1.1","activity_name":"Work","duration_days":5,
+        "planned_start":"2026-01-01","planned_finish":"2026-01-05","predecessor_ids":"","weight_pct":100
+    }])
+    boq = pd.DataFrame([{
+        "boq_id":"B1","wbs_id":"2.1","description":"Other WBS","unit":"m3",
+        "budget_quantity":100,"unit_rate":10,"budget_amount":1000
+    }])
+    progress = pd.DataFrame([{
+        "period_end":"2026-01-05","activity_id":"A1","boq_id":"B1","actual_quantity_to_date":50
+    }])
+    try:
+        calculate_evm(pd.DataFrame(),activities,boq,progress,pd.DataFrame(),"2026-01-05")
+    except ValueError as exc:
+        assert "same WBS" in str(exc)
+    else:
+        raise AssertionError("Progress across unrelated WBS must be rejected")
+
+
+def test_evm_rejects_mixed_actual_cost_currencies():
+    from core import calculate_evm
+
+    activities = pd.DataFrame([{
+        "activity_id":"A1","wbs_id":"1.1","activity_name":"Work","duration_days":5,
+        "planned_start":"2026-01-01","planned_finish":"2026-01-05","predecessor_ids":"","weight_pct":100
+    }])
+    boq = pd.DataFrame([{
+        "boq_id":"B1","wbs_id":"1.1","description":"Work","unit":"m3",
+        "budget_quantity":100,"unit_rate":10,"budget_amount":1000
+    }])
+    actual = pd.DataFrame([
+        {"transaction_date":"2026-01-02","amount":100,"currency":"IDR"},
+        {"transaction_date":"2026-01-03","amount":10,"currency":"USD"},
+    ])
+    project = pd.DataFrame([{"currency":"IDR"}])
+    try:
+        calculate_evm(project,activities,boq,pd.DataFrame(),actual,"2026-01-05")
+    except ValueError as exc:
+        assert "multiple currencies" in str(exc)
+    else:
+        raise AssertionError("Mixed actual cost currencies must be rejected")
