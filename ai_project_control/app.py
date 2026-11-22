@@ -8,6 +8,7 @@ import requests
 from executive_reporting import build_executive_summary
 from ai_narrative_advisor import generate_narrative_advice
 import os
+from io import BytesIO
 
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
@@ -253,6 +254,75 @@ with portfolio_tab:
             mime="text/csv",
         )
         st.caption("Prioritas merupakan screening berbasis indikator yang tersedia. Rekomendasi adalah tindakan awal untuk ditinjau Project Manager; bukan keputusan otomatis atau pengganti validasi lapangan.")
+
+        st.markdown("### Portfolio Executive Report")
+        st.caption("Generate a consolidated management pack from the currently saved local portfolio. Cost totals remain separated by currency.")
+        if st.button("Generate Portfolio Excel & PDF Pack", type="primary", key="generate_portfolio_pack"):
+            try:
+                excel_buffer = BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+                    portfolio.to_excel(writer, sheet_name="Portfolio KPI", index=False)
+                    risk_rows.to_excel(writer, sheet_name="Risk Register", index=False)
+                    forecast_available.to_excel(writer, sheet_name="Cost Forecast", index=False)
+                    if "schedule_summary" in locals() and not schedule_summary.empty:
+                        schedule_summary.to_excel(writer, sheet_name="Schedule Forecast", index=False)
+                    executive.to_excel(writer, sheet_name="Intervention Matrix", index=False)
+                st.session_state["portfolio_excel_report"] = excel_buffer.getvalue()
+
+                from reportlab.lib import colors
+                from reportlab.lib.pagesizes import A4, landscape
+                from reportlab.lib.styles import getSampleStyleSheet
+                from reportlab.lib.units import mm
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                pdf_buffer = BytesIO()
+                doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4),
+                                        rightMargin=12*mm, leftMargin=12*mm,
+                                        topMargin=12*mm, bottomMargin=12*mm)
+                styles = getSampleStyleSheet()
+                story = [
+                    Paragraph("AI PROJECT CONTROL - EXECUTIVE PORTFOLIO REPORT", styles["Title"]),
+                    Paragraph(f"Generated: {date.today().isoformat()} | Projects: {len(portfolio)}", styles["Normal"]),
+                    Spacer(1, 6*mm),
+                    Paragraph("Intervention Priority Matrix", styles["Heading2"]),
+                ]
+                pdf_data = [["Project", "Risk", "Priority", "SPI", "CPI", "Cost Var %", "Slip Days", "Management Action"]]
+                for _, row in executive.iterrows():
+                    pdf_data.append([
+                        str(row.get("project_name", ""))[:32],
+                        str(row.get("risk_status", "")),
+                        str(row.get("intervention_priority", "")),
+                        "" if pd.isna(row.get("SPI")) else f"{float(row['SPI']):.2f}",
+                        "" if pd.isna(row.get("CPI")) else f"{float(row['CPI']):.2f}",
+                        "" if pd.isna(row.get("cost_variance_pct")) else f"{float(row['cost_variance_pct']):.1f}%",
+                        "" if pd.isna(row.get("schedule_slip_days")) else f"{float(row['schedule_slip_days']):.0f}",
+                        str(row.get("recommended_management_action", ""))[:100],
+                    ])
+                table = Table(pdf_data, repeatRows=1, colWidths=[36*mm,22*mm,26*mm,14*mm,14*mm,22*mm,18*mm,90*mm])
+                table.setStyle(TableStyle([
+                    ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#20354A")),
+                    ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+                    ("GRID", (0,0), (-1,-1), 0.35, colors.grey),
+                    ("FONTSIZE", (0,0), (-1,-1), 7),
+                    ("VALIGN", (0,0), (-1,-1), "TOP"),
+                    ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#EEF2F5")]),
+                ]))
+                story.extend([table, Spacer(1, 5*mm),
+                              Paragraph("Notes: Risk score and priority are screening indicators based on available project data. Verify source records and management assumptions before action.", styles["BodyText"])])
+                doc.build(story)
+                st.session_state["portfolio_pdf_report"] = pdf_buffer.getvalue()
+                st.success("Portfolio executive report generated.")
+            except Exception as exc:
+                st.error(f"Portfolio report generation failed: {exc}")
+        if "portfolio_excel_report" in st.session_state:
+            st.download_button("Download Portfolio Executive Report.xlsx",
+                               st.session_state["portfolio_excel_report"],
+                               file_name="AI_Project_Control_Portfolio_Report.xlsx",
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        if "portfolio_pdf_report" in st.session_state:
+            st.download_button("Download Portfolio Executive Report.pdf",
+                               st.session_state["portfolio_pdf_report"],
+                               file_name="AI_Project_Control_Portfolio_Report.pdf",
+                               mime="application/pdf")
 
 with overview:
     master=ds("project_master.csv")
