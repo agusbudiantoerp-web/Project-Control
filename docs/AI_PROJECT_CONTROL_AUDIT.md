@@ -1,6 +1,6 @@
 # AI Project Control System — Repository Audit & Integration Plan
 
-Audit date: 2026-11-21
+Audit date: 2026-11-22
 Repository: agusbudiantoerp-web/Project-Control
 Default branch: main
 Working branch: ai-project-control-integration
@@ -157,3 +157,51 @@ The new application will live in `ai_project_control/` and will be built increme
 ## 6. Immediate next step
 
 Build and validate the independent Data Hub and its input templates first. Then connect the existing calculation engines behind stable, tested data contracts.
+
+
+## 7. Integrated V1 implementation status (2026-11-22)
+
+The following implementation has now been committed to the working branch. This section supersedes the earlier immediate-next-step note above.
+
+### Integrated application paths
+
+- Project Data Hub: CSV / Excel templates, business validation, and per-project SQLite persistence. Database is stored under the user's LOCALAPPDATA\AIProjectControl directory on Windows so PyInstaller bundle updates do not replace project data.
+- pmcontrols: source package copied into ai_project_control/pmcontrols and used by the application for CSV CPM, PERT Monte Carlo, EVM / earned schedule primitives, and schedule crashing.
+- TPPSCI: its XER parsing model and relationship-aware FS/SS/FF/SF CPM approach are adapted in core.py; the DCMA-style screening fallback is also present.
+- Project Controls Dashboard: EVM metric and SPI-based finish-forecast functions are adapted in dashboard_metrics.py; milestone and change-register metrics are connected in the app.
+- PyP6Xer 2.x: installed as a runtime dependency (LGPL-2.1-or-later) and used for full XER object parsing, resources, assignments, calendars, relationships, and the upstream DCMA14 analysis. The LGPL license text and distribution note are included in ai_project_control/licenses and THIRD_PARTY_NOTICES.md.
+- EVM_Project: retained as a reference workflow only. Its simple row-level calculation is not the authoritative EVM engine; no unlicensed source code is copied from that directory.
+
+### User-facing modules in the integrated app
+
+- Overview and Project Data Hub
+- Planning & CPM
+- Cost & EVM, including WBS-weighted BOQ allocation and earned-schedule metrics where baseline inputs permit
+- Progress tracking
+- Risk register exposure Monte Carlo and activity PERT schedule Monte Carlo
+- Schedule crashing optimization when crash duration/cost assumptions are supplied
+- Primavera XER parsing, object-model inspection, relationship-aware CPM and DCMA14
+- Resources & Manpower loading / capacity screening
+- Milestones & Change Control
+- PDF Drawing to BOQ draft extraction through Gemini vision with editable human review
+- AI Project Advisor through Groq or Gemini
+- Historical trend forecast when at least three valid progress reporting periods exist
+- Excel / PDF reports and optional Telegram delivery
+
+### Known boundaries before production sign-off
+
+- No integrated runtime test suite has been executed yet; automated tests have been added and are intentionally awaiting the consolidated test phase.
+- CSV CPM uses FS relationships on relative working periods. XER CPM preserves FS/SS/FF/SF and lag but remains calendar-free. Neither replaces Primavera P6 native recalculation.
+- Resource loading is a capacity-screening calculation, not a full P6 resource-leveling solver.
+- Drawing-to-BOQ is a draft extraction assistant. Quantities, scale, units, scope and assumptions require human quantity-surveyor verification.
+- Historical trend forecasting is a transparent linear trend projection, not a trained ML model. Reliable AI/ML prediction requires validated historical project outcomes.
+- AI API credentials are entered per session and are not stored by the app. Drawing pages and project summaries are sent to the selected external AI provider only after explicit user action.
+- PDF/Telegram, PyP6Xer LGPL bundling, and PyInstaller packaging still require consolidated Windows distribution review.
+
+### Next development work
+
+1. Complete static review and data-contract reconciliation across modules.
+2. Finish remaining production safeguards, import/export consistency, and backup/restore controls.
+3. Run the consolidated automated tests once feature development is frozen.
+4. Fix all test/runtime issues, then perform one integrated acceptance test.
+5. Produce the final Windows Standalone distribution and user guide.
