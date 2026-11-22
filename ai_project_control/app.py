@@ -772,6 +772,42 @@ with reports:
             report_metrics["Revised budget after approved changes"]=round(change_stats["revised_budget"],2)
             report_metrics["Pending change cost exposure"]=round(change_stats["pending_cost_exposure"],2)
         except Exception as exc: report_errors.append(f"Change control: {exc}")
+    if not datasets["activities.csv"].empty:
+        try:
+            advisor_evm = {}
+            if not datasets["boq_budget.csv"].empty and not datasets["project_master.csv"].empty:
+                advisor_evm = calculate_evm(datasets["project_master.csv"], datasets["activities.csv"],
+                    datasets["boq_budget.csv"], datasets["progress.csv"], datasets["actual_cost.csv"], status_date)
+            advisor_resources, _ = calculate_resource_load(datasets["resources.csv"], datasets["resource_assignments.csv"])
+            advisor_result = build_mitigation_advice(datasets["activities.csv"], advisor_evm,
+                datasets["risk_register.csv"], advisor_resources, status_date)
+            analysis["Mitigation Action Register"] = advisor_result["actions"]
+            report_metrics["Advisor critical activities"] = len(advisor_result["critical_activity_ids"])
+            report_metrics["Advisor recommended actions"] = len(advisor_result["actions"])
+        except Exception as exc:
+            report_errors.append(f"Mitigation advisor: {exc}")
+        try:
+            integrated = build_integrated_forecast(
+                activities=datasets["activities.csv"], boq_budget=datasets["boq_budget.csv"],
+                progress=datasets["progress.csv"], actual_cost=datasets["actual_cost.csv"],
+                resources=datasets["resources.csv"], resource_assignments=datasets["resource_assignments.csv"],
+                risk_register=datasets["risk_register.csv"], project_master=datasets["project_master.csv"],
+                commitments=datasets["commitments.csv"], status_date=status_date, simulations=1000, seed=42
+            )
+            analysis["Integrated CPM Detail"] = integrated["cpm_activity_detail"]
+            if not integrated["cashflow"].empty:
+                analysis["Integrated Forecast Cash Flow"] = integrated["cashflow"]
+            report_metrics.update({
+                "Integrated forecast finish": integrated["forecast_finish"],
+                "Risk-adjusted finish P80": integrated["risk_adjusted_finish_p80"],
+                "Critical activities (integrated)": integrated["critical_activity_count"],
+                "Risk cost P80": round(float(integrated["risk_cost_p80"]), 2),
+                "Risk schedule days P80": round(float(integrated["risk_days_p80"]), 2),
+            })
+            if pd.notna(integrated["risk_adjusted_cost_p80"]):
+                report_metrics["Risk-adjusted cost P80"] = round(float(integrated["risk_adjusted_cost_p80"]), 2)
+        except Exception as exc:
+            report_errors.append(f"Integrated forecast: {exc}")
     if report_errors:
         for issue in report_errors: st.warning(issue)
     if st.button("Generate integrated Excel workbook",type="primary"):
