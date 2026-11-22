@@ -326,3 +326,84 @@ def build_predictive_warnings(
         "reporting_periods": int(trend.get("reporting_periods", 0)) if trend else 0,
         "method": "Rule-based screening of approved EVM trends and current CPM float; not a machine-learning probability model.",
     }
+
+def diagnose_project_drivers(
+    activities: pd.DataFrame,
+    boq: pd.DataFrame | None = None,
+    progress: pd.DataFrame | None = None,
+    actual_cost: pd.DataFrame | None = None,
+    risk_register: pd.DataFrame | None = None,
+) -> dict:
+    """Build evidence-linked schedule, quantity, cost and risk driver findings."""
+    findings = []
+    if activities is None or activities.empty:
+        return {"findings": pd.DataFrame(), "data_gaps": ["Activities dataset is missing."]}
+    acts = activities.copy()
+    acts["activity_id"] = acts["activity_id"].astype(str)
+    if progress is not None and not progress.empty:
+        p = progress.copy()
+        p["activity_id"] = p["activity_id"].astype(str)
+        p["actual_quantity_to_date"] = pd.to_numeric(p["actual_quantity_to_date"], errors="coerce")
+        p["period_end"] = pd.to_datetime(p["period_end"], errors="coerce")
+        p = p.dropna(subset=["actual_quantity_to_date", "period_end"])
+        if not p.empty:
+            latest = p.sort_values("period_end").groupby("activity_id", as_index=False).tail(1)
+            if "planned_quantity_to_date" in latest:
+                latest["planned_quantity_to_date"] = pd.to_numeric(latest["planned_quantity_to_date"], errors="coerce")
+                lagging = latest[
+                    latest["planned_quantity_to_date"].gt(0)
+                    & latest["actual_quantity_to_date"].lt(latest["planned_quantity_to_date"])
+                ]
+                merged = lagging.merge(acts[["activity_id", "activity_name"]], on="activity_id", how="left")
+                for row in merged.to_dict("records"):
+                    variance = float(row["planned_quantity_to_date"] - row["actual_quantity_to_date"])
+                    findings.append({
+                        "domain": "Progress / Schedule", "priority": "High" if variance / row["planned_quantity_to_date"] >= 0.2 else "Medium",
+                        "driver": f'Quantity behind plan on {row.get("activity_name", row["activity_id"])}',
+                        "evidence": f'Planned {row["planned_quantity_to_date"]:,.2f}; actual {row["actual_quantity_to_date"]:,.2f}; variance {variance:,.2f}',
+                        "recommended_action": "Validate measurement cut-off and installed quantities; investigate access, productivity, materials, permits and crew constraints.",
+                        "owner": "Construction / Planning Manager",
+                    })
+    if boq is not None and not boq.empty and actual_cost is not None and not actual_cost.empty:
+        b = boq.copy()
+        a = actual_cost.copy()
+        if {"boq_id", "budget_amount"}.issubset(b.columns) and {"boq_id", "amount"}.issubset(a.columns):
+            b["budget_amount"] = pd.to_numeric(b["budget_amount"], errors="coerce")
+            a["amount"] = pd.to_numeric(a["amount"], errors="coerce")
+            budget = b.groupby("boq_id", as_index=False)["budget_amount"].sum()
+            actual = a.groupby("boq_id", as_index=False)["amount"].sum()
+            joined = budget.merge(actual, on="boq_id", how="left").fillna({"amount": 0})
+            joined["cost_variance_to_budget"] = joined["amount"] - joined["budget_amount"]
+            over = joined[joined["cost_variance_to_budget"] > 0]
+            for row in over.to_dict("records"):
+                findings.append({
+                    "domain": "Cost", "priority": "High" if row["cost_variance_to_budget"] / max(abs(row["budget_amount"]), 1) >= 0.1 else "Medium",
+                    "driver": f'Actual cost exceeds BOQ budget for {row["boq_id"]}',
+                    "evidence": f'Budget {row["budget_amount"]:,.2f}; recorded actual {row["amount"]:,.2f}; variance {row["cost_variance_to_budget"]:,.2f}',
+                    "recommended_action": "Reconcile actual cost cut-off, accruals, BOQ mapping, quantities installed and approved changes before concluding an overrun.",
+                    "owner": "Cost Control Manager",
+                })
+    if risk_register is not None and not risk_register.empty:
+        risks = risk_register.copy()
+        needed = {"risk_description", "probability", "cost_impact", "schedule_impact_days"}
+        if needed.issubset(risks.columns):
+            for _, row in risks.iterrows():
+                probability = pd.to_numeric(pd.Series([row["probability"]]), errors="coerce").iloc[0]
+                cost = pd.to_numeric(pd.Series([row["cost_impact"]]), errors="coerce").iloc[0]
+                days = pd.to_numeric(pd.Series([row["schedule_impact_days"]]), errors="coerce").iloc[0]
+                if pd.notna(probability) and pd.notna(cost) and pd.notna(days) and probability > 0 and (cost > 0 or days > 0):
+                    findings.append({
+                        "domain": "Risk", "priority": "High" if probability >= 0.5 or days >= 10 else "Medium",
+                        "driver": str(row["risk_description"]),
+                        "evidence": f"Probability {probability:.0%}; cost impact {cost:,.2f}; schedule impact {days:,.1f} days",
+                        "recommended_action": "Confirm risk owner, response funding, trigger, due date and residual exposure; escalate overdue mitigations.",
+                        "owner": str(row.get("owner", "Risk Owner") or "Risk Owner"),
+                    })
+    gaps = []
+    if progress is None or progress.empty:
+        gaps.append("Progress history is unavailable; activity-level delay drivers cannot be confirmed.")
+    elif "planned_quantity_to_date" not in progress.columns:
+        gaps.append("Planned quantity-to-date is unavailable; quantity variance cannot be calculated.")
+    if boq is None or boq.empty or actual_cost is None or actual_cost.empty:
+        gaps.append("BOQ budget or actual-cost data is unavailable; cost driver analysis is incomplete.")
+    return {"findings": pd.DataFrame(findings), "data_gaps": gaps}
