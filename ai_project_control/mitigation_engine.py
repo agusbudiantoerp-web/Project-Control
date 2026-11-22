@@ -173,3 +173,85 @@ def compare_multiple_recovery_scenarios(
             "A scenario is decision support only and does not change the approved baseline.",
         ],
     }
+
+def build_recovery_decision_matrix(
+    recovery_scenarios: pd.DataFrame,
+    resource_scenarios: pd.DataFrame | None = None,
+    risk_register: pd.DataFrame | None = None,
+) -> dict:
+    """Rank costed schedule-recovery options and disclose non-costed constraints.
+
+    Resource and shift scenarios are supporting feasibility screens only.
+    They are never assigned invented costs or blended into a false optimum.
+    """
+    if not isinstance(recovery_scenarios, pd.DataFrame) or recovery_scenarios.empty:
+        raise ValueError("Recovery scenario comparison is required.")
+    required = {"scenario", "actual_days_saved", "incremental_cost", "feasible"}
+    missing = required - set(recovery_scenarios.columns)
+    if missing:
+        raise ValueError("Recovery scenarios missing: " + ", ".join(sorted(missing)))
+    ranked = recovery_scenarios.copy()
+    ranked["actual_days_saved"] = pd.to_numeric(ranked["actual_days_saved"], errors="coerce")
+    ranked["incremental_cost"] = pd.to_numeric(ranked["incremental_cost"], errors="coerce")
+    ranked["feasible"] = ranked["feasible"].fillna(False).astype(bool)
+    valid = ranked[
+        ranked["feasible"] & ranked["actual_days_saved"].gt(0)
+        & ranked["incremental_cost"].ge(0)
+        & np.isfinite(ranked["incremental_cost"])
+    ].copy()
+    if not valid.empty:
+        valid["cost_per_day_saved"] = valid["incremental_cost"] / valid["actual_days_saved"]
+        valid = valid.sort_values(
+            ["incremental_cost", "cost_per_day_saved", "actual_days_saved"],
+            ascending=[True, True, False], kind="stable"
+        ).reset_index(drop=True)
+        valid["rank"] = np.arange(1, len(valid) + 1)
+        recommendation = valid.iloc[0].to_dict()
+        decision = "Ranked by lowest verified incremental crash cost; tie-break by cost/day saved."
+    else:
+        valid["cost_per_day_saved"] = pd.Series(dtype=float)
+        valid["rank"] = pd.Series(dtype=int)
+        recommendation = None
+        decision = "No costed feasible recovery option. Complete crash inputs before selecting a cost optimum."
+
+    resource_notes = []
+    if resource_scenarios is not None and not resource_scenarios.empty:
+        if {"shifts_per_day", "overloaded_resource_days"}.issubset(resource_scenarios.columns):
+            for row in resource_scenarios.to_dict("records"):
+                resource_notes.append({
+                    "option": f'{row["shifts_per_day"]} shift(s)',
+                    "overloaded_resource_days": row.get("overloaded_resource_days"),
+                    "incremental_cost": row.get("incremental_cost", np.nan),
+                    "decision_status": "Capacity screen only; cost inputs required before economic ranking.",
+                })
+        else:
+            resource_notes.append({
+                "option": "Resource scenario",
+                "decision_status": "Resource scenario schema not recognized; not used in ranking.",
+            })
+
+    risk_exposure = None
+    if risk_register is not None and not risk_register.empty:
+        needed = {"probability", "cost_impact", "schedule_impact_days"}
+        if needed.issubset(risk_register.columns):
+            probability = pd.to_numeric(risk_register["probability"], errors="coerce").clip(0, 1)
+            cost = pd.to_numeric(risk_register["cost_impact"], errors="coerce").clip(lower=0)
+            days = pd.to_numeric(risk_register["schedule_impact_days"], errors="coerce").clip(lower=0)
+            risk_exposure = {
+                "expected_cost_exposure": float((probability * cost).sum()),
+                "expected_schedule_exposure_days": float((probability * days).sum()),
+                "method": "Sum of probability × impact; independent additive screening, not a Monte Carlo percentile.",
+            }
+    return {
+        "ranked_options": valid,
+        "recommended_option": recommendation,
+        "decision_basis": decision,
+        "resource_screening": pd.DataFrame(resource_notes),
+        "risk_exposure": risk_exposure,
+        "limitations": [
+            "Only feasible scenarios with explicit finite crash costs are economically ranked.",
+            "Shift and resource capacity factors are not converted to cost without approved rates.",
+            "Risk exposure is shown separately and is not deducted from or added to crash cost.",
+            "This is decision support; approval and baseline changes remain under project governance.",
+        ],
+    }
