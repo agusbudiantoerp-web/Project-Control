@@ -1,146 +1,305 @@
 from datetime import date
+import json
+import math
 import pandas as pd
 import streamlit as st
+import plotly.express as px
+
+from dashboard_metrics import forecast_completion_date
+from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
+                  parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
+init_db()
 
-TEMPLATES = {
-    "project_master.csv": (["project_id","project_name","client","location","project_type","planned_start","planned_finish","status_date","currency"],
-                           ["PRJ-001","Demo Construction Project","Demo Client","Jakarta","Construction","2026-01-01","2026-12-31","2026-03-31","IDR"]),
-    "wbs.csv": (["wbs_id","parent_wbs_id","wbs_name","description","responsible_party"],
-                ["1.1","1","Foundation","Foundation works","Civil Team"]),
-    "activities.csv": (["activity_id","wbs_id","activity_name","duration_days","planned_start","planned_finish","predecessor_ids","calendar_id","weight_pct"],
-                       ["A100","1.1","Excavation","10","2026-01-05","2026-01-14","","CAL-01","5"]),
-    "boq_budget.csv": (["boq_id","wbs_id","item_code","description","unit","budget_quantity","unit_rate","budget_amount"],
-                       ["BOQ-001","1.1","CIV-001","Excavation","m3","1000","75000","75000000"]),
-    "progress.csv": (["period_end","activity_id","boq_id","planned_quantity_to_date","actual_quantity_to_date","unit","evidence_reference","approved_by"],
-                     ["2026-03-31","A100","BOQ-001","800","650","m3","DAILY-REPORT-001","Site Engineer"]),
-    "actual_cost.csv": (["transaction_date","wbs_id","boq_id","cost_code","cost_category","vendor","description","amount","currency","document_reference"],
-                        ["2026-03-31","1.1","BOQ-001","CIV-001","Material","Demo Vendor","Sample cost","25000000","IDR","INV-001"]),
-    "risk_register.csv": (["risk_id","risk_description","cause","probability","cost_impact","schedule_impact_days","owner","response_strategy","mitigation_action","due_date","status"],
-                          ["R-001","Heavy rain","Seasonal weather","0.3","50000000","5","Project Manager","Mitigate","Prepare drainage","2026-04-15","Open"]),
-    "commitments.csv": (["commitment_id","commitment_date","wbs_id","vendor","contract_or_po","description","committed_amount","paid_amount","currency","status"],
-                        ["COM-001","2026-02-01","1.1","Demo Vendor","PO-001","Equipment rental","100000000","25000000","IDR","Active"]),
-}
-REQUIRED = {
-    "wbs.csv": ["wbs_id","wbs_name"],
-    "activities.csv": ["activity_id","activity_name","duration_days"],
-    "boq_budget.csv": ["boq_id","description","unit","budget_quantity","unit_rate"],
-    "progress.csv": ["period_end","activity_id","actual_quantity_to_date"],
-    "actual_cost.csv": ["transaction_date","amount","currency"],
-    "risk_register.csv": ["risk_id","risk_description","probability"],
-    "commitments.csv": ["commitment_id","committed_amount","currency"],
-}
-
-def parse_xer(raw: bytes):
-    text = raw.decode("latin-1", errors="replace")
-    tables, current, fields = {}, None, []
-    for line in text.splitlines():
-        if line.startswith("%T\t"):
-            current = line.split("\t", 1)[1].strip()
-            tables.setdefault(current, [])
-            fields = []
-        elif line.startswith("%F\t") and current:
-            fields = line.split("\t")[1:]
-        elif line.startswith("%R\t") and current and fields:
-            values = line.split("\t")[1:]
-            if len(values) == len(fields):
-                tables[current].append(dict(zip(fields, values)))
-    return {name: pd.DataFrame(rows) for name, rows in tables.items()}
+st.markdown("""
+<style>
+.block-container{padding-top:1.3rem;padding-bottom:2rem}
+div[data-testid="stMetric"]{background:rgba(80,110,145,.08);padding:14px;border-radius:12px}
+.small-muted{color:#8391a5;font-size:.88rem}
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🏗️ AI PROJECT CONTROL SYSTEM")
-st.caption("Integrated Project Intelligence Platform | Phase 1 — Project Data Hub")
+st.caption("Integrated Project Intelligence Platform | Integrated V1")
 with st.sidebar:
     st.header("Project Workspace")
-    project_code = st.text_input("Project code", "PRJ-001")
-    project_name = st.text_input("Project name", "Demo Project")
-    status_date = st.date_input("Status date", date.today())
+    project_id = st.text_input("Project code", "PRJ-001").strip() or "PRJ-001"
+    project_name = st.text_input("Project name", "Demo Construction Project")
+    status_date = st.date_input("Status date", date(2026,3,31))
+    st.divider()
+    st.caption("Local project database")
+    st.caption("Data is stored on this computer in project_control.db")
+    stored = list_datasets(project_id)
+    st.write(f"Datasets saved: **{len(stored)}**")
 
-st.info("Download a template, fill it with project data, then upload and validate it. Begin with synthetic data.")
-overview, templates, imports, xer, guide = st.tabs(["Overview","Input Templates","Data Import","Primavera XER","User Guide"])
+def ds(name):
+    return load_dataset(project_id,name)
+
+def show_df(df, height=320):
+    if df is not None and not df.empty:
+        st.dataframe(df, use_container_width=True, hide_index=True, height=height)
+    else:
+        st.info("Belum ada data. Impor dataset pada tab Project Data Hub.")
+
+def metric_row(items):
+    cols=st.columns(len(items))
+    for c,(label,value) in zip(cols,items):
+        if isinstance(value,float) and math.isnan(value): value="—"
+        elif isinstance(value,float): value=f"{value:,.2f}"
+        c.metric(label,value)
+
+overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, reports, guide = st.tabs([
+    "Overview","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
+    "Optimization","Primavera XER","Reports","User Guide"
+])
 
 with overview:
+    master=ds("project_master.csv")
+    wbs=ds("wbs.csv"); acts=ds("activities.csv"); boq=ds("boq_budget.csv")
+    risks=ds("risk_register.csv")
     st.subheader(project_name)
-    a,b,c = st.columns(3)
-    a.metric("Project code", project_code)
-    b.metric("Status date", status_date.strftime("%d %b %Y"))
-    c.metric("Input templates", len(TEMPLATES))
-    st.markdown("### Platform modules")
-    modules = [
-        ("Project Data Hub","Import and validate source files"),
-        ("Planning Engine","WBS, CPM, float, critical path and schedule quality"),
-        ("Cost & EVM Engine","BOQ, budget, actual cost, PV, EV, AC, CPI and SPI"),
-        ("Progress Engine","Physical progress and productivity"),
-        ("Risk Engine","Risk register, PERT and Monte Carlo"),
-        ("AI Prediction","Delay and cost forecasting after sufficient historical data"),
-        ("Optimization Engine","Schedule crashing and resource optimization"),
-        ("AI Reporting","Management reports, Excel, PDF and Telegram"),
+    metric_row([("Project code",project_id),("Status date",status_date.strftime("%d %b %Y")),
+                ("Activities",len(acts)),("WBS elements",len(wbs)),("BOQ items",len(boq))])
+    st.markdown("### Integrated platform modules")
+    modules=[
+      ("Project Data Hub","CSV / Excel import, validation, project dataset storage"),
+      ("Planning Engine","CPM, critical path, early/late dates, total float, Gantt"),
+      ("Cost & EVM Engine","BOQ budget, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, TCPI"),
+      ("Progress Engine","Physical quantities, reporting period, weighted progress"),
+      ("Risk Engine","Risk exposure and Monte Carlo cost / schedule scenarios"),
+      ("Optimization Engine","Minimum-cost schedule crashing where crash data is supplied"),
+      ("Primavera XER","XER table extraction and conversion to WBS/activity datasets"),
+      ("AI Reporting","Excel management workbook and PDF-ready tables"),
     ]
-    for title, detail in modules:
-        with st.expander(title):
-            st.write(detail)
-            st.caption("Planned module — not activated in this initial scaffold.")
+    cols=st.columns(2)
+    for i,(name,desc) in enumerate(modules):
+        with cols[i%2]:
+            with st.container(border=True):
+                st.markdown(f"**{name}**")
+                st.caption(desc)
+    st.markdown("### Data readiness")
+    readiness=pd.DataFrame([{"Dataset":n,"Rows":len(ds(n)),"Status":"Loaded" if not ds(n).empty else "Not loaded"} for n in TEMPLATES])
+    show_df(readiness,250)
+    st.caption("AI prediction requires a sufficient history of approved reporting periods. It is not fabricated from a single synthetic snapshot.")
 
-with templates:
-    st.subheader("Download input templates")
-    for name, (columns, row) in TEMPLATES.items():
-        data = pd.DataFrame([row], columns=columns).to_csv(index=False).encode("utf-8-sig")
-        st.download_button("Download " + name, data, file_name=name, mime="text/csv", key="dl_" + name)
+with hub:
+    st.subheader("Project Data Hub")
+    st.write("Download templates, import CSV/Excel, validate relationships and save data into the local project database.")
+    c1,c2=st.columns([1,1])
+    with c1:
+        for name,(columns,row) in TEMPLATES.items():
+            data=pd.DataFrame(columns=[*columns]).to_csv(index=False).encode("utf-8-sig")
+            st.download_button(f"⬇️ Template {name}",data,file_name=name,mime="text/csv",key="template_"+name)
+    with c2:
+        selected=st.selectbox("Dataset type",list(TEMPLATES),key="hub_dataset")
+        upload=st.file_uploader("Upload CSV or Excel",type=["csv","xlsx","xls"],key="hub_upload")
+        if upload:
+            try:
+                frame=pd.read_csv(upload) if upload.name.lower().endswith(".csv") else pd.read_excel(upload)
+                issues=validate_dataset(selected,frame,{n:ds(n) for n in TEMPLATES})
+                st.write(f"Rows: **{len(frame)}** | Columns: **{len(frame.columns)}**")
+                show_df(frame,300)
+                if issues:
+                    for issue in issues: st.error(issue)
+                else:
+                    st.success("Column and core business validation passed.")
+                    if st.button("Save dataset to project",type="primary"):
+                        save_dataset(project_id,selected,frame)
+                        st.success(f"{selected} saved for {project_id}.")
+                        st.rerun()
+            except Exception as exc: st.exception(exc)
+    st.divider()
+    st.markdown("#### Currently saved project data")
+    for name in TEMPLATES:
+        frame=ds(name)
+        with st.expander(f"{name} — {len(frame)} rows"):
+            show_df(frame,230)
+            if not frame.empty:
+                st.download_button(f"Export {name}",frame.to_csv(index=False).encode("utf-8-sig"),
+                  file_name=name,mime="text/csv",key="export_"+name)
 
-with imports:
-    st.subheader("CSV / Excel import and validation")
-    selected = st.selectbox("Data type", list(TEMPLATES))
-    upload = st.file_uploader("Upload CSV or Excel", type=["csv","xlsx","xls"])
-    if upload:
+with planning:
+    st.subheader("Planning Engine — CPM / Critical Path")
+    activities=ds("activities.csv")
+    if not activities.empty:
         try:
-            frame = pd.read_csv(upload) if upload.name.lower().endswith(".csv") else pd.read_excel(upload)
-            st.write("Rows:", len(frame), "| Columns:", len(frame.columns))
-            st.dataframe(frame.head(100), use_container_width=True)
-            missing = [col for col in REQUIRED.get(selected, []) if col not in frame.columns]
-            if frame.empty:
-                st.warning("File has no data rows.")
-            elif missing:
-                st.error("Missing required columns: " + ", ".join(missing))
-            else:
-                st.success("Basic column check passed. Business values still require review.")
-            st.download_button("Download preview CSV", frame.to_csv(index=False).encode("utf-8-sig"),
-                               file_name="preview_" + selected, mime="text/csv")
-        except Exception as exc:
-            st.error("Could not read file: " + str(exc))
+            cpm,stats=calculate_cpm(activities)
+            metric_row([("Project duration (working periods)",stats["project_duration"]),
+                        ("Activities",int(stats["n_activities"])),("Critical activities",int(stats["n_critical"]))])
+            st.markdown("#### Activity schedule calculation")
+            show_df(cpm,500)
+            chart=cpm.copy()
+            chart["start"]=chart["early_start_day"]
+            chart["finish"]=chart["early_finish_day"]
+            fig=px.timeline(chart,x_start="start",x_end="finish",y="activity_name",color="is_critical",
+                hover_data=["activity_id","wbs_id","total_float_days"],title="CPM early-start schedule (relative working periods)")
+            fig.update_yaxes(autorange="reversed")
+            st.plotly_chart(fig,use_container_width=True)
+            st.download_button("Download CPM results CSV",cpm.to_csv(index=False).encode("utf-8-sig"),
+                "cpm_results.csv","text/csv")
+        except Exception as exc: st.error(f"CPM calculation needs correction: {exc}")
+    else: st.info("Impor activities.csv terlebih dahulu.")
+    st.warning("CPM v1 uses precedence-network durations in working periods with FS predecessor logic. P6 calendars, constraints, resource levelling and full P6 relationship semantics are not recalculated; use Primavera P6 as the scheduling authority.")
 
-with xer:
-    st.subheader("Primavera P6 XER — raw table inspection")
-    upload = st.file_uploader("Upload Primavera P6 XER", type=["xer"])
-    if upload:
+with cost:
+    st.subheader("Cost & EVM Engine")
+    master=ds("project_master.csv"); activities=ds("activities.csv"); boq=ds("boq_budget.csv")
+    prog=ds("progress.csv"); actual=ds("actual_cost.csv")
+    if not boq.empty and not activities.empty:
         try:
-            tables = parse_xer(upload.getvalue())
-            if not tables:
-                st.warning("No XER tables were detected. Check that this is a valid P6 XER export.")
+            evm=calculate_evm(master,activities,boq,prog,actual,status_date)
+            metric_row([(k,f"{v:,.2f}" if pd.notna(v) else "—") for k,v in evm.items() if k in ["BAC","PV","EV","AC"]])
+            metric_row([(k,f"{v:,.3f}" if pd.notna(v) else "—") for k,v in evm.items() if k in ["SPI","CPI","EAC","ETC","VAC","TCPI"]])
+            st.caption(f"Weighted earned value progress: {evm['physical_progress_pct']:.2f}%")
+            if not master.empty and {"planned_start","planned_finish"}.issubset(master.columns) and pd.notna(evm["SPI"]):
+                forecast=forecast_completion_date(evm["SPI"],str(master.iloc[0]["planned_start"]),str(master.iloc[0]["planned_finish"]))
+                if forecast is not None:
+                    st.metric("SPI-based forecast finish",forecast.strftime("%d %b %Y"))
+                else:
+                    st.caption("Finish forecast unavailable: SPI must be positive.")
+            chart=pd.DataFrame({"Metric":["PV","EV","AC"],"Amount":[evm["PV"],evm["EV"],evm["AC"]]})
+            st.plotly_chart(px.bar(chart,x="Metric",y="Amount",title="Planned Value vs Earned Value vs Actual Cost"),use_container_width=True)
+        except Exception as exc: st.error(f"EVM cannot be calculated: {exc}")
+    else:
+        st.info("Impor activities.csv dan boq_budget.csv untuk mengaktifkan EVM.")
+    st.markdown("#### EVM definitions")
+    st.caption("CV = EV − AC | SV = EV − PV | CPI = EV / AC | SPI = EV / PV | EAC = BAC / CPI | ETC = EAC − AC | VAC = BAC − EAC.")
+
+with progress_tab:
+    st.subheader("Progress Intelligence")
+    activities=ds("activities.csv"); prog=ds("progress.csv")
+    if not activities.empty:
+        if prog.empty:
+            st.info("Progress belum dilaporkan. Impor progress.csv dengan actual_quantity_to_date dan BOQ references.")
+        else:
+            show_df(prog,350)
+            st.caption("Progress quantities are retained by period and activity. EV calculation uses BOQ quantity earned against budget quantity.")
+            if "period_end" in prog:
+                p=prog.copy(); p["period_end"]=pd.to_datetime(p["period_end"],errors="coerce")
+                st.plotly_chart(px.line(p.sort_values("period_end"),x="period_end",y="actual_quantity_to_date",
+                    color="activity_id",markers=True,title="Reported physical quantity by activity"),use_container_width=True)
+    else: st.info("Import activity schedule first.")
+
+with risk_tab:
+    st.subheader("Risk Engine — Expected Exposure & Monte Carlo")
+    risks=ds("risk_register.csv")
+    if not risks.empty:
+        iterations=st.slider("Simulation iterations",1000,50000,10000,1000)
+        try:
+            ranked,stats,samples=risk_analysis(risks,iterations)
+            metric_row([("Expected cost exposure",f"{stats['expected_cost_exposure']:,.0f}"),
+                        ("Schedule exposure (days)",f"{stats['expected_schedule_exposure_days']:,.1f}"),
+                        ("Cost P80",f"{stats['cost_p80']:,.0f}"),("Delay P80 (days)",f"{stats['delay_p80']:,.1f}")])
+            show_df(ranked,350)
+            st.plotly_chart(px.histogram(samples,x="cost",nbins=40,title="Monte Carlo risk cost distribution"),use_container_width=True)
+            st.plotly_chart(px.histogram(samples,x="delay_days",nbins=40,title="Monte Carlo schedule impact distribution"),use_container_width=True)
+            st.download_button("Download Monte Carlo samples",samples.to_csv(index=False).encode("utf-8-sig"),
+              "risk_monte_carlo.csv","text/csv")
+        except Exception as exc: st.error(f"Risk analysis error: {exc}")
+    else: st.info("Import risk_register.csv to activate risk analysis.")
+    st.caption("Scenario model assumes independent Bernoulli occurrence for each risk. Correlation, mitigation effectiveness and P6 calendar impact are not inferred.")
+
+with optimization:
+    st.subheader("Optimization Engine — Minimum Cost Schedule Crashing")
+    activities=ds("activities.csv")
+    if not activities.empty:
+        try:
+            _,base_stats=calculate_cpm(activities)
+            target=st.number_input("Target project duration (periods)",min_value=0.0,
+                max_value=float(base_stats["project_duration"]),value=max(0.0,float(base_stats["project_duration"])-1),step=1.0)
+            if {"crash_duration_days","crash_cost_per_day"}.issubset(activities.columns):
+                if st.button("Optimize schedule",type="primary"):
+                    result,summary=optimize_crash(activities,target)
+                    metric_row([("Normal duration",summary["normal_duration_total"]),
+                      ("Achieved duration",summary["achieved_duration"]),("Crash cost",summary["total_crash_cost"])])
+                    show_df(result,400)
             else:
-                st.success("Read " + str(len(tables)) + " tables.")
-                preferred = ["PROJECT","PROJWBS","TASK","TASKPRED","TASKRSRC","RSRC"]
-                names = [x for x in preferred if x in tables] + [x for x in tables if x not in preferred]
-                selected_table = st.selectbox("XER table", names)
-                frame = tables[selected_table]
-                st.write(selected_table, "|", len(frame), "rows")
-                st.dataframe(frame.head(200), use_container_width=True)
-                st.download_button("Export table to CSV", frame.to_csv(index=False).encode("utf-8-sig"),
-                                   file_name=selected_table.lower() + "_from_xer.csv", mime="text/csv")
-        except Exception as exc:
-            st.error("XER read failed: " + str(exc))
+                st.info("Optimization is ready when activity data includes crash_duration_days and crash_cost_per_day. These inputs must come from approved contractor/productivity and cost assumptions.")
+                st.code("Add columns: crash_duration_days, crash_cost_per_day")
+        except Exception as exc: st.error(str(exc))
+
+with xer_tab:
+    st.subheader("Primavera P6 XER Integration")
+    xer_file=st.file_uploader("Upload Primavera P6 .XER",type=["xer"],key="xer_upload")
+    if xer_file:
+        try:
+            tables=parse_xer(xer_file.getvalue())
+            st.success(f"XER parsed: {len(tables)} tables.")
+            names=list(tables)
+            chosen=st.selectbox("Inspect XER table",names)
+            show_df(tables[chosen],300)
+            try:
+                xer_cpm,xer_stats=calculate_xer_cpm(tables)
+                st.markdown("#### Primavera network analysis (FS / SS / FF / SF + lag)")
+                metric_row([("Calculated duration (days)",xer_stats["project_duration_days"]),
+                  ("Activities",xer_stats["activities"]),("Critical activities",xer_stats["critical_activities"])])
+                show_df(xer_cpm,380)
+                st.download_button("Download XER CPM results",xer_cpm.to_csv(index=False).encode("utf-8-sig"),
+                  "primavera_xer_cpm.csv","text/csv")
+            except Exception as exc:
+                st.warning(f"XER CPM: {exc}")
+            try:
+                dcma=calculate_dcma14(tables)
+                st.markdown("#### DCMA 14-point schedule health screening")
+                show_df(dcma,430)
+                st.caption("Metrics 12–14 are marked Not Assessed until baseline continuity / critical path reference data is fully available.")
+            except Exception as exc:
+                st.warning(f"DCMA screening: {exc}")
+            if st.button("Convert XER to project WBS + activities",type="primary"):
+                act_frame,wbs_frame=xer_to_frames(tables)
+                save_dataset(project_id,"activities.csv",act_frame)
+                if not wbs_frame.empty: save_dataset(project_id,"wbs.csv",wbs_frame)
+                st.success(f"Imported {len(act_frame)} activities and {len(wbs_frame)} WBS rows.")
+                st.rerun()
+            st.download_button("Download XER table CSV",tables[chosen].to_csv(index=False).encode("utf-8-sig"),
+                chosen.lower()+".csv","text/csv")
+        except Exception as exc: st.exception(exc)
+    st.warning("XER reader imports core PROJECT / PROJWBS / TASK / TASKPRED records. P6 calendars, resource assignments, cost accounts, codes and constraints are retained for future adapter extensions, not recalculated in CPM v1.")
+
+with reports:
+    st.subheader("Management Reports & Data Export")
+    datasets={n:ds(n) for n in TEMPLATES}
+    analysis={}
+    try:
+        if not datasets["activities.csv"].empty:
+            analysis["CPM Results"]=calculate_cpm(datasets["activities.csv"])[0]
+        if not datasets["risk_register.csv"].empty:
+            analysis["Risk Register Ranked"]=risk_analysis(datasets["risk_register.csv"],10000)[0]
+    except Exception as exc: st.warning(str(exc))
+    if st.button("Generate integrated Excel workbook",type="primary"):
+        try:
+            book=export_workbook(datasets,analysis)
+            st.download_button("⬇️ Download AI Project Control Report.xlsx",book,
+                "AI_Project_Control_Report.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        except Exception as exc: st.exception(exc)
+    st.markdown("#### Individual dataset exports")
+    for name,frame in datasets.items():
+        if not frame.empty:
+            st.download_button(f"Download {name}",frame.to_csv(index=False).encode("utf-8-sig"),
+                name,"text/csv",key="report_"+name)
 
 with guide:
-    st.subheader("Recommended upload sequence")
+    st.subheader("User Guide")
     st.markdown("""
-    1. Download and fill project_master.csv and wbs.csv.
-    2. Fill activities.csv using the approved schedule.
-    3. Fill boq_budget.csv using the approved cost baseline.
-    4. Update progress.csv and actual_cost.csv each reporting period.
-    5. Maintain risk_register.csv and commitments.csv.
-    6. Upload one data type at a time and review the validation result.
+    **Recommended workflow**
+    1. Create or select a project code in the sidebar.
+    2. Import project master, WBS, activities, BOQ, progress, actual cost, risk register and commitments.
+    3. Open Planning & CPM to inspect early/late dates, float and critical activities.
+    4. Open Cost & EVM to inspect PV, EV, AC, SPI, CPI and forecasts.
+    5. Update progress and actual cost each reporting period.
+    6. Maintain risk register and run Monte Carlo scenarios.
+    7. Add approved crash duration and crash cost assumptions to eligible activities before optimization.
+    8. Export the integrated workbook for management review.
+
+    **Calculation policy**
+    - CPM and EVM are deterministic engineering calculations.
+    - Monte Carlo outputs are scenario distributions based on the entered uncertainty assumptions.
+    - AI forecasting is intentionally not presented until sufficient historical, time-phased project data is available.
+    - Primavera P6 remains the schedule authority for working calendars, resource levelling and native constraints.
     """)
-    st.warning("The XER reader currently displays raw tables only. CPM, P6 calendar calculations, EVM, Monte Carlo and AI analysis are not yet connected.")
-    st.markdown("Use YYYY-MM-DD dates, unique IDs, consistent units and currency. Do not replace unknown values with zero.")
+    st.info("This integrated build is a local-first application. Project datasets are saved to SQLite on this computer.")
 
 st.divider()
-st.caption("New application scaffold. Existing source projects remain unchanged.")
+st.caption("AI Project Control System | Integrated V1 | Local-first project controls")
