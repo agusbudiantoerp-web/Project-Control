@@ -499,9 +499,18 @@ def risk_analysis(risks: pd.DataFrame, iterations=10000, seed=42):
     r["cost_exposure"] = r["probability"] * r["cost_impact"]
     r["schedule_exposure_days"] = r["probability"] * r["schedule_impact_days"]
     rng = np.random.default_rng(seed)
-    occur = rng.random((iterations, len(r))) < r["probability"].to_numpy()
-    cost_samples = (occur * r["cost_impact"].to_numpy()).sum(axis=1)
-    day_samples = (occur * r["schedule_impact_days"].to_numpy()).sum(axis=1)
+    probabilities = r["probability"].to_numpy(dtype=float)
+    cost_impacts = r["cost_impact"].to_numpy(dtype=float)
+    day_impacts = r["schedule_impact_days"].to_numpy(dtype=float)
+    # Bound temporary Bernoulli matrix memory for large risk registers / iteration counts.
+    cost_samples = np.empty(iterations, dtype=float)
+    day_samples = np.empty(iterations, dtype=float)
+    rows_per_chunk = max(1, min(10000, 1_000_000 // max(1, len(r))))
+    for offset in range(0, iterations, rows_per_chunk):
+        stop = min(iterations, offset + rows_per_chunk)
+        occur = rng.random((stop - offset, len(r))) < probabilities
+        cost_samples[offset:stop] = occur @ cost_impacts
+        day_samples[offset:stop] = occur @ day_impacts
     stats = {
         "expected_cost_exposure": float(r["cost_exposure"].sum()),
         "expected_schedule_exposure_days": float(r["schedule_exposure_days"].sum()),
