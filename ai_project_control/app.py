@@ -8,7 +8,7 @@ import requests
 
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
-from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios
+from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios
 from resource_optimization import simulate_resource_smoothing
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -636,6 +636,47 @@ with ai_advisor:
                 file_name=f"{project_id}_recovery_scenario.csv", mime="text/csv")
         else:
             st.info(recovery["note"])
+
+        st.markdown("#### Multi-target recovery alternatives")
+        st.caption("Setiap target dihitung independen dari baseline CPM yang sama. Rekomendasi hanya memilih biaya terendah di antara alternatif yang layak.")
+        recovery_targets = st.multiselect(
+            "Target penghematan untuk dibandingkan (hari)",
+            options=[1, 2, 3, 5, 7, 10, 14, 21, 30],
+            default=[1, 3, 5, 7, 10],
+            key="multi_recovery_targets",
+        )
+        if st.button("Compare recovery alternatives", key="run_multi_recovery"):
+            try:
+                if not recovery_targets:
+                    st.warning("Pilih minimal satu target penghematan.")
+                else:
+                    multi_recovery = compare_multiple_recovery_scenarios(
+                        mitigation_activities, recovery_targets
+                    )
+                    st.session_state["multi_recovery_result"] = multi_recovery
+            except Exception as multi_error:
+                st.error(f"Multi-scenario recovery failed: {multi_error}")
+        multi_recovery = st.session_state.get("multi_recovery_result")
+        if multi_recovery:
+            show_df(multi_recovery["scenarios"], 360)
+            if multi_recovery["recommended_scenario"]:
+                best = multi_recovery["recommended_scenario"]
+                st.success(
+                    f'Rekomendasi biaya terendah: {best["scenario"]} | '
+                    f'Biaya tambahan {best["incremental_cost"]:,.2f} | '
+                    f'Hari dihemat {best["actual_days_saved"]:,.2f}'
+                )
+            else:
+                st.info(multi_recovery["recommendation_basis"])
+            with st.expander("Assumptions & limitations"):
+                for assumption in multi_recovery["assumptions"]:
+                    st.write("• " + assumption)
+            st.download_button(
+                "Download multi-scenario comparison CSV",
+                multi_recovery["scenarios"].to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_multi_recovery_scenarios.csv",
+                mime="text/csv",
+            )
         st.download_button("Download mitigation action register",
             mitigation["actions"].to_csv(index=False).encode("utf-8-sig"),
             file_name=f"{project_id}_mitigation_actions.csv", mime="text/csv")
