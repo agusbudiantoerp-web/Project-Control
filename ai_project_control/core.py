@@ -297,15 +297,29 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
       "SPI":spi,"CPI":cpi,"EAC":eac,"ETC":etc,"VAC":vac,"TCPI":tcpi,
       "physical_progress_pct":ev/bac*100}
 
-def calculate_progress(activities, progress):
+def calculate_progress(activities, progress, boq=None):
     if activities.empty: raise ValueError("Activities belum diimpor.")
-    total=float(pd.to_numeric(activities.get("weight_pct",0),errors="coerce").fillna(0).sum())
-    if progress.empty: return pd.DataFrame(), {"weighted_progress_pct":0.0,"reported_activities":0}
+    if progress.empty:
+        return pd.DataFrame(), {"weighted_progress_pct":0.0,"reported_activities":0,
+          "total_activities":int(len(activities)),"unreported_activities":int(len(activities)),
+          "status_date":None}
     p=progress.copy()
+    p["period_end"]=pd.to_datetime(p.get("period_end"),errors="coerce")
     p["actual_quantity_to_date"]=pd.to_numeric(p["actual_quantity_to_date"],errors="coerce").fillna(0)
-    if "boq_id" in p:
-        p=p.groupby(["activity_id","boq_id"],as_index=False)["actual_quantity_to_date"].max()
-    return p, {"weighted_progress_pct":0.0 if total<=0 else None,"reported_activities":int(p["activity_id"].nunique())}
+    status_date=p["period_end"].max()
+    p=p[p["period_end"].isna() | (p["period_end"]<=status_date)]
+    keys=["activity_id","boq_id"] if "boq_id" in p else ["activity_id"]
+    p=p.sort_values("period_end").drop_duplicates(keys,keep="last")
+    reported=int(p["activity_id"].nunique())
+    if boq is None or boq.empty:
+        return p, {"weighted_progress_pct":None,"reported_activities":reported,
+          "total_activities":int(len(activities)),"unreported_activities":max(0,len(activities)-reported),
+          "status_date":status_date}
+    evm=calculate_evm(pd.DataFrame(),activities,boq,p,pd.DataFrame(),status_date or date.today())
+    p["report_status"]="Reported"
+    return p, {"weighted_progress_pct":float(evm["physical_progress_pct"]),
+      "reported_activities":reported,"total_activities":int(len(activities)),
+      "unreported_activities":max(0,len(activities)-reported),"status_date":status_date}
 
 def risk_analysis(risks: pd.DataFrame, iterations=10000, seed=42):
     if risks.empty: raise ValueError("Risk register belum diimpor.")

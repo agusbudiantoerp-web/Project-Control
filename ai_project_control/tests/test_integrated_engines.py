@@ -102,3 +102,16 @@ def test_backup_roundtrip_restores_project_datasets(tmp_path,monkeypatch):
     core.import_project_backup("P2",raw)
     restored=core.load_dataset("P2","project_master.csv")
     assert restored.iloc[0]["project_name"]=="Test"
+
+
+def test_progress_engine_returns_weighted_physical_progress():
+    from core import calculate_progress
+    activities=pd.DataFrame([
+      {"activity_id":"A","wbs_id":"1","activity_name":"A","duration_days":5,"planned_start":"2026-01-01","planned_finish":"2026-01-05","weight_pct":100}
+    ])
+    boq=pd.DataFrame([{"boq_id":"Q1","wbs_id":"1","budget_quantity":100,"unit_rate":10,"budget_amount":1000}])
+    progress=pd.DataFrame([{"period_end":"2026-01-05","activity_id":"A","boq_id":"Q1","actual_quantity_to_date":40}])
+    result,stats=calculate_progress(activities,progress,boq)
+    assert stats["weighted_progress_pct"]==40
+    assert stats["reported_activities"]==1
+    assert len(result)==1

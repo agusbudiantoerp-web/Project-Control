@@ -190,17 +190,27 @@ with cost:
 
 with progress_tab:
     st.subheader("Progress Intelligence")
-    activities=ds("activities.csv"); prog=ds("progress.csv")
+    activities=ds("activities.csv"); prog=ds("progress.csv"); boq_progress=ds("boq_budget.csv")
     if not activities.empty:
         if prog.empty:
             st.info("Progress belum dilaporkan. Impor progress.csv dengan actual_quantity_to_date dan BOQ references.")
         else:
-            show_df(prog,350)
-            st.caption("Progress quantities are retained by period and activity. EV calculation uses BOQ quantity earned against budget quantity.")
-            if "period_end" in prog:
-                p=prog.copy(); p["period_end"]=pd.to_datetime(p["period_end"],errors="coerce")
-                st.plotly_chart(px.line(p.sort_values("period_end"),x="period_end",y="actual_quantity_to_date",
-                    color="activity_id",markers=True,title="Reported physical quantity by activity"),use_container_width=True)
+            try:
+                latest_progress,progress_stats=calculate_progress(activities,prog,boq_progress)
+                if progress_stats["weighted_progress_pct"] is not None:
+                    metric_row([("Weighted physical progress",f"{progress_stats['weighted_progress_pct']:.2f}%"),
+                      ("Activities reported",f"{progress_stats['reported_activities']} / {progress_stats['total_activities']}"),
+                      ("Activities not reported",progress_stats["unreported_activities"])])
+                else:
+                    st.warning("BOQ budget belum tersedia; hanya kuantitas aktual yang dapat ditampilkan. Weighted progress memerlukan BOQ quantity dan activity weights.")
+                st.caption(f"Latest reporting date: {progress_stats['status_date']}")
+                show_df(latest_progress,350)
+                st.caption("Progress is calculated from cumulative actual BOQ quantities against approved budget quantities, allocated to activities by WBS weight share.")
+                if "period_end" in prog:
+                    p=prog.copy(); p["period_end"]=pd.to_datetime(p["period_end"],errors="coerce")
+                    st.plotly_chart(px.line(p.sort_values("period_end"),x="period_end",y="actual_quantity_to_date",
+                        color="activity_id",markers=True,title="Reported cumulative quantity by activity"),use_container_width=True)
+            except Exception as exc: st.error(f"Progress calculation needs review: {exc}")
     else: st.info("Import activity schedule first.")
 
 with risk_tab:

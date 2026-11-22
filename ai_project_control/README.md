@@ -3,13 +3,13 @@
 Local-first Streamlit application consolidating compatible project-control capabilities from the source projects in this repository.
 
 ## Integrated features
-- Project Data Hub: CSV / Excel templates, business validation and SQLite persistence per project.
+- Project Data Hub: CSV / Excel templates, cross-dataset business validation, local SQLite persistence per project, and ZIP backup / restore.
 - Primavera P6 XER: PyP6Xer v2 object-model parser for projects, activities, WBS, relationships, resources, assignments, calendars and DCMA14; plus %T/%F/%R raw-table parser and conversion.
 - CSV schedule CPM: forward/backward pass, early/late dates, total float, critical path and Gantt using pmcontrols.
 - XER CPM: FS / SS / FF / SF relationships and lag on a calendar-free day scale.
 - Full PyP6Xer DCMA14 schedule-quality analysis plus TPPSCI DCMA-style screening fallback.
 - Cost & EVM: BAC, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, TCPI and earned-schedule ES / SV(t) / SPI(t) / IEAC(t) when baseline inputs support it.
-- Progress quantities by activity / BOQ / reporting period.
+- Progress quantities by activity / BOQ / reporting period, with weighted physical progress based on cumulative quantities against BOQ budget quantities.
 - Resource, manpower and equipment assignments with planned daily load and capacity-overload screening.
 - Milestone slippage and change-control impact (approved vs pending cost / schedule changes).
 - Risk register exposure Monte Carlo and activity three-point PERT schedule Monte Carlo.
