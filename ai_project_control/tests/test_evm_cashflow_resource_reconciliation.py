@@ -87,3 +87,23 @@ def test_resource_capacity_aggregates_overlapping_assignments():
     assert daily["planned_load_per_day"].tolist() == pytest.approx([20, 20, 20])
     assert daily["over_capacity"].all()
     assert summary.loc[0, "overloaded_days"] == 3
+
+
+def test_cashflow_rejects_activity_dates_outside_project_window():
+    project, activities, boq, progress, actual, commitments = _project_inputs()
+    activities.loc[0, "planned_start"] = "2025-12-31"
+
+    with pytest.raises(ValueError, match="within project master dates"):
+        build_cost_cashflow(
+            project, activities, boq, actual, commitments, "2026-01-31", progress
+        )
+
+
+def test_cashflow_baseline_reconciles_when_activity_dates_cover_project_window():
+    project, activities, boq, progress, actual, commitments = _project_inputs()
+    cashflow, stats, _ = build_cost_cashflow(
+        project, activities, boq, actual, commitments, "2026-01-31", progress
+    )
+
+    assert cashflow["baseline_cost"].sum() == pytest.approx(stats["BAC"])
+    assert stats["BAC"] == pytest.approx(1000)
