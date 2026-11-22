@@ -115,3 +115,26 @@ def test_progress_engine_returns_weighted_physical_progress():
     assert stats["weighted_progress_pct"]==40
     assert stats["reported_activities"]==1
     assert len(result)==1
+
+
+def test_risk_analysis_is_seed_reproducible_and_chunked():
+    risks = pd.DataFrame([
+        {"risk_id": f"R{i}", "probability": 0.35, "cost_impact": i * 100,
+         "schedule_impact_days": i % 7}
+        for i in range(1, 151)
+    ])
+    _, stats_a, samples_a = risk_analysis(risks, 25000, seed=123)
+    _, stats_b, samples_b = risk_analysis(risks, 25000, seed=123)
+
+    assert stats_a == stats_b
+    pd.testing.assert_frame_equal(samples_a, samples_b)
+    assert len(samples_a) == 25000
+    assert samples_a["cost"].ge(0).all()
+    assert samples_a["delay_days"].ge(0).all()
+
+
+def test_risk_analysis_rejects_invalid_seed_and_iteration_count():
+    risks = pd.DataFrame([{"risk_id": "R1", "probability": 0.5,
+                           "cost_impact": 100, "schedule_impact_days": 2}])
+    with pytest.raises(ValueError):
+        risk_analysis(risks, 99)
