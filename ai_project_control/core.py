@@ -1203,6 +1203,8 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
         finish = pd.to_datetime(row["target_end_date"], errors="coerce")
         if pd.isna(start) or pd.isna(finish) or finish < start:
             raise ValueError(f"Invalid assignment date range for resource {row['rsrc_id']}.")
+        if (finish.normalize() - start.normalize()).days > 3660:
+            raise ValueError(f"Resource assignment window exceeds 10 years for resource {row['rsrc_id']}.")
         days = pd.date_range(start.normalize(), finish.normalize(), freq="D")
         per_day = float(row["target_qty"]) / len(days)
         for day in days:
@@ -1213,8 +1215,10 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
     )["planned_load_per_day"].sum()
     caps = r[["rsrc_id"]].copy()
     if "capacity_per_day" in r:
-        caps["capacity_per_day"] = pd.to_numeric(r["capacity_per_day"], errors="coerce")
-        invalid_capacity = caps["capacity_per_day"].notna() & (~np.isfinite(caps["capacity_per_day"].fillna(0)) | (caps["capacity_per_day"] <= 0))
+        raw_capacity = r["capacity_per_day"]
+        caps["capacity_per_day"] = pd.to_numeric(raw_capacity, errors="coerce")
+        invalid_text = raw_capacity.notna() & raw_capacity.astype(str).str.strip().ne("") & caps["capacity_per_day"].isna()
+        invalid_capacity = invalid_text | (caps["capacity_per_day"].notna() & (~np.isfinite(caps["capacity_per_day"].fillna(0)) | (caps["capacity_per_day"] <= 0)))
         if invalid_capacity.any():
             raise ValueError("capacity_per_day must be finite and greater than zero when provided.")
     else:
