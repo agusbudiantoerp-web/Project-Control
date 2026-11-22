@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
 from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios
-from resource_optimization import simulate_resource_smoothing
+from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets)
@@ -525,6 +525,28 @@ with resources_tab:
             "resource_smoothing_scenario.csv","text/csv")
         st.caption(smoothed["reason"])
 
+    st.markdown("#### Shift Capacity What-if")
+    st.caption("Masukkan faktor kapasitas efektif berdasarkan kebijakan site, produktivitas aktual, fatigue, dan aturan jam kerja. Faktor bukan otomatis sama dengan jumlah shift.")
+    shift_2_factor = st.number_input("Faktor kapasitas efektif untuk 2 shift", min_value=0.1, max_value=4.0, value=1.5, step=0.1, key="shift_2_capacity_factor")
+    shift_3_factor = st.number_input("Faktor kapasitas efektif untuk 3 shift", min_value=0.1, max_value=5.0, value=2.0, step=0.1, key="shift_3_capacity_factor")
+    if st.button("Compare shift capacity scenarios", key="run_shift_capacity"):
+        try:
+            shift_result = compare_shift_capacity_scenarios(
+                resource_data, assignment_data,
+                {1: 1.0, 2: float(shift_2_factor), 3: float(shift_3_factor)}
+            )
+            st.session_state["shift_capacity_result"] = shift_result
+        except Exception as exc:
+            st.error(f"Shift capacity comparison failed: {exc}")
+    shift_result = st.session_state.get("shift_capacity_result")
+    if shift_result is not None:
+        show_df(shift_result, 250)
+        st.download_button(
+            "Download shift capacity comparison CSV",
+            shift_result.to_csv(index=False).encode("utf-8-sig"),
+            "shift_capacity_comparison.csv", "text/csv"
+        )
+        st.warning("Biaya shift belum dihitung karena tarif lembur, tunjangan, mobilisasi, konsumsi BBM, maintenance dan produktivitas aktual belum dimasukkan. Hasil hanya membandingkan kapasitas berdasarkan faktor yang Anda tetapkan.")
 
 with milestones_tab:
     st.subheader("Milestone & Change Control")
