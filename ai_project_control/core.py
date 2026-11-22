@@ -1167,14 +1167,15 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
     if assignments.empty:
         return pd.DataFrame(), pd.DataFrame()
     a = assignments.copy()
-    if "rsrc_id" not in a or a["rsrc_id"].isna().any():
-        raise ValueError("Every resource assignment must have rsrc_id.")
+    if "rsrc_id" not in a or a["rsrc_id"].isna().any() or a["rsrc_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("Every resource assignment must have a non-blank rsrc_id.")
+    a["rsrc_id"] = a["rsrc_id"].astype(str).str.strip()
     for col in ["target_qty", "actual_qty", "target_cost", "actual_cost"]:
         if col not in a:
             a[col] = 0.0
         a[col] = pd.to_numeric(a[col], errors="coerce")
-        if a[col].isna().any() or (a[col] < 0).any():
-            raise ValueError(f"{col} must contain valid non-negative numbers.")
+        if a[col].isna().any() or not np.isfinite(a[col].to_numpy(dtype=float)).all() or (a[col] < 0).any():
+            raise ValueError(f"{col} must contain finite non-negative numbers.")
     if resources.empty:
         summary = a.groupby("rsrc_id", dropna=False).agg(
             target_qty=("target_qty", "sum"), actual_qty=("actual_qty", "sum"),
@@ -1183,9 +1184,10 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
         return summary, pd.DataFrame()
 
     r = resources.copy()
-    if "rsrc_id" not in r or r["rsrc_id"].astype(str).duplicated().any():
-        raise ValueError("resources.csv must contain unique rsrc_id values.")
-    unknown = set(a["rsrc_id"].astype(str)) - set(r["rsrc_id"].astype(str))
+    if "rsrc_id" not in r or r["rsrc_id"].isna().any() or r["rsrc_id"].astype(str).str.strip().eq("").any() or r["rsrc_id"].astype(str).str.strip().duplicated().any():
+        raise ValueError("resources.csv must contain unique non-blank rsrc_id values.")
+    r["rsrc_id"] = r["rsrc_id"].astype(str).str.strip()
+    unknown = set(a["rsrc_id"]) - set(r["rsrc_id"])
     if unknown:
         raise ValueError("Assignments reference unknown resources: " + ", ".join(sorted(unknown)))
     summary = a.groupby("rsrc_id", dropna=False).agg(
@@ -1212,9 +1214,9 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
     caps = r[["rsrc_id"]].copy()
     if "capacity_per_day" in r:
         caps["capacity_per_day"] = pd.to_numeric(r["capacity_per_day"], errors="coerce")
-        invalid_capacity = caps["capacity_per_day"].notna() & (caps["capacity_per_day"] <= 0)
+        invalid_capacity = caps["capacity_per_day"].notna() & (~np.isfinite(caps["capacity_per_day"].fillna(0)) | (caps["capacity_per_day"] <= 0))
         if invalid_capacity.any():
-            raise ValueError("capacity_per_day must be greater than zero when provided.")
+            raise ValueError("capacity_per_day must be finite and greater than zero when provided.")
     else:
         caps["capacity_per_day"] = np.nan
     load = load.merge(caps, on="rsrc_id", how="left")
