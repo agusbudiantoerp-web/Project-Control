@@ -217,6 +217,13 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
         if not budget.empty and "boq_id" in budget:
             missing_boq=set(df["boq_id"].astype(str))-set(budget["boq_id"].astype(str))
             if missing_boq: issues.append("BOQ tidak ditemukan: "+", ".join(sorted(missing_boq)))
+            if not acts.empty and {"activity_id","wbs_id"}.issubset(acts.columns) and {"boq_id","wbs_id"}.issubset(budget.columns):
+                activity_wbs=acts.set_index(acts["activity_id"].astype(str))["wbs_id"].astype(str).to_dict()
+                boq_wbs=budget.set_index(budget["boq_id"].astype(str))["wbs_id"].astype(str).to_dict()
+                for _, row in df.iterrows():
+                    activity_id=str(row["activity_id"]); boq_id=str(row["boq_id"])
+                    if activity_id in activity_wbs and boq_id in boq_wbs and activity_wbs[activity_id]!=boq_wbs[boq_id]:
+                        issues.append(f"Progress activity {activity_id} dan BOQ {boq_id} berada pada WBS berbeda.")
     if name=="actual_cost.csv":
         amount=pd.to_numeric(df["amount"],errors="coerce")
         if amount.isna().any() or not np.isfinite(amount).all() or (amount<0).any():
