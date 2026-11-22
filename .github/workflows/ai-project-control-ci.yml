@@ -1,0 +1,41 @@
+name: AI Project Control CI
+
+on:
+  push:
+    branches: [ai-project-control-integration]
+    paths:
+      - "ai_project_control/**"
+      - ".github/workflows/ai-project-control-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "ai_project_control/**"
+      - ".github/workflows/ai-project-control-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai_project_control
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ai_project_control/requirements.txt
+      - name: Install application and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+      - name: Compile application modules
+        run: python -m compileall -q app.py core.py dashboard_metrics.py pmcontrols
+      - name: Run integrated engine tests
+        run: pytest -q tests
