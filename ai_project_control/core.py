@@ -243,59 +243,134 @@ def calculate_cpm(activities: pd.DataFrame):
 
 def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataFrame,
                   progress: pd.DataFrame, actual: pd.DataFrame, status_date):
+    """Calculate auditable EVM using BOQ value and WBS-weighted activity allocation.
+
+    Progress rows are cumulative quantities; only the latest report per
+    activity/BOQ at or before status_date is used.
+    """
     if boq.empty: raise ValueError("BOQ/budget belum diimpor.")
+    if activities.empty: raise ValueError("Activities belum diimpor.")
+    required_boq={"boq_id","wbs_id","budget_quantity","unit_rate"}
+    missing=required_boq-set(boq.columns)
+    if missing: raise ValueError("BOQ missing columns: "+", ".join(sorted(missing)))
+    required_act={"activity_id","wbs_id","planned_start","planned_finish","weight_pct"}
+    missing=required_act-set(activities.columns)
+    if missing: raise ValueError("Activities missing columns: "+", ".join(sorted(missing)))
     b=boq.copy()
-    if "budget_amount" not in b: b["budget_amount"]=pd.to_numeric(b["budget_quantity"],errors="coerce")*pd.to_numeric(b["unit_rate"],errors="coerce")
-    b["budget_amount"]=pd.to_numeric(b["budget_amount"],errors="coerce").fillna(0)
+    if b["boq_id"].astype(str).duplicated().any():
+        raise ValueError("BOQ contains duplicate boq_id values.")
+    b["budget_quantity"]=pd.to_numeric(b["budget_quantity"],errors="coerce")
+    b["unit_rate"]=pd.to_numeric(b["unit_rate"],errors="coerce")
+    if b[["budget_quantity","unit_rate"]].isna().any().any() or (b[["budget_quantity","unit_rate"]]<0).any().any():
+        raise ValueError("BOQ budget_quantity and unit_rate must be valid non-negative numbers.")
+    calculated_amount=b["budget_quantity"]*b["unit_rate"]
+    if "budget_amount" in b:
+        supplied=pd.to_numeric(b["budget_amount"],errors="coerce")
+        if supplied.isna().any() or (supplied<0).any():
+            raise ValueError("BOQ budget_amount must be valid and non-negative.")
+        # Approved BOQ amount is authoritative; absent amount is derived from quantity x rate.
+        b["budget_amount"]=supplied
+    else:
+        b["budget_amount"]=calculated_amount
     bac=float(b["budget_amount"].sum())
     if bac<=0: raise ValueError("BAC harus lebih besar dari nol.")
-    sd=pd.Timestamp(status_date)
+    sd=pd.to_datetime(status_date,errors="coerce")
+    if pd.isna(sd): raise ValueError("Status date tidak valid.")
     a=activities.copy()
+    if a["activity_id"].astype(str).duplicated().any():
+        raise ValueError("Activities contain duplicate activity_id values.")
     a["planned_start"]=pd.to_datetime(a["planned_start"],errors="coerce")
     a["planned_finish"]=pd.to_datetime(a["planned_finish"],errors="coerce")
-    a["weight_pct"]=pd.to_numeric(a.get("weight_pct",0),errors="coerce").fillna(0)
-    a["budget_value"]=bac*a["weight_pct"]/100
+    if a[["planned_start","planned_finish"]].isna().any().any():
+        raise ValueError("Activity planned_start / planned_finish contains invalid dates.")
+    a["weight_pct"]=pd.to_numeric(a["weight_pct"],errors="coerce")
+    if a["weight_pct"].isna().any() or (a["weight_pct"]<0).any():
+        raise ValueError("Activity weight_pct must be valid and non-negative.")
+    weight_by_wbs=a.groupby(a["wbs_id"].astype(str))["weight_pct"].transform("sum")
+    if (weight_by_wbs<=0).any():
+        raise ValueError("Each WBS with BOQ value must have positive activity weight_pct.")
+    boq_wbs=set(b["wbs_id"].astype(str))
+    activity_wbs=set(a["wbs_id"].astype(str))
+    missing_wbs=boq_wbs-activity_wbs
+    if missing_wbs:
+        raise ValueError("BOQ WBS has no mapped activity: "+", ".join(sorted(missing_wbs)))
+    a["wbs_share"]=a["weight_pct"]/weight_by_wbs
+    a["budget_value"]=0.0
+    # Allocate each BOQ item to activities in the same WBS, proportionally to activity weights.
+    wbs_budget=b.groupby(b["wbs_id"].astype(str))["budget_amount"].sum().to_dict()
+    a["budget_value"]=a.apply(lambda row: wbs_budget.get(str(row["wbs_id"]),0.0)*row["wbs_share"],axis=1)
     def planned(row):
-        if pd.isna(row.planned_start) or pd.isna(row.planned_finish): return 0.0
         if sd<row.planned_start: return 0.0
         if sd>=row.planned_finish: return row.budget_value
         span=max(1,(row.planned_finish-row.planned_start).days+1)
         elapsed=(sd-row.planned_start).days+1
         return row.budget_value*min(1,max(0,elapsed/span))
     pv=float(a.apply(planned,axis=1).sum())
-    if not progress.empty and "activity_id" in progress:
+    ev_detail=pd.DataFrame(columns=["activity_id","wbs_id","budget_value","earned_value"])
+    ev=0.0
+    if not progress.empty:
+        required_progress={"period_end","activity_id","boq_id","actual_quantity_to_date"}
+        missing=required_progress-set(progress.columns)
+        if missing: raise ValueError("Progress missing columns: "+", ".join(sorted(missing)))
         p=progress.copy()
-        p["period_end"]=pd.to_datetime(p.get("period_end"),errors="coerce")
-        p=p[p["period_end"].isna() | (p["period_end"]<=sd)]
-        p=p.sort_values("period_end").drop_duplicates(["activity_id","boq_id"] if "boq_id" in p else ["activity_id"],keep="last")
-        p["actual_quantity_to_date"]=pd.to_numeric(p["actual_quantity_to_date"],errors="coerce").fillna(0)
-        if "boq_id" in p and "boq_id" in b:
+        p["period_end"]=pd.to_datetime(p["period_end"],errors="coerce")
+        if p["period_end"].isna().any():
+            raise ValueError("Progress contains invalid period_end dates.")
+        p=p[p["period_end"]<=sd].copy()
+        if not p.empty:
+            p["actual_quantity_to_date"]=pd.to_numeric(p["actual_quantity_to_date"],errors="coerce")
+            if p["actual_quantity_to_date"].isna().any() or (p["actual_quantity_to_date"]<0).any():
+                raise ValueError("actual_quantity_to_date must be valid and non-negative.")
+            activity_ids=set(a["activity_id"].astype(str))
+            boq_ids=set(b["boq_id"].astype(str))
+            unknown_activities=set(p["activity_id"].astype(str))-activity_ids
+            unknown_boq=set(p["boq_id"].astype(str))-boq_ids
+            if unknown_activities: raise ValueError("Progress references unknown activities: "+", ".join(sorted(unknown_activities)))
+            if unknown_boq: raise ValueError("Progress references unknown BOQ: "+", ".join(sorted(unknown_boq)))
+            p=p.sort_values("period_end").drop_duplicates(["activity_id","boq_id"],keep="last")
             q=b[["boq_id","wbs_id","budget_quantity","budget_amount"]].copy()
-            q["budget_quantity"]=pd.to_numeric(q["budget_quantity"],errors="coerce").replace(0,np.nan)
-            a["wbs_share"]=a["weight_pct"]/a.groupby("wbs_id")["weight_pct"].transform("sum").replace(0,np.nan)
             allocation=a[["activity_id","wbs_id","wbs_share"]].copy()
-            p=p.merge(q,on="boq_id",how="left",suffixes=("","_boq"))
-            p=p.merge(allocation,on="activity_id",how="left",suffixes=("","_activity"))
-            if "wbs_id_activity" in p:
-                p.loc[p["wbs_id"].astype(str)!=p["wbs_id_activity"].astype(str),"wbs_share"]=0
-            p["earned"]=p["budget_amount"].fillna(0)*p["wbs_share"].fillna(0)*(p["actual_quantity_to_date"]/p["budget_quantity"]).clip(0,1).fillna(0)
-            ev=float(p["earned"].sum())
-        else: ev=0.0
-    else: ev=0.0
+            p=p.merge(q,on="boq_id",how="left",validate="many_to_one")
+            p=p.merge(allocation,on="activity_id",how="left",suffixes=("_boq","_activity"),validate="many_to_one")
+            mismatch=p[p["wbs_id_boq"].astype(str)!=p["wbs_id_activity"].astype(str)]
+            if not mismatch.empty:
+                raise ValueError("Progress activity and BOQ must belong to the same WBS.")
+            if (p["budget_quantity"]<=0).any():
+                raise ValueError("BOQ budget_quantity must be greater than zero for reported progress.")
+            p["earned_value"]=p["budget_amount"]*p["wbs_share"]*(p["actual_quantity_to_date"]/p["budget_quantity"]).clip(0,1)
+            ev=float(p["earned_value"].sum())
+            ev_detail=p.groupby(["activity_id","wbs_id_activity"],as_index=False).agg(
+                earned_value=("earned_value","sum"))
+            ev_detail=ev_detail.rename(columns={"wbs_id_activity":"wbs_id"})
+    ac=0.0
     if not actual.empty:
+        if not {"transaction_date","amount"}.issubset(actual.columns):
+            raise ValueError("Actual cost requires transaction_date and amount.")
         ac_frame=actual.copy()
-        ac_frame["transaction_date"]=pd.to_datetime(ac_frame.get("transaction_date"),errors="coerce")
-        ac_frame=ac_frame[ac_frame["transaction_date"].isna() | (ac_frame["transaction_date"]<=sd)]
-        ac=float(pd.to_numeric(ac_frame.get("amount",pd.Series(dtype=float)),errors="coerce").fillna(0).sum())
-    else: ac=0.0
-    cpi=ev/ac if ac>0 else np.nan; spi=ev/pv if pv>0 else np.nan
+        ac_frame["transaction_date"]=pd.to_datetime(ac_frame["transaction_date"],errors="coerce")
+        ac_frame["amount"]=pd.to_numeric(ac_frame["amount"],errors="coerce")
+        if ac_frame[["transaction_date","amount"]].isna().any().any():
+            raise ValueError("Actual cost contains invalid transaction dates or amounts.")
+        if (ac_frame["amount"]<0).any():
+            raise ValueError("Actual cost amount cannot be negative.")
+        ac=float(ac_frame.loc[ac_frame["transaction_date"]<=sd,"amount"].sum())
+        if "currency" in ac_frame and not ac_frame.empty:
+            currencies=set(ac_frame["currency"].dropna().astype(str).str.strip())-{"", "nan"}
+            if len(currencies)>1:
+                raise ValueError("Actual cost contains multiple currencies; convert to project currency before EVM.")
+            if not project.empty and "currency" in project and currencies:
+                project_currency=str(project.iloc[0]["currency"]).strip()
+                if project_currency and next(iter(currencies))!=project_currency:
+                    raise ValueError("Actual cost currency does not match project currency.")
+    cpi=ev/ac if ac>0 else np.nan
+    spi=ev/pv if pv>0 else np.nan
     eac=bac/cpi if pd.notna(cpi) and cpi>0 else np.nan
     etc=eac-ac if pd.notna(eac) else np.nan
     vac=bac-eac if pd.notna(eac) else np.nan
     tcpi=(bac-ev)/(bac-ac) if bac>ac else np.nan
     return {"BAC":bac,"PV":pv,"EV":ev,"AC":ac,"SV":ev-pv,"CV":ev-ac,
       "SPI":spi,"CPI":cpi,"EAC":eac,"ETC":etc,"VAC":vac,"TCPI":tcpi,
-      "physical_progress_pct":ev/bac*100}
+      "physical_progress_pct":ev/bac*100,"ev_detail":ev_detail}
 
 def calculate_progress(activities, progress, boq=None):
     if activities.empty: raise ValueError("Activities belum diimpor.")
