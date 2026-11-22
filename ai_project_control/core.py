@@ -333,6 +333,10 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
     missing=required_act-set(activities.columns)
     if missing: raise ValueError("Activities missing columns: "+", ".join(sorted(missing)))
     b=boq.copy()
+    if b["boq_id"].isna().any() or b["boq_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("BOQ contains blank boq_id values.")
+    if b["wbs_id"].isna().any() or b["wbs_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("BOQ contains blank wbs_id values.")
     if b["boq_id"].astype(str).duplicated().any():
         raise ValueError("BOQ contains duplicate boq_id values.")
     b["budget_quantity"]=pd.to_numeric(b["budget_quantity"],errors="coerce")
