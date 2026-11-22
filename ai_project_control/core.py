@@ -299,13 +299,37 @@ def validate_project_datasets(datasets: dict[str,pd.DataFrame]):
 
 def calculate_cpm(activities: pd.DataFrame):
     if activities.empty: raise ValueError("Import activities terlebih dahulu.")
+    required={"activity_id","duration_days"}
+    missing=required-set(activities.columns)
+    if missing:
+        raise ValueError("Activities missing CPM columns: "+", ".join(sorted(missing)))
+    frame=activities.copy()
+    ids=frame["activity_id"]
+    if ids.isna().any() or ids.astype(str).str.strip().eq("").any():
+        raise ValueError("CPM activity_id harus terisi dan unik.")
+    frame["activity_id"]=ids.astype(str).str.strip()
+    if frame["activity_id"].duplicated().any():
+        raise ValueError("CPM activity_id harus terisi dan unik.")
+    durations=pd.to_numeric(frame["duration_days"],errors="coerce")
+    if durations.isna().any() or not np.isfinite(durations).all() or (durations<0).any():
+        raise ValueError("CPM duration_days harus berupa angka finite dan tidak negatif.")
+    frame["duration_days"]=durations.astype(float)
+    if "predecessor_ids" not in frame:
+        frame["predecessor_ids"]=""
+    known=set(frame["activity_id"])
     records=[]
-    for _,r in activities.iterrows():
+    for _,r in frame.iterrows():
         pred_raw=r.get("predecessor_ids","")
         pred_raw="" if pd.isna(pred_raw) else str(pred_raw)
-        records.append({"id":str(r["activity_id"]),
-          "duration":float(pd.to_numeric(r["duration_days"],errors="raise")),
-          "predecessors":pred_raw})
+        predecessors=[p.strip() for p in pred_raw.split(",") if p.strip()]
+        if r["activity_id"] in predecessors:
+            raise ValueError(f"CPM activity {r['activity_id']} tidak boleh menjadi predecessor dirinya sendiri.")
+        unknown=sorted(set(predecessors)-known)
+        if unknown:
+            raise ValueError(f"CPM predecessor tidak ditemukan untuk {r['activity_id']}: "+", ".join(unknown))
+        records.append({"id":r["activity_id"],
+          "duration":float(r["duration_days"]),
+          "predecessors":",".join(predecessors)})
     from pmcontrols.network import cpm
     result=cpm(records)
     out=result.table.copy()
