@@ -189,6 +189,11 @@ with cost:
             evm=add_earned_schedule_metrics(evm,master,activities,status_date)
             metric_row([(k,f"{v:,.2f}" if pd.notna(v) else "—") for k,v in evm.items() if k in ["BAC","PV","EV","AC"]])
             metric_row([(k,f"{v:,.3f}" if pd.notna(v) else "—") for k,v in evm.items() if k in ["SPI","CPI","EAC","ETC","VAC","TCPI"]])
+            if "SPI(t)" in evm:
+                st.markdown("#### Earned Schedule — time performance")
+                metric_row([(k,f"{evm[k]:,.2f}" if pd.notna(evm[k]) else "—")
+                    for k in ["ES","SV(t)","SPI(t)","IEAC(t)"] if k in evm])
+                st.caption("ES = earned schedule time; SV(t) = time variance; SPI(t) = time efficiency; IEAC(t) = duration forecast using earned schedule.")
             st.caption(f"Weighted earned value progress: {evm['physical_progress_pct']:.2f}%")
             if not master.empty and {"planned_start","planned_finish"}.issubset(master.columns) and pd.notna(evm["SPI"]):
                 forecast=forecast_completion_date(evm["SPI"],str(master.iloc[0]["planned_start"]),str(master.iloc[0]["planned_finish"]))
