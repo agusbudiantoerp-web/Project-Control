@@ -636,3 +636,33 @@ def test_gemini_drawing_api_key_is_sent_in_header_not_url(monkeypatch):
     assert "secret-test-key" not in calls["url"]
     assert "?" not in calls["url"]
     assert calls["headers"]["x-goog-api-key"]=="secret-test-key"
+
+
+
+def test_default_templates_have_consistent_reference_ids_and_evm_weights():
+    from core import TEMPLATES
+
+    samples = {
+        name: pd.DataFrame([row], columns=columns)
+        for name, (columns, row) in TEMPLATES.items()
+    }
+    wbs_ids = set(samples["wbs.csv"]["wbs_id"].astype(str))
+    activity_ids = set(samples["activities.csv"]["activity_id"].astype(str))
+    resource_ids = set(samples["resources.csv"]["rsrc_id"].astype(str))
+    calendar_ids = set(samples["calendars.csv"]["calendar_id"].astype(str))
+
+    wbs = samples["wbs.csv"].iloc[0]
+    assert not str(wbs["parent_wbs_id"]).strip()
+
+    activity = samples["activities.csv"].iloc[0]
+    assert str(activity["wbs_id"]) in wbs_ids
+    assert float(activity["weight_pct"]) == 100.0
+    assert str(activity["calendar_id"]) in calendar_ids
+
+    assignment = samples["resource_assignments.csv"].iloc[0]
+    assert str(assignment["task_id"]) in activity_ids
+    assert str(assignment["rsrc_id"]) in resource_ids
+
+    relationship = samples["relationships.csv"].iloc[0]
+    assert str(relationship["task_id"]) in activity_ids
+    assert str(relationship["pred_task_id"]) in activity_ids
