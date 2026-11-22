@@ -69,8 +69,8 @@ def metric_row(items):
         elif isinstance(value,float): value=f"{value:,.2f}"
         c.metric(label,value)
 
-overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, resources_tab, milestones_tab, drawing_tab, ai_advisor, reports, forecast_tab, guide = st.tabs([
-    "Overview","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
+overview, portfolio_tab, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, resources_tab, milestones_tab, drawing_tab, ai_advisor, reports, forecast_tab, guide = st.tabs([
+    "Overview","Portfolio Command Center","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
     "Optimization","Primavera XER","Resources & Manpower","Milestones & Change","Drawing to BOQ","AI Advisor","Reports","Integrated Forecast","User Guide"
 ])
 
