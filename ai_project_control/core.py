@@ -33,7 +33,6 @@ TEMPLATES = {
  "change_register.csv": (["change_id","date_raised","description","cost_impact","schedule_impact_days","status","approved_by"], ["CR-001","2026-03-01","Additional drainage scope","15000000","3","Pending",""]),
  "drawing_takeoff.csv": (["drawing_id","page","discipline","item_code","description","unit","quantity","measurement_method","confidence","assumptions","review_status"], ["DWG-001","1","Civil","ITM-001","Concrete slab","m3","","Scale / dimensions required","Low","Verify drawing scale and dimensions","Pending Review"]),
 }
-}
 REQUIRED = {
  "project_master.csv":["project_id","project_name","planned_start","planned_finish","status_date","currency"],
  "wbs.csv":["wbs_id","wbs_name"],
