@@ -34,6 +34,6 @@ Local-first Streamlit application consolidating compatible project-control capab
 Install requirements.txt and run: streamlit run app.py
 
 ## Local data
-SQLite file: project_control.db in this application directory. Back it up. Never commit confidential project data or the database to a public repository.
+SQLite file: %LOCALAPPDATA%\\AIProjectControl\\project_control.db on Windows (or the user's home directory on other platforms). The database is stored outside the PyInstaller bundle so application updates do not overwrite project records. Back it up. Never commit confidential project data or the database to a public repository.
 
 See THIRD_PARTY_NOTICES.md for source attribution and licensing.

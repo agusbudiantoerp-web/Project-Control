@@ -6,12 +6,15 @@ from datetime import date
 from io import BytesIO
 from pathlib import Path
 import json
+import os
 import sqlite3
 import numpy as np
 import pandas as pd
 
 APP_DIR = Path(__file__).resolve().parent
-DB_PATH = APP_DIR / "project_control.db"
+DATA_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "AIProjectControl"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = DATA_DIR / "project_control.db"
 
 TEMPLATES = {
  "project_master.csv": (["project_id","project_name","client","location","project_type","planned_start","planned_finish","status_date","currency"], ["PRJ-001","Demo Construction Project","Demo Client","Jakarta","Construction","2026-01-01","2026-12-31","2026-03-31","IDR"]),
