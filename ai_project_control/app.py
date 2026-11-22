@@ -7,6 +7,7 @@ import plotly.express as px
 import requests
 
 from dashboard_metrics import forecast_completion_date
+from integrated_forecast import build_integrated_forecast
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets)
@@ -54,9 +55,9 @@ def metric_row(items):
         elif isinstance(value,float): value=f"{value:,.2f}"
         c.metric(label,value)
 
-overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, resources_tab, milestones_tab, drawing_tab, ai_advisor, reports, guide = st.tabs([
+overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, resources_tab, milestones_tab, drawing_tab, ai_advisor, reports, forecast_tab, guide = st.tabs([
     "Overview","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
-    "Optimization","Primavera XER","Resources & Manpower","Milestones & Change","Drawing to BOQ","AI Advisor","Reports","User Guide"
+    "Optimization","Primavera XER","Resources & Manpower","Milestones & Change","Drawing to BOQ","AI Advisor","Reports","Integrated Forecast","User Guide"
 ])
 
 with overview:
@@ -697,6 +698,71 @@ with reports:
         if not frame.empty:
             st.download_button(f"Download {name}",frame.to_csv(index=False).encode("utf-8-sig"),
                 name,"text/csv",key="report_"+name)
+
+
+with forecast_tab:
+    st.subheader("Integrated Project Forecast")
+    st.caption("Menggabungkan jadwal, EVM, resource capacity dan risiko dalam satu ringkasan forecast.")
+    forecast_simulations = st.number_input("Jumlah simulasi risiko", min_value=1000, max_value=50000,
+        value=5000, step=1000, key="integrated_forecast_simulations")
+    if st.button("Run Integrated Forecast", type="primary", key="run_integrated_forecast"):
+        try:
+            forecast_result = build_integrated_forecast(
+                activities=ds("activities.csv"),
+                boq_budget=ds("boq_budget.csv"),
+                progress=ds("progress.csv"),
+                actual_cost=ds("actual_cost.csv"),
+                resources=ds("resources.csv"),
+                resource_assignments=ds("resource_assignments.csv"),
+                risk_register=ds("risk_register.csv"),
+                status_date=status_date,
+                simulations=int(forecast_simulations),
+            )
+            st.session_state["integrated_forecast_result"] = forecast_result
+            st.success("Integrated forecast berhasil dihitung dari dataset yang tersimpan.")
+        except Exception as exc:
+            st.error(f"Forecast tidak dapat dihitung: {exc}")
+    result = st.session_state.get("integrated_forecast_result")
+    if result:
+        st.markdown("#### Schedule outlook")
+        cols = st.columns(4)
+        cols[0].metric("Baseline finish", result["baseline_finish"])
+        cols[1].metric("Forecast finish", result["forecast_finish"])
+        cols[2].metric("Risk-adjusted P80", result["risk_adjusted_finish_p80"])
+        cols[3].metric("Forecast basis", result["schedule_basis"])
+        st.markdown("#### Cost & EVM outlook")
+        if result["evm_available"]:
+            cols = st.columns(5)
+            for col, label, key, fmt in [
+                (cols[0], "BAC", "bac", ",.0f"), (cols[1], "PV", "pv", ",.0f"),
+                (cols[2], "EV", "ev", ",.0f"), (cols[3], "AC", "ac", ",.0f"),
+                (cols[4], "EAC", "eac", ",.0f")
+            ]:
+                value = result[key]
+                col.metric(label, f"{value:{fmt}}" if pd.notna(value) else "—")
+            cols = st.columns(3)
+            cols[0].metric("CPI", f'{result["cpi"]:.3f}' if pd.notna(result["cpi"]) else "—")
+            cols[1].metric("SPI", f'{result["spi"]:.3f}' if pd.notna(result["spi"]) else "—")
+            cols[2].metric("ETC", f'{result["etc"]:,.0f}' if pd.notna(result["etc"]) else "—")
+        else:
+            st.info("EVM belum tersedia. Lengkapi BOQ Budget, Progress, dan Actual Cost untuk menghitung BAC/PV/EV/AC/EAC.")
+        st.markdown("#### Risk-adjusted exposure")
+        cols = st.columns(4)
+        cols[0].metric("Risk cost P50", f'{result["risk_cost_p50"]:,.0f}')
+        cols[1].metric("Risk cost P80", f'{result["risk_cost_p80"]:,.0f}')
+        cols[2].metric("Schedule impact P50", f'{result["risk_days_p50"]:.1f} days')
+        cols[3].metric("Schedule impact P80", f'{result["risk_days_p80"]:.1f} days')
+        if pd.notna(result["risk_adjusted_cost_p80"]):
+            st.metric("Risk-adjusted cost forecast P80", f'{result["risk_adjusted_cost_p80"]:,.0f}')
+        st.markdown("#### Resource capacity screening")
+        st.metric("Assignments above 100% capacity", result["resource_overload_assignments"])
+        if not result["resource_summary"].empty:
+            st.dataframe(result["resource_summary"], use_container_width=True, hide_index=True)
+        with st.expander("Forecast assumptions and limitations"):
+            for assumption in result["assumptions"]:
+                st.write("• " + assumption)
+    else:
+        st.info("Pilih Run Integrated Forecast untuk menghitung proyeksi berdasarkan data proyek yang sudah diimpor.")
 
 with guide:
     st.subheader("User Guide")
