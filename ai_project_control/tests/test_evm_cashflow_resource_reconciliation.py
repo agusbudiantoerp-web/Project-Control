@@ -171,3 +171,16 @@ def test_resource_load_rejects_blank_and_duplicate_resource_ids():
     assignments = pd.DataFrame([{"rsrc_id":"R1","target_qty":1}])
     with pytest.raises(ValueError, match="unique non-blank rsrc_id"):
         calculate_resource_load(resources, assignments)
+
+def test_resource_load_rejects_malformed_capacity_and_extreme_date_window():
+    resources = pd.DataFrame([{"rsrc_id":"R1","capacity_per_day":"not-a-number"}])
+    assignments = pd.DataFrame([{
+        "rsrc_id":"R1","target_qty":2,"target_start_date":"2026-01-01",
+        "target_end_date":"2026-01-02",
+    }])
+    with pytest.raises(ValueError, match="capacity_per_day must be finite"):
+        calculate_resource_load(resources, assignments)
+    resources = pd.DataFrame([{"rsrc_id":"R1","capacity_per_day":8}])
+    assignments.loc[0,"target_end_date"]="2040-01-01"
+    with pytest.raises(ValueError, match="exceeds 10 years"):
+        calculate_resource_load(resources, assignments)
