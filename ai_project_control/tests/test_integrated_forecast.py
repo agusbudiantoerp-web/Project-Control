@@ -62,3 +62,35 @@ def test_integrated_forecast_rejects_invalid_schedule_dates():
     }])
     with pytest.raises(ValueError, match="Tanggal"):
         build_integrated_forecast(activities)
+
+
+
+def test_integrated_forecast_includes_reconciled_cashflow_when_project_master_is_supplied():
+    activities = pd.DataFrame([
+        {"activity_id": "A1", "activity_name": "Work", "wbs_id": "W1",
+         "duration_days": 30, "weight_pct": 100, "predecessor_ids": "",
+         "planned_start": "2026-01-01", "planned_finish": "2026-01-30"},
+    ])
+    project = pd.DataFrame([{
+        "project_id": "P1", "project_name": "Test", "planned_start": "2026-01-01",
+        "planned_finish": "2026-03-31", "currency": "IDR",
+    }])
+    boq = pd.DataFrame([{
+        "boq_id": "B1", "wbs_id": "W1", "budget_quantity": 100,
+        "unit_rate": 1000, "budget_amount": 100000,
+    }])
+    progress = pd.DataFrame([{
+        "period_end": "2026-01-30", "activity_id": "A1", "boq_id": "B1",
+        "actual_quantity_to_date": 50,
+    }])
+    actual = pd.DataFrame([{
+        "transaction_date": "2026-01-20", "amount": 40000, "currency": "IDR",
+    }])
+    result = build_integrated_forecast(
+        activities=activities, boq_budget=boq, progress=progress,
+        actual_cost=actual, project_master=project, commitments=pd.DataFrame(),
+        status_date="2026-01-30", simulations=1000,
+    )
+    assert result["cashflow_stats"]["BAC"] == pytest.approx(100000)
+    assert result["cashflow_stats"]["actual_to_date"] == pytest.approx(40000)
+    assert not result["cashflow"].empty
