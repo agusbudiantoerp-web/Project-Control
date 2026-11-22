@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -206,6 +206,26 @@ with cost:
         except Exception as exc: st.error(f"EVM cannot be calculated: {exc}")
     else:
         st.info("Impor activities.csv dan boq_budget.csv untuk mengaktifkan EVM.")
+    st.divider()
+    st.markdown("#### Purchase Commitments & Outstanding Exposure")
+    commitments=ds("commitments.csv")
+    try:
+        project_currency=str(master.iloc[0]["currency"]) if not master.empty and "currency" in master else None
+        commitment_detail,commitment_stats=analyze_commitments(commitments,status_date,project_currency)
+        metric_row([
+            ("Active commitments",commitment_stats["commitment_count"]),
+            ("Committed total",f"{commitment_stats['committed_total']:,.2f}"),
+            ("Paid against commitments",f"{commitment_stats['paid_total']:,.2f}"),
+            ("Outstanding commitment",f"{commitment_stats['outstanding_total']:,.2f}")
+        ])
+        if not commitment_detail.empty:
+            show_df(commitment_detail,300)
+            st.download_button("Download commitment reconciliation CSV",
+                commitment_detail.to_csv(index=False).encode("utf-8-sig"),
+                "commitment_reconciliation.csv","text/csv")
+        st.caption("Commitment paid amounts are reconciliation only. They are not added to actual cost (AC), preventing double counting. Cancelled, rejected and void commitments are excluded.")
+    except Exception as exc:
+        st.error(f"Commitment reconciliation needs correction: {exc}")
     st.markdown("#### EVM definitions")
     st.caption("CV = EV − AC | SV = EV − PV | CPI = EV / AC | SPI = EV / PV | EAC = BAC / CPI | ETC = EAC − AC | VAC = BAC − EAC.")
 
