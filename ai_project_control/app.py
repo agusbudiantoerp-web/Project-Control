@@ -13,6 +13,7 @@ from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
 from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix, build_predictive_warnings, diagnose_project_drivers, build_root_cause_action_plan
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
+from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio)
@@ -109,6 +110,32 @@ with portfolio_tab:
             st.dataframe(intervention[["project_id","project_name","status_date","currency","SPI","CPI","EAC","portfolio_status","data_readiness"]],
                          use_container_width=True, hide_index=True)
         st.caption("SPI/CPI hanya dihitung jika dataset EVM proyek memenuhi persyaratan. Jangan menjumlahkan BAC, AC atau EAC lintas mata uang. Status ini merupakan screening KPI, bukan keputusan kontraktual.")
+
+        st.markdown("### Portfolio Risk Heatmap & Early Warning")
+        risk_inputs = []
+        for _, project_row in portfolio.iterrows():
+            risk_inputs.append({
+                "project_id": project_row.get("project_id"),
+                "project_name": project_row.get("project_name"),
+                "spi": project_row.get("SPI"),
+                "cpi": project_row.get("CPI"),
+                "currency": project_row.get("currency"),
+            })
+        risk_rows = pd.DataFrame(rank_portfolio(risk_inputs))
+        if not risk_rows.empty:
+            st.dataframe(
+                risk_rows[["project_id","project_name","risk_score","risk_status",
+                           "available_indicators","evidence","missing_indicators",
+                           "recommended_attention"]],
+                use_container_width=True, hide_index=True
+            )
+            st.download_button(
+                "Download portfolio risk & early-warning register",
+                risk_rows.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_risk_early_warning.csv",
+                mime="text/csv",
+            )
+        st.caption("Risk score saat ini menggunakan SPI dan CPI yang tersedia dari EVM. Indikator float, risk exposure/capacity, dan forecast variance tidak diasumsikan; lengkapi dataset terkait sebelum menggunakannya untuk keputusan manajemen.")
 
 with overview:
     master=ds("project_master.csv")
