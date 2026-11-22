@@ -427,3 +427,46 @@ def test_resource_load_rejects_unknown_resource_and_invalid_dates():
         assert "date range" in str(exc)
     else:
         raise AssertionError("Invalid date range must be rejected")
+
+
+def test_risk_analysis_adds_p90_and_rejects_invalid_inputs():
+    from core import risk_analysis
+
+    risks = pd.DataFrame([
+        {"risk_id":"R1","probability":1.0,"cost_impact":100,
+         "schedule_impact_days":5},
+        {"risk_id":"R2","probability":0.0,"cost_impact":900,
+         "schedule_impact_days":20},
+    ])
+    ranked, stats, samples = risk_analysis(risks, iterations=1000, seed=11)
+    assert stats["cost_p90"] == 100
+    assert stats["delay_p90"] == 5
+    assert stats["iterations"] == 1000
+    assert (samples["cost"] == 100).all()
+    assert (samples["delay_days"] == 5).all()
+
+    invalid = risks.copy()
+    invalid.loc[0, "probability"] = 1.5
+    try:
+        risk_analysis(invalid, iterations=1000)
+    except ValueError as exc:
+        assert "probability" in str(exc)
+    else:
+        raise AssertionError("Out-of-range probability must be rejected")
+
+    invalid = risks.copy()
+    invalid.loc[1, "cost_impact"] = -1
+    try:
+        risk_analysis(invalid, iterations=1000)
+    except ValueError as exc:
+        assert "cost_impact" in str(exc)
+    else:
+        raise AssertionError("Negative risk impact must be rejected")
+
+    invalid = pd.concat([risks, risks.iloc[[0]]], ignore_index=True)
+    try:
+        risk_analysis(invalid, iterations=1000)
+    except ValueError as exc:
+        assert "unik" in str(exc)
+    else:
+        raise AssertionError("Duplicate risk IDs must be rejected")
