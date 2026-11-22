@@ -30,7 +30,7 @@ REQUIRED = {
  "project_master.csv":["project_id","project_name","planned_start","planned_finish","status_date","currency"],
  "wbs.csv":["wbs_id","wbs_name"],
  "activities.csv":["activity_id","wbs_id","activity_name","duration_days","planned_start","planned_finish","predecessor_ids","weight_pct"],
- "boq_budget.csv":["boq_id","description","unit","budget_quantity","unit_rate"],
+ "boq_budget.csv":["boq_id","wbs_id","description","unit","budget_quantity","unit_rate"],
  "progress.csv":["period_end","activity_id","boq_id","actual_quantity_to_date"],
  "actual_cost.csv":["transaction_date","amount","currency"],
  "risk_register.csv":["risk_id","risk_description","probability","cost_impact","schedule_impact_days"],
@@ -146,6 +146,19 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
     if name=="risk_register.csv":
         p=pd.to_numeric(df["probability"],errors="coerce")
         if p.isna().any() or ((p<0)|(p>1)).any(): issues.append("probability harus antara 0 dan 1.")
+    if name=="progress.csv":
+        q=pd.to_numeric(df["actual_quantity_to_date"],errors="coerce")
+        if q.isna().any() or (q<0).any(): issues.append("actual_quantity_to_date harus angka >= 0.")
+        acts=existing.get("activities.csv",pd.DataFrame())
+        if not acts.empty and "activity_id" in acts:
+            missing_ids=set(df["activity_id"].astype(str))-set(acts["activity_id"].astype(str))
+            if missing_ids: issues.append("Activity tidak ditemukan: "+", ".join(sorted(missing_ids)))
+        budget=existing.get("boq_budget.csv",pd.DataFrame())
+        if not budget.empty and "boq_id" in budget:
+            missing_boq=set(df["boq_id"].astype(str))-set(budget["boq_id"].astype(str))
+            if missing_boq: issues.append("BOQ tidak ditemukan: "+", ".join(sorted(missing_boq)))
+    if name=="resources.csv" and df["rsrc_id"].astype(str).duplicated().any():
+        issues.append("rsrc_id duplikat.")
     return issues
 
 def calculate_cpm(activities: pd.DataFrame):
@@ -197,15 +210,18 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
         p=p.sort_values("period_end").drop_duplicates(["activity_id","boq_id"] if "boq_id" in p else ["activity_id"],keep="last")
         p["actual_quantity_to_date"]=pd.to_numeric(p["actual_quantity_to_date"],errors="coerce").fillna(0)
         if "boq_id" in p and "boq_id" in b:
-            q=b[["boq_id","budget_quantity","budget_amount"]].copy()
+            q=b[["boq_id","wbs_id","budget_quantity","budget_amount"]].copy()
             q["budget_quantity"]=pd.to_numeric(q["budget_quantity"],errors="coerce").replace(0,np.nan)
-            p=p.merge(q,on="boq_id",how="left")
-            p["earned"]=p["budget_amount"].fillna(0)*(p["actual_quantity_to_date"]/p["budget_quantity"]).clip(0,1).fillna(0)
-            ev=float(p.groupby("activity_id")["earned"].sum().sum())
+            a["wbs_share"]=a["weight_pct"]/a.groupby("wbs_id")["weight_pct"].transform("sum").replace(0,np.nan)
+            allocation=a[["activity_id","wbs_id","wbs_share"]].copy()
+            p=p.merge(q,on="boq_id",how="left",suffixes=("","_boq"))
+            p=p.merge(allocation,on="activity_id",how="left",suffixes=("","_activity"))
+            if "wbs_id_activity" in p:
+                p.loc[p["wbs_id"].astype(str)!=p["wbs_id_activity"].astype(str),"wbs_share"]=0
+            p["earned"]=p["budget_amount"].fillna(0)*p["wbs_share"].fillna(0)*(p["actual_quantity_to_date"]/p["budget_quantity"]).clip(0,1).fillna(0)
+            ev=float(p["earned"].sum())
         else: ev=0.0
     else: ev=0.0
-    if ev==0 and "weight_pct" in a and not progress.empty:
-        pass
     if not actual.empty:
         ac_frame=actual.copy()
         ac_frame["transaction_date"]=pd.to_datetime(ac_frame.get("transaction_date"),errors="coerce")
@@ -609,3 +625,38 @@ def send_telegram_document(bot_token, chat_id, file_bytes, filename, caption="AI
     payload=response.json()
     if not payload.get("ok"): raise RuntimeError(payload.get("description","Telegram API rejected the document"))
     return payload
+
+
+def predict_project_trend(project, activities, boq, progress, actual_cost):
+    """Time-series project forecast from approved progress periods; returns None until 3 periods exist."""
+    if progress.empty or "period_end" not in progress: return None,pd.DataFrame()
+    periods=sorted(pd.to_datetime(progress["period_end"],errors="coerce").dropna().unique())
+    if len(periods)<3: return None,pd.DataFrame()
+    rows=[]
+    for period in periods:
+        values=calculate_evm(project,activities,boq,progress,actual_cost,pd.Timestamp(period))
+        rows.append({"period_end":pd.Timestamp(period),"PV":values["PV"],"EV":values["EV"],
+          "AC":values["AC"],"SPI":values["SPI"],"CPI":values["CPI"],
+          "earned_pct":values["physical_progress_pct"]})
+    history=pd.DataFrame(rows).sort_values("period_end").reset_index(drop=True)
+    valid=history.dropna(subset=["earned_pct"])
+    if len(valid)<3: return None,history
+    bac=float(pd.to_numeric(boq.get("budget_amount",pd.Series(dtype=float)),errors="coerce").fillna(0).sum())
+    if bac<=0: return None,history
+    x=(valid["period_end"]-valid["period_end"].min()).dt.days.to_numpy(dtype=float)
+    y=(valid["EV"]/bac).to_numpy(dtype=float)
+    if len(set(x))<2: return None,history
+    slope,intercept=np.polyfit(x,y,1)
+    latest=valid.iloc[-1]
+    finish_forecast=None
+    if slope>0 and latest["EV"]<bac:
+        remaining=max(0.0,(1.0-float(latest["EV"]/bac))/slope)
+        finish_forecast=latest["period_end"]+pd.Timedelta(days=remaining)
+    eac=bac/float(latest["CPI"]) if pd.notna(latest["CPI"]) and latest["CPI"]>0 else np.nan
+    result={"reporting_periods":len(valid),"BAC":bac,"latest_EV":float(latest["EV"]),
+      "latest_AC":float(latest["AC"]),"latest_SPI":float(latest["SPI"]) if pd.notna(latest["SPI"]) else np.nan,
+      "latest_CPI":float(latest["CPI"]) if pd.notna(latest["CPI"]) else np.nan,
+      "trend_slope_pct_per_day":float(slope*100),"trend_finish_forecast":finish_forecast,
+      "trend_EAC":float(eac) if pd.notna(eac) else np.nan,
+      "method":"Linear trend on cumulative earned-value progress; minimum 3 reporting periods"}
+    return result,history

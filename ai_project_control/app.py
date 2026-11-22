@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -356,6 +356,9 @@ with ai_advisor:
         if not ds("risk_register.csv").empty:
             _,risk_stats,_=risk_analysis(ds("risk_register.csv"),3000)
             context["risk"]=risk_stats
+        trend_prediction,_=predict_project_trend(ds("project_master.csv"),ds("activities.csv"),
+          ds("boq_budget.csv"),ds("progress.csv"),ds("actual_cost.csv"))
+        if trend_prediction: context["trend_prediction"]=trend_prediction
     except Exception as exc:
         context["data_quality_note"]=str(exc)
     st.json(context)
@@ -383,12 +386,21 @@ with ai_advisor:
             except Exception as exc:
                 st.error(f"AI provider request failed: {exc}")
     st.markdown("#### Predictive readiness")
-    historical=ds("progress.csv")
-    periods=historical["period_end"].nunique() if not historical.empty and "period_end" in historical else 0
-    if periods>=3:
-        st.success(f"Historical progress has {periods} reporting periods. Trend-based forecasting can be added to the next prediction release.")
+    trend_prediction,trend_history=predict_project_trend(ds("project_master.csv"),ds("activities.csv"),
+        ds("boq_budget.csv"),ds("progress.csv"),ds("actual_cost.csv"))
+    if trend_prediction:
+        st.markdown("#### Historical trend forecast")
+        metric_row([("Reporting periods",trend_prediction["reporting_periods"]),
+          ("Latest SPI",trend_prediction["latest_SPI"]),("Latest CPI",trend_prediction["latest_CPI"]),
+          ("Trend EAC",f"{trend_prediction['trend_EAC']:,.0f}" if pd.notna(trend_prediction["trend_EAC"]) else "—")])
+        if trend_prediction["trend_finish_forecast"] is not None:
+            st.metric("Trend-based finish forecast",pd.Timestamp(trend_prediction["trend_finish_forecast"]).strftime("%d %b %Y"))
+        st.plotly_chart(px.line(trend_history,x="period_end",y=["PV","EV","AC"],markers=True,
+            title="Historical cumulative PV / EV / AC"),use_container_width=True)
+        st.caption(trend_prediction["method"]+". This is a trend projection, not a trained machine-learning model.")
     else:
-        st.info(f"Currently {periods} reporting periods are available. Reliable machine-learning prediction requires several approved historical reporting periods and actual project outcomes.")
+        periods=ds("progress.csv")["period_end"].nunique() if not ds("progress.csv").empty and "period_end" in ds("progress.csv") else 0
+        st.info(f"Available reporting periods: {periods}. At least 3 valid reporting periods with BOQ quantities and actual costs are needed for a trend forecast. ML prediction needs a longer, validated project history.")
 
 with reports:
     st.subheader("Management Reports & Data Export")

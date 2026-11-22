@@ -15,6 +15,7 @@ Local-first Streamlit application consolidating compatible project-control capab
 - Risk register exposure Monte Carlo and activity three-point PERT schedule Monte Carlo.
 - Minimum-cost schedule crashing with scipy.optimize.linprog when approved crash assumptions are supplied.
 - Optional AI Project Advisor through Groq or Google Gemini; API key is entered per session and is not stored in SQLite. User explicitly initiates transmission.
+- Trend-based completion and EAC projection from at least three valid progress reporting periods; clearly labelled as trend projection, not ML.
 - PDF management report and optional Telegram document delivery; bot token and chat ID are not saved by the application.
 - Multi-sheet Excel workbook, PDF management report and optional Telegram document delivery.
 
@@ -28,7 +29,7 @@ Local-first Streamlit application consolidating compatible project-control capab
 ## Engineering boundaries
 - CSV CPM uses FS links and relative working periods. XER CPM supports FS / SS / FF / SF and lag but is calendar-free. Neither replaces native P6 recalculation with calendars, constraints, resource levelling and full project settings.
 - PyP6Xer DCMA14 uses the upstream library's own analysis model. Validate source data and P6 settings before treating any quality score as contractual evidence.
-- EVM requires valid BOQ budget, activity weights, quantity progress, status date and actual-cost transactions.
+- EVM allocates each WBS BOQ budget across activities using activity weight shares, then calculates earned value from reported quantities. It requires valid BOQ budget, activity weights, quantity progress, status date and actual-cost transactions.
 - Monte Carlo assumes independent risk occurrence and uses supplied three-point duration multipliers for PERT unless richer uncertainty data is provided.
 - AI output is advisory and depends on external provider credentials. It must not replace deterministic calculations or professional review.
 - Drawing-to-BOQ, full resource optimization, Telegram automation, PDF output, and full P6 calendar/resource semantics remain subsequent releases.
