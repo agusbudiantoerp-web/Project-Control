@@ -904,3 +904,102 @@ def import_project_backup(project_id: str, raw: bytes):
             if issues: raise ValueError(f"{safe}: "+"; ".join(issues))
             save_dataset(project_id,safe,frame); restored.append(safe)
     return restored
+
+
+def _calendar_definition(calendar_id: str, calendars: pd.DataFrame | None = None):
+    """Return a deterministic weekly work pattern and holiday set.
+
+    workdays_per_week maps to Monday-first schedules: 5=Mon-Fri,
+    6=Mon-Sat, 7=Mon-Sun. Custom weekday masks and shift calendars
+    are intentionally not inferred from this simplified CSV schema.
+    """
+    days = 5
+    holidays: set[date] = set()
+    hours_per_day = 8.0
+    if calendars is not None and not calendars.empty:
+        if "calendar_id" not in calendars.columns:
+            raise ValueError("calendars dataset requires calendar_id.")
+        matches = calendars[calendars["calendar_id"].astype(str) == str(calendar_id)]
+        if matches.empty:
+            raise ValueError(f"Calendar {calendar_id!r} was not found.")
+        if len(matches) > 1:
+            raise ValueError(f"Calendar {calendar_id!r} is duplicated.")
+        row = matches.iloc[0]
+        raw_days = pd.to_numeric(row.get("workdays_per_week", 5), errors="coerce")
+        raw_hours = pd.to_numeric(row.get("hours_per_day", 8), errors="coerce")
+        if pd.isna(raw_days) or int(raw_days) not in (5, 6, 7):
+            raise ValueError("workdays_per_week must be 5, 6 or 7.")
+        if pd.isna(raw_hours) or float(raw_hours) <= 0:
+            raise ValueError("hours_per_day must be greater than zero.")
+        days, hours_per_day = int(raw_days), float(raw_hours)
+        raw_holidays = str(row.get("holidays", "") or "").strip()
+        for token in raw_holidays.replace(";", ",").split(","):
+            token = token.strip()
+            if token:
+                parsed = pd.to_datetime(token, errors="coerce")
+                if pd.isna(parsed):
+                    raise ValueError(f"Invalid holiday date {token!r} in calendar {calendar_id!r}.")
+                holidays.add(parsed.date())
+    return set(range(days)), holidays, hours_per_day
+
+
+def is_working_day(value, calendar_id: str, calendars: pd.DataFrame | None = None) -> bool:
+    """Check a date against a simple Monday-first 5/6/7-day calendar."""
+    dt = pd.to_datetime(value, errors="coerce")
+    if pd.isna(dt):
+        raise ValueError(f"Invalid date {value!r}.")
+    weekdays, holidays, _ = _calendar_definition(calendar_id, calendars)
+    day = dt.date()
+    return day.weekday() in weekdays and day not in holidays
+
+
+def add_working_days(start_date, duration_days, calendar_id: str,
+                     calendars: pd.DataFrame | None = None):
+    """Return inclusive finish date; a one-day task finishes on its start date."""
+    start = pd.to_datetime(start_date, errors="coerce")
+    duration = pd.to_numeric(duration_days, errors="coerce")
+    if pd.isna(start):
+        raise ValueError(f"Invalid start date {start_date!r}.")
+    if pd.isna(duration) or float(duration) < 0 or not float(duration).is_integer():
+        raise ValueError("duration_days must be a non-negative whole number.")
+    weekdays, holidays, _ = _calendar_definition(calendar_id, calendars)
+    current = start.date()
+    remaining = int(duration)
+    if remaining == 0:
+        return current.isoformat()
+    while current.weekday() not in weekdays or current in holidays:
+        current += pd.Timedelta(days=1).to_pytimedelta()
+    while remaining > 1:
+        current += pd.Timedelta(days=1).to_pytimedelta()
+        if current.weekday() in weekdays and current not in holidays:
+            remaining -= 1
+    return current.isoformat()
+
+
+def calculate_calendar_schedule(activities: pd.DataFrame,
+                                calendars: pd.DataFrame) -> pd.DataFrame:
+    """Calculate inclusive planned finish dates from start, duration and calendar.
+
+    This helper validates date arithmetic only. It does not perform CPM,
+    relationship constraints, shifts, exceptions, or native Primavera calendar logic.
+    """
+    required = {"activity_id", "duration_days", "planned_start", "calendar_id"}
+    missing = required - set(activities.columns)
+    if missing:
+        raise ValueError("Activities missing columns: " + ", ".join(sorted(missing)))
+    if activities["activity_id"].astype(str).duplicated().any():
+        raise ValueError("Duplicate activity_id values.")
+    rows = []
+    for _, row in activities.iterrows():
+        cal_id = str(row["calendar_id"])
+        _, _, hours = _calendar_definition(cal_id, calendars)
+        finish = add_working_days(row["planned_start"], row["duration_days"], cal_id, calendars)
+        rows.append({
+            "activity_id": str(row["activity_id"]),
+            "calendar_id": cal_id,
+            "planned_start": pd.to_datetime(row["planned_start"]).date().isoformat(),
+            "planned_finish_calculated": finish,
+            "duration_days": int(row["duration_days"]),
+            "hours_per_day": hours,
+        })
+    return pd.DataFrame(rows)
