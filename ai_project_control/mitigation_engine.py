@@ -49,8 +49,9 @@ def build_mitigation_advice(
               "finding":f"Expected-value risk exposure: cost {exposure:,.0f}; schedule {weighted_days:.1f} days.",
               "recommended_action":"Assign a named owner and due date to the highest probability-impact risks; verify response readiness and track residual exposure weekly.",
               "owner":"Risk Manager / Risk Owners","timing":"Review weekly; escalate overdue actions","expected_measure":"Residual expected cost and schedule exposure","evidence":"Risk register probability × impact"})
-    if not resources.empty and "peak_utilization_pct" in resources:
-        util=pd.to_numeric(resources["peak_utilization_pct"],errors="coerce")
+    utilization_column = next((name for name in ["peak_utilization_pct", "peak_capacity_utilization_pct"] if name in resources), None)
+    if not resources.empty and utilization_column:
+        util=pd.to_numeric(resources[utilization_column],errors="coerce")
         overloaded=resources.loc[util>100]
         if not overloaded.empty:
             actions.append({"priority":"Medium","finding":f"{len(overloaded)} resource types/assignments exceed 100% capacity.",
