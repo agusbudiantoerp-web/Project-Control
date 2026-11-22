@@ -970,7 +970,7 @@ def analyze_drawing_page_gemini(image_bytes: bytes, api_key: str, model='gemini-
     if not isinstance(data,list): raise ValueError('Gemini response was not a JSON array.')
     rows=[]
     for i,item in enumerate(data,1):
-        rows.append({'drawing_id':'DWG-UPLOAD','page':None,'discipline':item.get('discipline',''),
+        rows.append({'drawing_id':'DWG-UPLOAD','page':None,'wbs_id':'','discipline':item.get('discipline',''),
           'item_code':item.get('item_code') or f'TAKEOFF-{i:03d}','description':item.get('description',''),
           'unit':item.get('unit',''),'quantity':item.get('quantity'),
           'measurement_method':item.get('measurement_method',''),'confidence':item.get('confidence','Low'),
@@ -981,7 +981,7 @@ def takeoff_to_boq_draft(takeoff: pd.DataFrame):
     if takeoff.empty: return pd.DataFrame()
     rows=[]
     for i,(_,r) in enumerate(takeoff.iterrows(),1):
-        rows.append({'boq_id':f'BOQ-DRAFT-{i:03d}','wbs_id':'','item_code':r.get('item_code',''),
+        rows.append({'boq_id':f'BOQ-DRAFT-{i:03d}','wbs_id':str(r.get('wbs_id','') or '').strip(),'item_code':r.get('item_code',''),
           'description':r.get('description',''),'unit':r.get('unit',''),'budget_quantity':r.get('quantity'),
           'unit_rate':'','budget_amount':''})
     return pd.DataFrame(rows)
