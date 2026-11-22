@@ -524,7 +524,7 @@ def export_workbook(datasets: dict[str,pd.DataFrame], analyses: dict[str,pd.Data
         for name,df in {**datasets,**analyses}.items():
             if not isinstance(df,pd.DataFrame) or df.empty:
                 continue
-            base=re.sub(r"[\\[\\]:*?/\\\\]", "_", str(name).replace(".csv","")).strip() or "Sheet"
+            base=re.sub(r"[\[\]:*?/\\]", "_", str(name).replace(".csv","")).strip() or "Sheet"
             sheet=base[:31]
             suffix=1
             while sheet.casefold() in used:
@@ -846,7 +846,7 @@ def generate_pdf_report(project_code, project_name, status_date, datasets, analy
     from xml.sax.saxutils import escape
     output=BytesIO()
     doc=SimpleDocTemplate(output,pagesize=landscape(A4),rightMargin=12*mm,leftMargin=12*mm,
-      topMargin=12*mm,bottomMargin=12*mm,title=f"{project_code} Project Controls Report")
+      topMargin=12*mm,bottomMargin=12*mm,title=f"{escape(str(project_code))} Project Controls Report")
     styles=getSampleStyleSheet()
     styles.add(ParagraphStyle(name="ReportTitle",parent=styles["Title"],alignment=TA_CENTER,fontSize=18))
     story=[Paragraph("AI PROJECT CONTROL SYSTEM",styles["ReportTitle"]),
