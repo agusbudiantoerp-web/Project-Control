@@ -954,7 +954,8 @@ def render_pdf_page(raw: bytes, page_number: int, zoom=1.5):
 def analyze_drawing_page_gemini(image_bytes: bytes, api_key: str, model='gemini-2.5-flash'):
     import base64, requests
     prompt=('You are a construction quantity surveyor. Inspect this engineering drawing page and extract only items whose dimensions, counts, schedules or quantities are explicitly visible. Do not invent dimensions, scale, thickness, lengths or quantities. If a required dimension is missing, set quantity to null and explain what must be measured. Return ONLY valid JSON: an array of objects with keys discipline,item_code,description,unit,quantity,measurement_method,confidence,assumptions. Use SI units where supported. Confidence must be High, Medium or Low. Every quantity is a draft and must be checked by a human quantity surveyor.')
-    response=requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}',
+    response=requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+      headers={'x-goog-api-key':api_key},
       json={'contents':[{'parts':[{'text':prompt},{'inline_data':{'mime_type':'image/png','data':base64.b64encode(image_bytes).decode('ascii')}}]}],
       'generationConfig':{'temperature':0.1,'responseMimeType':'application/json'}},timeout=120)
     response.raise_for_status()
