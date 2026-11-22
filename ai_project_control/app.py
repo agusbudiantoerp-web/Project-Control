@@ -161,7 +161,7 @@ with planning:
                 "cpm_results.csv","text/csv")
         except Exception as exc: st.error(f"CPM calculation needs correction: {exc}")
     else: st.info("Impor activities.csv terlebih dahulu.")
-    st.warning("CPM v1 uses precedence-network durations in working periods with FS predecessor logic. P6 calendars, constraints, resource levelling and full P6 relationship semantics are not recalculated; use Primavera P6 as the scheduling authority.")
+    st.warning("CSV Planning Engine currently uses FS predecessor logic and relative working periods. The separate XER network adapter supports FS, SS, FF and SF relationships with lag, but neither path yet reproduces P6 work calendars, constraints, resource levelling or all native scheduling rules. Primavera P6 remains the schedule authority.")
 
 with cost:
     st.subheader("Cost & EVM Engine")
@@ -319,7 +319,7 @@ with xer_tab:
             st.download_button("Download XER table CSV",tables[chosen].to_csv(index=False).encode("utf-8-sig"),
                 chosen.lower()+".csv","text/csv")
         except Exception as exc: st.exception(exc)
-    st.warning("XER reader imports core PROJECT / PROJWBS / TASK / TASKPRED records. P6 calendars, resource assignments, cost accounts, codes and constraints are retained for future adapter extensions, not recalculated in CPM v1.")
+    st.warning("XER network analysis currently supports FS, SS, FF and SF relationships with lag using duration-based periods. P6 calendars, resource assignments, cost accounts, activity codes and constraints can be inspected/imported where available, but are not yet fully recalculated by the CPM engine. Primavera P6 remains the schedule authority.")
 
 with resources_tab:
     st.subheader("Resource, Equipment & Manpower Intelligence")
