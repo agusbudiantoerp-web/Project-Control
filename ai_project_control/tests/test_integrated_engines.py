@@ -280,3 +280,20 @@ def test_cpm_rejects_unknown_and_self_predecessors():
     self_link=pd.DataFrame([{"activity_id":"A","duration_days":2,"predecessor_ids":"A"}])
     with pytest.raises(ValueError, match="tidak boleh menjadi predecessor dirinya sendiri"):
         calculate_cpm(self_link)
+
+def test_xer_cpm_rejects_non_finite_hours_duration_and_lag():
+    base=pd.DataFrame([{"task_id":"1","task_code":"A","task_name":"A","target_drtn_hr_cnt":8}])
+    with pytest.raises(ValueError,match="hours_per_day must be a finite"):
+        calculate_xer_cpm({"TASK":base},hours_per_day=float("inf"))
+    for duration in [float("inf"),float("nan"),-1]:
+        task=base.copy()
+        task.loc[0,"target_drtn_hr_cnt"]=duration
+        with pytest.raises(ValueError,match="Invalid target duration"):
+            calculate_xer_cpm({"TASK":task})
+    task=pd.DataFrame([
+        {"task_id":"1","task_code":"A","target_drtn_hr_cnt":8},
+        {"task_id":"2","task_code":"B","target_drtn_hr_cnt":8},
+    ])
+    rel=pd.DataFrame([{"task_id":"2","pred_task_id":"1","pred_type":"PR_FS","lag_hr_cnt":float("inf")}])
+    with pytest.raises(ValueError,match="Invalid relationship lag"):
+        calculate_xer_cpm({"TASK":task,"TASKPRED":rel})
