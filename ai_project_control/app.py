@@ -643,7 +643,7 @@ with reports:
         except Exception as exc: report_errors.append(f"Resources: {exc}")
     if not datasets["change_register.csv"].empty:
         try:
-            original_bac=report_metrics.get("Bac",0.0)
+            original_bac=report_metrics.get("BAC",0.0)
             change_frame,change_stats=calculate_change_impact(datasets["change_register.csv"],original_bac)
             analysis["Change Control"]=change_frame
             report_metrics["Approved change cost impact"]=round(change_stats["approved_cost_impact"],2)
