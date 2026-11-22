@@ -1163,13 +1163,14 @@ def import_project_backup(project_id: str, raw: bytes):
                     or any(not isinstance(name,str) for name in listed)
                     or len(set(listed))!=len(listed)):
                 raise ValueError("Backup dataset manifest is invalid.")
+            for name in listed:
+                if name not in TEMPLATES:
+                    raise ValueError(f"Unsupported dataset in backup: {name!r}.")
             expected_names={"manifest.json"}|{f"datasets/{name}" for name in listed}
             if set(names)!=expected_names:
                 raise ValueError("Backup contains missing or unexpected archive entries.")
             restored_frames={}
             for name in listed:
-                if not isinstance(name,str) or name not in TEMPLATES:
-                    raise ValueError(f"Unsupported dataset in backup: {name!r}.")
                 member=f"datasets/{name}"
                 if member not in names:
                     raise ValueError(f"Backup is missing {member}.")
