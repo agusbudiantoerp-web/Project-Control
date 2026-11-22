@@ -667,3 +667,29 @@ def test_default_templates_have_consistent_reference_ids_and_evm_weights():
     # The template row is intentionally an unlinked placeholder, not a self-link.
     assert not str(relationship["task_id"]).strip()
     assert not str(relationship["pred_task_id"]).strip()
+
+
+def test_progress_validation_rejects_activity_boq_wbs_mismatch():
+    progress = pd.DataFrame([{
+        "period_end": "2026-03-31", "activity_id": "A1", "boq_id": "B1",
+        "actual_quantity_to_date": 10,
+    }])
+    existing = {
+        "activities.csv": pd.DataFrame([{"activity_id": "A1", "wbs_id": "WBS-A"}]),
+        "boq_budget.csv": pd.DataFrame([{"boq_id": "B1", "wbs_id": "WBS-B"}]),
+    }
+    issues = validate_dataset("progress.csv", progress, existing)
+    assert any("berada pada WBS berbeda" in issue for issue in issues)
+
+
+def test_progress_validation_accepts_matching_activity_boq_wbs():
+    progress = pd.DataFrame([{
+        "period_end": "2026-03-31", "activity_id": "A1", "boq_id": "B1",
+        "actual_quantity_to_date": 10,
+    }])
+    existing = {
+        "activities.csv": pd.DataFrame([{"activity_id": "A1", "wbs_id": "WBS-A"}]),
+        "boq_budget.csv": pd.DataFrame([{"boq_id": "B1", "wbs_id": "WBS-A"}]),
+    }
+    issues = validate_dataset("progress.csv", progress, existing)
+    assert not any("berada pada WBS berbeda" in issue for issue in issues)
