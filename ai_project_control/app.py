@@ -201,7 +201,58 @@ with portfolio_tab:
                 file_name="portfolio_schedule_forecast.csv",
                 mime="text/csv",
             )
-        st.caption("Forecast tanggal selesai memakai pendekatan sederhana durasi baseline dibagi SPI. Ini merupakan screening awal, bukan pengganti CPM dengan kalender kerja, kendala, dan resource leveling Primavera P6.")
+        st.markdown("### Executive Portfolio Intervention Matrix")
+        executive = portfolio[[
+            "project_id", "project_name", "currency", "SPI", "CPI",
+            "BAC", "EAC", "baseline_finish", "forecast_finish", "schedule_slip_days"
+        ]].copy()
+        executive["cost_variance_pct"] = (
+            (pd.to_numeric(executive["EAC"], errors="coerce") -
+             pd.to_numeric(executive["BAC"], errors="coerce")) /
+            pd.to_numeric(executive["BAC"], errors="coerce").where(
+                pd.to_numeric(executive["BAC"], errors="coerce") > 0
+            ) * 100
+        )
+        executive = executive.merge(
+            risk_rows[["project_id", "risk_score", "risk_status", "evidence", "recommended_attention"]],
+            on="project_id", how="left"
+        )
+        executive["schedule_slip_days"] = pd.to_numeric(executive["schedule_slip_days"], errors="coerce")
+        executive["intervention_priority"] = executive["risk_score"].apply(
+            lambda score: "Unscored" if pd.isna(score) else
+            ("P1 - Immediate" if score >= 70 else ("P2 - High" if score >= 40 else
+             ("P3 - Monitor" if score >= 20 else "P4 - Routine")))
+        )
+        def portfolio_action(row):
+            actions = []
+            if pd.notna(row["SPI"]) and row["SPI"] < 1:
+                actions.append("Review critical-path recovery and weekly look-ahead")
+            if pd.notna(row["CPI"]) and row["CPI"] < 1:
+                actions.append("Reconcile commitments, actual cost and remaining quantities")
+            if pd.notna(row["cost_variance_pct"]) and row["cost_variance_pct"] > 0:
+                actions.append("Validate EAC drivers and approve cost mitigation")
+            if pd.notna(row["schedule_slip_days"]) and row["schedule_slip_days"] > 0:
+                actions.append("Prepare schedule recovery options and resource check")
+            return "; ".join(actions) if actions else (
+                "Complete missing performance data" if row["intervention_priority"] == "Unscored"
+                else "Continue routine controls and monitor next reporting period"
+            )
+        executive["recommended_management_action"] = executive.apply(portfolio_action, axis=1)
+        executive = executive.sort_values(
+            ["risk_score", "schedule_slip_days"], ascending=[False, False], na_position="last"
+        )
+        st.dataframe(executive[[
+            "project_id", "project_name", "currency", "risk_score", "risk_status",
+            "intervention_priority", "SPI", "CPI", "cost_variance_pct",
+            "schedule_slip_days", "recommended_management_action"
+        ]], use_container_width=True, hide_index=True)
+        st.download_button(
+            "Download executive portfolio intervention matrix",
+            executive.to_csv(index=False).encode("utf-8-sig"),
+            file_name="executive_portfolio_intervention_matrix.csv",
+            mime="text/csv",
+        )
+        st.caption("Prioritas merupakan screening berbasis indikator yang tersedia. Rekomendasi adalah tindakan awal untuk ditinjau Project Manager; bukan keputusan otomatis atau pengganti validasi lapangan.")
 
 with overview:
     master=ds("project_master.csv")
