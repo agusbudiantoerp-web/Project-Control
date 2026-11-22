@@ -244,3 +244,14 @@ def test_evm_rejects_blank_activity_and_wbs_identifiers():
         "unit_rate": 10, "budget_amount": 1000}])
     with pytest.raises(ValueError, match="blank activity_id"):
         calculate_evm(project, activities, boq, pd.DataFrame(), pd.DataFrame(), "2026-01-05")
+
+def test_evm_rejects_activity_finish_before_start():
+    from core import calculate_evm
+
+    project = pd.DataFrame([{"currency": "IDR"}])
+    activities = pd.DataFrame([{"activity_id": "A1", "wbs_id": "1",
+        "planned_start": "2026-01-10", "planned_finish": "2026-01-01", "weight_pct": 100}])
+    boq = pd.DataFrame([{"boq_id": "Q1", "wbs_id": "1", "budget_quantity": 100,
+        "unit_rate": 10, "budget_amount": 1000}])
+    with pytest.raises(ValueError, match="planned_finish cannot be earlier"):
+        calculate_evm(project, activities, boq, pd.DataFrame(), pd.DataFrame(), "2026-01-05")
