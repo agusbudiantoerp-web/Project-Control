@@ -10,10 +10,12 @@ Local-first Streamlit application consolidating compatible project-control capab
 - Full PyP6Xer DCMA14 schedule-quality analysis plus TPPSCI DCMA-style screening fallback.
 - Cost & EVM: BAC, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, TCPI and earned-schedule ES / SV(t) / SPI(t) / IEAC(t) when baseline inputs support it.
 - Progress quantities by activity / BOQ / reporting period, with weighted physical progress based on cumulative quantities against BOQ budget quantities.
-- Resource, manpower and equipment assignments with planned daily load and capacity-overload screening.
+- Resource, manpower and equipment assignments with planned daily load, capacity-overload screening, and a float-constrained resource-smoothing what-if that never overwrites baseline dates or activity logic.
 - Milestone slippage and change-control impact (approved vs pending cost / schedule changes).
 - Risk register exposure Monte Carlo and activity three-point PERT schedule Monte Carlo.
 - Minimum-cost schedule crashing with scipy.optimize.linprog when approved crash assumptions are supplied.
+- Executive Project Health dashboard with CPM critical activity count, SPI/CPI warning indicators and separate commitment exposure.
+- Rules-based mitigation action register for schedule, cost, risk and resource findings; recovery scenario cost is shown only when crash duration and crash cost inputs are available.
 - Optional AI Project Advisor through Groq or Google Gemini; API key is entered per session, sent in authorization headers, and is not stored in SQLite. User explicitly initiates transmission.
 - Trend-based completion and EAC projection from at least three valid progress reporting periods; clearly labelled as trend projection, not ML.
 - PDF management report and optional Telegram document delivery; bot token and chat ID are not saved by the application.
@@ -38,7 +40,7 @@ This branch contains the integrated V1 application and automated deterministic-e
 - Monte Carlo assumes independent risk occurrence and uses supplied three-point duration multipliers for PERT unless richer uncertainty data is provided.
 - AI output is advisory and depends on external provider credentials. Drawing pages are sent to Gemini only after explicit user action. Takeoff quantities require human verification and must not replace signed measurements.
 - AI output must not replace deterministic calculations or professional review.
-- Drawing-to-BOQ is an assisted draft workflow, not an automatic certified quantity survey. Resource capacity screening is not full resource leveling. Telegram delivery is optional and user-triggered. PDF output is a management report, not a signed contractual report. Full P6 calendar/resource semantics remain outside the current release.
+- Drawing-to-BOQ is an assisted draft workflow, not an automatic certified quantity survey. Resource capacity screening and float-constrained smoothing are planning aids, not full resource leveling or a substitute for Primavera P6 resource leveling. Telegram delivery is optional and user-triggered. PDF output is a management report, not a signed contractual report. Full P6 calendar/resource semantics remain outside the current release.
 
 ## Run
 
