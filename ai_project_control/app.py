@@ -192,6 +192,7 @@ with planning:
 
 with cost:
     st.subheader("Cost & EVM Engine")
+    st.caption("BAC pada EVM dihitung dari nilai BOQ aktif. Perubahan yang disetujui ditampilkan terpisah pada Milestones & Change dan tidak otomatis mengubah BOQ baseline. Perbarui BOQ/baseline secara terkendali setelah persetujuan perubahan agar PV, EV, EAC dan laporan memakai baseline revisi yang sama.")
     master=ds("project_master.csv"); activities=ds("activities.csv"); boq=ds("boq_budget.csv")
     prog=ds("progress.csv"); actual=ds("actual_cost.csv")
     if not boq.empty and not activities.empty:
@@ -457,6 +458,7 @@ with milestones_tab:
         bac=float(pd.to_numeric(ds("boq_budget.csv").get("budget_amount",pd.Series(dtype=float)),errors="coerce").fillna(0).sum()) if not ds("boq_budget.csv").empty else 0.0
         change_result,change_stats=calculate_change_impact(change_data,bac)
         st.markdown("#### Change impact")
+        st.info("Revised BAC di bawah adalah simulasi dampak perubahan yang disetujui terhadap BAC awal BOQ. Angka ini belum menggantikan baseline EVM sampai BOQ/baseline proyek diperbarui dan divalidasi.")
         metric_row([("Approved cost impact",f"{change_stats['approved_cost_impact']:,.0f}"),
           ("Approved schedule impact (days)",change_stats["approved_schedule_days"]),
           ("Revised BAC",f"{change_stats['revised_budget']:,.0f}"),
