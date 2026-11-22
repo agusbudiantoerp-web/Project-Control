@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -159,9 +159,25 @@ with planning:
             st.plotly_chart(fig,use_container_width=True)
             st.download_button("Download CPM results CSV",cpm.to_csv(index=False).encode("utf-8-sig"),
                 "cpm_results.csv","text/csv")
+            calendar_data=ds("calendars.csv")
+            if not calendar_data.empty and "calendar_id" in activities.columns:
+                st.markdown("#### Working calendar date check")
+                try:
+                    calendar_schedule=calculate_calendar_schedule(activities,calendar_data)
+                    date_check=cpm[["activity_id","early_start_day","early_finish_day","total_float_days","is_critical"]].merge(
+                        calendar_schedule,on="activity_id",how="left")
+                    show_df(date_check,350)
+                    st.download_button("Download calendar date check CSV",
+                        date_check.to_csv(index=False).encode("utf-8-sig"),
+                        "calendar_date_check.csv","text/csv")
+                    st.caption("Calendar dates are a separate date-arithmetic check. They are not yet fed back into CPM network passes or Primavera P6 constraints.")
+                except Exception as cal_exc:
+                    st.error(f"Working calendar validation: {cal_exc}")
+            else:
+                st.info("Impor calendars.csv dengan calendar_id, workdays_per_week, hours_per_day dan holidays untuk mengaktifkan pemeriksaan tanggal kalender.")
         except Exception as exc: st.error(f"CPM calculation needs correction: {exc}")
     else: st.info("Impor activities.csv terlebih dahulu.")
-    st.warning("CSV Planning Engine currently uses FS predecessor logic and relative working periods. The separate XER network adapter supports FS, SS, FF and SF relationships with lag, but neither path yet reproduces P6 work calendars, constraints, resource levelling or all native scheduling rules. Primavera P6 remains the schedule authority.")
+    st.warning("CSV CPM uses FS predecessor logic and relative working periods. The calendar date check applies weekly 5/6/7-day patterns and listed holidays, but does not yet alter CPM network passes. XER adapter supports FS, SS, FF and SF with lag; full P6 calendars, constraints and resource levelling remain outside this calculation. Primavera P6 remains the schedule authority.")
 
 with cost:
     st.subheader("Cost & EVM Engine")
