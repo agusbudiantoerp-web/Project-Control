@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import requests
+from executive_reporting import build_executive_summary
 
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
@@ -987,6 +988,21 @@ with reports:
             report_errors.append(f"Integrated forecast: {exc}")
     if report_errors:
         for issue in report_errors: st.warning(issue)
+    st.markdown("#### Bilingual Executive Summary")
+    report_language = st.selectbox(
+        "Report language", ["Bahasa Indonesia", "English"], key="executive_report_language"
+    )
+    executive_summary = build_executive_summary(
+        project_id, project_name, status_date, report_metrics, report_errors,
+        "id" if report_language == "Bahasa Indonesia" else "en"
+    )
+    st.markdown(executive_summary)
+    st.download_button(
+        "Download Executive Summary (Markdown)",
+        executive_summary.encode("utf-8"),
+        file_name=f"{project_id}_executive_summary.md",
+        mime="text/markdown",
+    )
     if st.button("Generate integrated Excel workbook",type="primary"):
         try:
             book=export_workbook(datasets,analysis)
