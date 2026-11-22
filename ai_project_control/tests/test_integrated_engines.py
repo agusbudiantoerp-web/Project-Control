@@ -211,3 +211,14 @@ def test_progress_engine_rejects_duplicate_same_period_activity_boq_rows():
     ])
     with pytest.raises(ValueError, match="duplicate rows"):
         calculate_progress(activities, progress)
+
+def test_progress_engine_rejects_unknown_activity_reference():
+    from core import calculate_progress
+
+    activities = pd.DataFrame([{"activity_id": "A1", "wbs_id": "1", "weight_pct": 100}])
+    progress = pd.DataFrame([{
+        "period_end": "2026-01-05", "activity_id": "A-UNKNOWN",
+        "actual_quantity_to_date": 10,
+    }])
+    with pytest.raises(ValueError, match="unknown activities"):
+        calculate_progress(activities, progress)
