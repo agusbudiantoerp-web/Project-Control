@@ -72,7 +72,8 @@ with overview:
       ("Risk Engine","Risk exposure and Monte Carlo cost / schedule scenarios"),
       ("Optimization Engine","Minimum-cost schedule crashing where crash data is supplied"),
       ("Primavera XER","XER table extraction and conversion to WBS/activity datasets"),
-      ("AI Reporting","Excel management workbook and PDF-ready tables"),
+      ("AI Project Advisor","Optional Groq / Gemini analysis and prioritized action recommendations"),
+      ("AI Reporting","Integrated Excel management workbook and CSV exports"),
     ]
     cols=st.columns(2)
     for i,(name,desc) in enumerate(modules):
