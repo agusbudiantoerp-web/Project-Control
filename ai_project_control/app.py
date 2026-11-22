@@ -9,6 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
 from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios
+from resource_optimization import simulate_resource_smoothing
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets)
@@ -503,6 +504,27 @@ with resources_tab:
     else:
         st.info("Impor resources.csv dan resource_assignments.csv, atau gunakan konversi XER Primavera untuk mengisi keduanya.")
     st.caption("Kapasitas dibandingkan dalam unit yang sama dengan target_qty per hari. Distribusi saat ini diratakan pada hari kalender, bukan shift/hari kerja. Ini adalah screening overload, bukan resource leveling resmi Primavera P6.")
+
+    st.markdown("#### Resource Smoothing What-if")
+    st.caption("Simulasi menggeser penugasan non-kritis dalam batas total float. Baseline dan relasi aktivitas tidak diubah.")
+    shift_limit=st.number_input("Batas pergeseran maksimum (hari)",min_value=0,max_value=365,value=30,step=1,key="resource_smoothing_limit")
+    if st.button("Simulate Resource Smoothing",key="run_resource_smoothing"):
+        try:
+            smoothed=simulate_resource_smoothing(ds("activities.csv"),resource_data,assignment_data,int(shift_limit))
+            st.session_state["resource_smoothing_result"]=smoothed
+        except Exception as exc:
+            st.error(f"Resource smoothing scenario failed: {exc}")
+    smoothed=st.session_state.get("resource_smoothing_result")
+    if smoothed and smoothed.get("available"):
+        sm_cols=st.columns(2)
+        sm_cols[0].metric("Baseline overloaded resource-days",smoothed["baseline_overloaded_days"])
+        sm_cols[1].metric("Scenario overloaded resource-days",smoothed["scenario_overloaded_days"])
+        st.dataframe(smoothed["scenario"],use_container_width=True,hide_index=True)
+        st.download_button("Download resource smoothing scenario",
+            smoothed["scenario"].to_csv(index=False).encode("utf-8-sig"),
+            "resource_smoothing_scenario.csv","text/csv")
+        st.caption(smoothed["reason"])
+
 
 with milestones_tab:
     st.subheader("Milestone & Change Control")
