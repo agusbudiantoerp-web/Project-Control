@@ -1026,24 +1026,57 @@ def export_project_backup(project_id: str):
     return output.getvalue()
 
 def import_project_backup(project_id: str, raw: bytes):
+    """Validate a complete backup before writing; restore all datasets atomically."""
     import zipfile
-    with zipfile.ZipFile(BytesIO(raw)) as archive:
-        names=set(archive.namelist())
-        if "manifest.json" not in names: raise ValueError("Backup manifest not found.")
-        manifest=json.loads(archive.read("manifest.json"))
-        if manifest.get("format")!="AIProjectControlBackup" or manifest.get("version")!=1:
-            raise ValueError("Unsupported backup format or version.")
-        restored=[]
-        for name in manifest.get("datasets",[]):
-            safe=Path(name).name
-            if safe!=name or safe not in TEMPLATES: continue
-            member=f"datasets/{safe}"
-            if member not in names: continue
-            frame=pd.read_csv(BytesIO(archive.read(member)))
-            issues=validate_dataset(safe,frame,{n:load_dataset(project_id,n) for n in TEMPLATES})
-            if issues: raise ValueError(f"{safe}: "+"; ".join(issues))
-            save_dataset(project_id,safe,frame); restored.append(safe)
-    return restored
+    if not raw or len(raw) > 100 * 1024 * 1024:
+        raise ValueError("Backup ZIP is empty or exceeds the 100 MB safety limit.")
+    try:
+        archive_file=BytesIO(raw)
+        with zipfile.ZipFile(archive_file) as archive:
+            infos=archive.infolist()
+            if len(infos)>len(TEMPLATES)+2:
+                raise ValueError("Backup contains too many archive entries.")
+            if any(info.file_size > 25 * 1024 * 1024 for info in infos):
+                raise ValueError("A backup dataset exceeds the 25 MB per-file safety limit.")
+            names=set(archive.namelist())
+            if "manifest.json" not in names:
+                raise ValueError("Backup manifest not found.")
+            manifest=json.loads(archive.read("manifest.json"))
+            if manifest.get("format")!="AIProjectControlBackup" or manifest.get("version")!=1:
+                raise ValueError("Unsupported backup format or version.")
+            listed=manifest.get("datasets")
+            if not isinstance(listed,list) or len(listed)>len(TEMPLATES) or len(set(listed))!=len(listed):
+                raise ValueError("Backup dataset manifest is invalid.")
+            restored_frames={}
+            for name in listed:
+                if not isinstance(name,str) or name not in TEMPLATES:
+                    raise ValueError(f"Unsupported dataset in backup: {name!r}.")
+                member=f"datasets/{name}"
+                if member not in names:
+                    raise ValueError(f"Backup is missing {member}.")
+                frame=pd.read_csv(BytesIO(archive.read(member)))
+                restored_frames[name]=frame
+    except (zipfile.BadZipFile, json.JSONDecodeError, KeyError, pd.errors.ParserError) as exc:
+        raise ValueError(f"Backup archive is invalid: {exc}") from exc
+
+    existing={name:load_dataset(project_id,name) for name in TEMPLATES}
+    candidate={**existing,**restored_frames}
+    # Validate against the complete incoming snapshot, not a partially restored DB.
+    for name,frame in restored_frames.items():
+        issues=validate_dataset(name,frame,candidate)
+        if issues:
+            raise ValueError(f"{name}: "+"; ".join(issues))
+
+    init_db()
+    with sqlite3.connect(DB_PATH) as con:
+        con.execute("BEGIN IMMEDIATE")
+        for name,frame in restored_frames.items():
+            payload=frame.to_json(orient="records",date_format="iso")
+            con.execute("""INSERT INTO datasets(project_id,dataset_name,payload,updated_at)
+              VALUES(?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(project_id,dataset_name)
+              DO UPDATE SET payload=excluded.payload,updated_at=CURRENT_TIMESTAMP""",
+              (project_id,name,payload))
+    return list(restored_frames)
 
 
 def _calendar_definition(calendar_id: str, calendars: pd.DataFrame | None = None):
