@@ -407,3 +407,75 @@ def diagnose_project_drivers(
     if boq is None or boq.empty or actual_cost is None or actual_cost.empty:
         gaps.append("BOQ budget or actual-cost data is unavailable; cost driver analysis is incomplete.")
     return {"findings": pd.DataFrame(findings), "data_gaps": gaps}
+
+def build_root_cause_action_plan(
+    findings: pd.DataFrame,
+    status_date=None,
+    high_priority_due_days: int = 2,
+    medium_priority_due_days: int = 5,
+    low_priority_due_days: int = 10,
+) -> dict:
+    """Convert evidence-backed findings into a traceable action register.
+
+    Root causes are framed as hypotheses to verify, not asserted facts.
+    Due dates are proposed planning dates relative to the supplied status date.
+    """
+    columns = [
+        "action_id", "priority", "domain", "problem_statement",
+        "evidence", "root_cause_hypothesis_to_verify", "corrective_action",
+        "responsible_role", "proposed_due_date", "verification_criteria",
+        "status",
+    ]
+    if findings is None or findings.empty:
+        return {
+            "action_plan": pd.DataFrame(columns=columns),
+            "message": "No evidence-backed findings are available to create actions.",
+        }
+    base_date = pd.to_datetime(status_date, errors="coerce")
+    if pd.isna(base_date):
+        base_date = pd.Timestamp.today().normalize()
+    offsets = {
+        "High": int(high_priority_due_days),
+        "Medium": int(medium_priority_due_days),
+        "Low": int(low_priority_due_days),
+        "Information": int(low_priority_due_days),
+    }
+    rows = []
+    for index, finding in enumerate(findings.to_dict("records"), start=1):
+        priority = str(finding.get("priority", "Medium"))
+        due_offset = offsets.get(priority, offsets["Medium"])
+        domain = str(finding.get("domain", "Project"))
+        driver = str(finding.get("driver", "Project issue"))
+        action = str(finding.get("recommended_action", "Investigate and agree corrective action."))
+        owner = str(finding.get("owner", "") or "Project Manager")
+        normalized = (domain + " " + driver + " " + str(finding.get("evidence", ""))).lower()
+        if domain.lower().startswith("progress") or domain.lower().startswith("schedule"):
+            hypothesis = "Potential productivity, access, material, permit, sequencing, or remaining-duration issue; verify using site records and updated CPM logic."
+            verification = "Approved quantity measurement, updated remaining duration, and CPM impact reviewed."
+        elif domain.lower() == "cost":
+            hypothesis = "Potential quantity growth, rate variance, coding/mapping error, accrual timing, or approved scope change; reconcile source documents."
+            verification = "BOQ-to-cost reconciliation signed off; variance and approved changes explained."
+        elif domain.lower() == "risk":
+            hypothesis = "Recorded risk event or trigger may be active; confirm trigger evidence, probability, impact, owner and response status."
+            verification = "Risk owner confirms trigger status, response action, due date and residual exposure."
+        else:
+            hypothesis = "Underlying cause is not yet established; perform a documented cause review with the responsible discipline."
+            verification = "Cause review completed and objective closure evidence attached."
+        rows.append({
+            "action_id": f" RCA-{index:03d}",
+            "priority": priority,
+            "domain": domain,
+            "problem_statement": driver,
+            "evidence": str(finding.get("evidence", "")),
+            "root_cause_hypothesis_to_verify": hypothesis,
+            "corrective_action": action,
+            "responsible_role": owner,
+            "proposed_due_date": (base_date.normalize() + pd.Timedelta(days=due_offset)).date().isoformat(),
+            "verification_criteria": verification,
+            "status": "Open - proposed",
+        })
+    plan = pd.DataFrame(rows, columns=columns)
+    return {
+        "action_plan": plan,
+        "message": "Due dates are proposed from the status date. Confirm PIC and dates in the project action review.",
+    }
