@@ -298,7 +298,11 @@ with risk_tab:
                 st.info("Import activities.csv to run schedule PERT simulation.")
             metric_row([("Expected cost exposure",f"{stats['expected_cost_exposure']:,.0f}"),
                         ("Schedule exposure (days)",f"{stats['expected_schedule_exposure_days']:,.1f}"),
-                        ("Cost P80",f"{stats['cost_p80']:,.0f}"),("Delay P80 (days)",f"{stats['delay_p80']:,.1f}")])
+                        ("Cost P80",f"{stats['cost_p80']:,.0f}"),("Cost P90",f"{stats['cost_p90']:,.0f}")])
+            metric_row([("Delay P50 (days)",f"{stats['delay_p50']:,.1f}"),
+                        ("Delay P80 (days)",f"{stats['delay_p80']:,.1f}"),
+                        ("Delay P90 (days)",f"{stats['delay_p90']:,.1f}"),
+                        ("Simulation runs",f"{stats['iterations']:,}")])
             show_df(ranked,350)
             st.plotly_chart(px.histogram(samples,x="cost",nbins=40,title="Monte Carlo risk cost distribution"),use_container_width=True)
             st.plotly_chart(px.histogram(samples,x="delay_days",nbins=40,title="Monte Carlo schedule impact distribution"),use_container_width=True)
