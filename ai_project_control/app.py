@@ -279,7 +279,7 @@ with portfolio_tab:
                     "critical_projects": int((portfolio["portfolio_status"] == "Critical").sum()),
                     "at_risk_projects": int((portfolio["portfolio_status"] == "At Risk").sum()),
                     "risk_status_counts": risk_rows["risk_status"].value_counts(dropna=False).to_dict(),
-                    "cost_forecast_by_currency": currency_summary.to_dict("records") if not currency_summary.empty else [],
+                    "cost_forecast_by_currency": currency_summary.to_dict("records") if "currency_summary" in locals() and not currency_summary.empty else [],
                     "delayed_forecast_projects": int((schedule_summary["schedule_slip_days"] > 0).sum()) if "schedule_summary" in locals() and not schedule_summary.empty else None,
                 }
                 portfolio_findings = executive[[
