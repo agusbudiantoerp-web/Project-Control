@@ -36,3 +36,41 @@ def test_pert_handles_zero_duration_milestones():
     frame=pd.DataFrame([{'activity_id':'M','activity_name':'Milestone','wbs_id':'1','duration_days':0,'predecessor_ids':'','weight_pct':100}])
     _,stats,_=calculate_schedule_pert(frame,1000)
     assert stats['mc_p50']==0
+
+def test_wbs_weighted_evm_allocation():
+    from core import calculate_evm
+    project=pd.DataFrame([{"planned_start":"2026-01-01","planned_finish":"2026-01-10"}])
+    activities=pd.DataFrame([
+      {"activity_id":"A","wbs_id":"1","duration_days":5,"planned_start":"2026-01-01","planned_finish":"2026-01-10","weight_pct":50},
+      {"activity_id":"B","wbs_id":"1","duration_days":5,"planned_start":"2026-01-01","planned_finish":"2026-01-10","weight_pct":50},
+    ])
+    boq=pd.DataFrame([{"boq_id":"Q1","wbs_id":"1","budget_quantity":100,"unit_rate":10,"budget_amount":1000}])
+    progress=pd.DataFrame([
+      {"period_end":"2026-01-20","activity_id":"A","boq_id":"Q1","actual_quantity_to_date":50},
+      {"period_end":"2026-01-20","activity_id":"B","boq_id":"Q1","actual_quantity_to_date":50},
+    ])
+    actual=pd.DataFrame([{"transaction_date":"2026-01-20","amount":400}])
+    result=calculate_evm(project,activities,boq,progress,actual,"2026-01-20")
+    assert result["BAC"]==1000
+    assert result["EV"]==500
+    assert result["AC"]==400
+
+def test_milestone_and_change_register_metrics():
+    from core import calculate_milestones, calculate_change_impact
+    milestones=pd.DataFrame([{"milestone_id":"M1","milestone_name":"Gate","planned_date":"2026-01-10","forecast_date":"2026-01-12","actual_date":"","status":"At Risk","owner":"PM"}])
+    result,stats=calculate_milestones(milestones,"2026-01-11")
+    assert stats["total"]==1
+    assert stats["delayed"]==1
+    changes=pd.DataFrame([{"change_id":"C1","date_raised":"2026-01-01","description":"Scope","cost_impact":100,"schedule_impact_days":2,"status":"Approved"}])
+    _,impact=calculate_change_impact(changes,1000)
+    assert impact["revised_budget"]==1100
+
+def test_resource_load_rollup():
+    from core import calculate_resource_load
+    resources=pd.DataFrame([{"rsrc_id":"R1","rsrc_name":"Crane","rsrc_type":"Equipment","capacity_per_day":8}])
+    assignments=pd.DataFrame([{"task_id":"A1","rsrc_id":"R1","target_qty":40,"actual_qty":30,
+      "target_cost":100,"actual_cost":80,"target_start_date":"2026-01-01","target_end_date":"2026-01-05"}])
+    summary,daily=calculate_resource_load(resources,assignments)
+    assert summary.iloc[0]["target_qty"]==40
+    assert len(daily)==5
+    assert not daily["over_capacity"].any()
