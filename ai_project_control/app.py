@@ -15,7 +15,7 @@ from mitigation_engine import build_mitigation_advice, compare_recovery_scenario
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -73,6 +73,42 @@ overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, re
     "Overview","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
     "Optimization","Primavera XER","Resources & Manpower","Milestones & Change","Drawing to BOQ","AI Advisor","Reports","Integrated Forecast","User Guide"
 ])
+
+with portfolio_tab:
+    st.subheader("Portfolio Command Center")
+    st.caption("Aggregates projects saved in this computer's local AI Project Control database. Projects on other computers or servers are not included.")
+    portfolio = list_project_portfolio()
+    if portfolio.empty:
+        st.info("Belum ada proyek tersimpan. Impor Project Master pada Project Data Hub untuk mulai membangun portfolio.")
+    else:
+        critical_count = int((portfolio["portfolio_status"] == "Critical").sum())
+        at_risk_count = int((portfolio["portfolio_status"] == "At Risk").sum())
+        complete_evm = int(portfolio["SPI"].notna().sum())
+        m1,m2,m3,m4 = st.columns(4)
+        m1.metric("Projects", len(portfolio))
+        m2.metric("Critical", critical_count)
+        m3.metric("At Risk", at_risk_count)
+        m4.metric("Projects with EVM", complete_evm)
+        st.markdown("### Portfolio project register")
+        priority = {"Critical":0,"At Risk":1,"CPM only - EVM unavailable":2,
+                    "Data incomplete":3,"Within KPI threshold":4}
+        portfolio["_priority"] = portfolio["portfolio_status"].map(priority).fillna(5)
+        portfolio = portfolio.sort_values(["_priority","project_id"]).drop(columns=["_priority"])
+        st.dataframe(portfolio, use_container_width=True, hide_index=True)
+        st.download_button(
+            "Download portfolio KPI register",
+            portfolio.to_csv(index=False).encode("utf-8-sig"),
+            file_name="project_portfolio_kpi_register.csv",
+            mime="text/csv",
+        )
+        st.markdown("### Project intervention shortlist")
+        intervention = portfolio[portfolio["portfolio_status"].isin(["Critical","At Risk"])]
+        if intervention.empty:
+            st.success("Tidak ada proyek berstatus Critical atau At Risk berdasarkan KPI EVM yang tersedia.")
+        else:
+            st.dataframe(intervention[["project_id","project_name","status_date","currency","SPI","CPI","EAC","portfolio_status","data_readiness"]],
+                         use_container_width=True, hide_index=True)
+        st.caption("SPI/CPI hanya dihitung jika dataset EVM proyek memenuhi persyaratan. Jangan menjumlahkan BAC, AC atau EAC lintas mata uang. Status ini merupakan screening KPI, bukan keputusan kontraktual.")
 
 with overview:
     master=ds("project_master.csv")
