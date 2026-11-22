@@ -470,3 +470,56 @@ def test_risk_analysis_adds_p90_and_rejects_invalid_inputs():
         assert "unik" in str(exc)
     else:
         raise AssertionError("Duplicate risk IDs must be rejected")
+
+
+def test_project_backup_restore_is_atomic_and_rejects_invalid_archive(tmp_path, monkeypatch):
+    import core
+
+    monkeypatch.setattr(core, "DB_PATH", tmp_path / "project_control.db")
+    core.init_db()
+    source = pd.DataFrame([{
+        "project_id":"P-100","project_name":"Backup Test","client":"Client",
+        "location":"Jakarta","project_type":"Construction",
+        "planned_start":"2026-01-01","planned_finish":"2026-12-31",
+        "status_date":"2026-03-31","currency":"IDR"
+    }])
+    core.save_dataset("P-100","project_master.csv",source)
+    backup = core.export_project_backup("P-100")
+
+    restored = core.import_project_backup("P-200",backup)
+    assert restored == ["project_master.csv"]
+    restored_frame = core.load_dataset("P-200","project_master.csv")
+    assert restored_frame.iloc[0]["project_name"] == "Backup Test"
+
+    before = core.load_dataset("P-200","project_master.csv").copy()
+    try:
+        core.import_project_backup("P-200",b"not a zip archive")
+    except ValueError as exc:
+        assert "invalid" in str(exc).lower() or "zip" in str(exc).lower()
+    else:
+        raise AssertionError("Invalid backup archive must be rejected")
+    pd.testing.assert_frame_equal(
+        before.reset_index(drop=True),
+        core.load_dataset("P-200","project_master.csv").reset_index(drop=True)
+    )
+
+
+def test_project_backup_restore_rejects_manifest_path_traversal(tmp_path, monkeypatch):
+    import json
+    import zipfile
+    from io import BytesIO
+    import core
+
+    monkeypatch.setattr(core, "DB_PATH", tmp_path / "project_control.db")
+    payload=BytesIO()
+    with zipfile.ZipFile(payload,"w") as archive:
+        archive.writestr("manifest.json",json.dumps({
+            "format":"AIProjectControlBackup","version":1,
+            "datasets":["../../outside.csv"]
+        }))
+    try:
+        core.import_project_backup("P-300",payload.getvalue())
+    except ValueError as exc:
+        assert "Unsupported dataset" in str(exc)
+    else:
+        raise AssertionError("Manifest path traversal must be rejected")
