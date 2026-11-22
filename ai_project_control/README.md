@@ -42,7 +42,11 @@ This branch contains the integrated V1 application and automated deterministic-e
 
 ## Run
 
-On Windows PowerShell, from the `ai_project_control` folder:
+### Windows — one-click launcher
+
+Double-click `START_AI_PROJECT_CONTROL.bat` inside the `ai_project_control` folder. The launcher creates the local virtual environment if needed, installs the pinned-range requirements, and starts Streamlit in the browser. Python 3.11 and an internet connection are required for first-time setup. Keep the console window open while using the application.
+
+If you prefer PowerShell, from the `ai_project_control` folder:
 
 ```powershell
 py -3.11 -m venv .venv
