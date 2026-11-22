@@ -15,6 +15,7 @@ Local-first Streamlit application consolidating compatible project-control capab
 - Risk register exposure Monte Carlo and activity three-point PERT schedule Monte Carlo.
 - Minimum-cost schedule crashing with scipy.optimize.linprog when approved crash assumptions are supplied.
 - Executive Project Health dashboard with CPM critical activity count, SPI/CPI warning indicators and separate commitment exposure.
+- Management-report integration: CPM activity detail, risk-adjusted P80 finish/cost metrics, forecast cash flow and mitigation action register are added to Excel/PDF report analysis when the underlying inputs are available.
 - Rules-based mitigation action register for schedule, cost, risk and resource findings; recovery scenario cost is shown only when crash duration and crash cost inputs are available.
 - Optional AI Project Advisor through Groq or Google Gemini; API key is entered per session, sent in authorization headers, and is not stored in SQLite. User explicitly initiates transmission.
 - Trend-based completion and EAC projection from at least three valid progress reporting periods; clearly labelled as trend projection, not ML.
