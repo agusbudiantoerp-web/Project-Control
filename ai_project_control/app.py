@@ -174,6 +174,35 @@ with portfolio_tab:
             )
         st.caption("Rekap biaya hanya dijumlahkan dalam kelompok mata uang yang sama. Variance positif menunjukkan EAC di atas BAC; hasil ini merupakan screening forecast, bukan persetujuan perubahan anggaran.")
 
+        st.markdown("### Portfolio Schedule Forecast")
+        schedule_rows = portfolio.copy()
+        schedule_rows["schedule_slip_days"] = pd.to_numeric(schedule_rows["schedule_slip_days"], errors="coerce")
+        schedule_available = schedule_rows.dropna(subset=["baseline_finish", "forecast_finish"])
+        if schedule_available.empty:
+            st.info("Forecast tanggal selesai belum tersedia. Lengkapi planned_start, planned_finish dan data SPI/EVM proyek.")
+        else:
+            schedule_available = schedule_available.sort_values("schedule_slip_days", ascending=False)
+            schedule_summary = schedule_available[[
+                "project_id", "project_name", "status_date", "planned_start",
+                "baseline_finish", "forecast_finish", "schedule_slip_days", "SPI"
+            ]].copy()
+            schedule_summary["schedule_outlook"] = schedule_summary["schedule_slip_days"].apply(
+                lambda days: "Forecast delay" if days > 0 else ("Forecast ahead" if days < 0 else "On baseline")
+            )
+            st.dataframe(schedule_summary, use_container_width=True, hide_index=True)
+            delayed_count = int((schedule_summary["schedule_slip_days"] > 0).sum())
+            sm1, sm2, sm3 = st.columns(3)
+            sm1.metric("Projects forecastable", len(schedule_summary))
+            sm2.metric("Forecast delayed", delayed_count)
+            sm3.metric("Maximum forecast slip", f'{schedule_summary["schedule_slip_days"].max():.0f} days')
+            st.download_button(
+                "Download portfolio schedule forecast",
+                schedule_summary.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_schedule_forecast.csv",
+                mime="text/csv",
+            )
+        st.caption("Forecast tanggal selesai memakai pendekatan sederhana durasi baseline dibagi SPI. Ini merupakan screening awal, bukan pengganti CPM dengan kalender kerja, kendala, dan resource leveling Primavera P6.")
+
 with overview:
     master=ds("project_master.csv")
     wbs=ds("wbs.csv"); acts=ds("activities.csv"); boq=ds("boq_budget.csv")
