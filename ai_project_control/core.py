@@ -1130,7 +1130,7 @@ def analyze_commitments(commitments: pd.DataFrame, status_date, project_currency
 
 def build_cost_cashflow(project: pd.DataFrame, activities: pd.DataFrame,
                         boq: pd.DataFrame, actual: pd.DataFrame,
-                        commitments: pd.DataFrame, status_date):
+                        commitments: pd.DataFrame, status_date, progress: pd.DataFrame | None = None):
     """Build monthly baseline, actual and remaining EAC cash-cost profile.
 
     Baseline BOQ value is allocated to activities by WBS weight_pct and spread
@@ -1204,15 +1204,16 @@ def build_cost_cashflow(project: pd.DataFrame, activities: pd.DataFrame,
         ac=ac[ac["transaction_date"]<=sd]
         for month,group in ac.groupby(ac["transaction_date"].dt.to_period("M")):
             actual_month[month]=float(group["amount"].sum())
-    # Derive EAC using deterministic EVM CPI where possible; otherwise BAC.
+    # Derive EAC from the same deterministic EVM engine when approved progress exists.
     bac=float(b["budget_amount"].sum())
     cumulative_actual=sum(actual_month.values())
-    cpi=np.nan
-    if not actual.empty and cumulative_actual>0:
-        # Use earned value only when progress data is not supplied; avoid fabricating CPI.
-        cpi=np.nan
     eac=bac
-    forecast_note="No validated CPI supplied; remaining forecast uses BAC less actual cost."
+    forecast_note="No valid CPI available; remaining forecast uses BAC less actual cost."
+    if progress is not None and not progress.empty:
+        evm=calculate_evm(project,activities,boq,progress,actual,sd)
+        if pd.notna(evm.get("CPI")) and float(evm["CPI"])>0:
+            eac=float(evm["EAC"])
+            forecast_note="EAC = BAC / CPI from validated cumulative progress and actual cost."
     remaining=max(0.0,eac-cumulative_actual)
     last_month=sd.to_period("M")
     future_months=[]
