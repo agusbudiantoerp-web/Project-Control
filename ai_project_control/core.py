@@ -278,6 +278,18 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
         issues.append("rsrc_id duplikat.")
     return issues
 
+
+def validate_project_datasets(datasets: dict[str,pd.DataFrame]):
+    """Validate all supplied non-empty datasets against one consistent project snapshot."""
+    issues={}
+    snapshot={name:frame for name,frame in datasets.items()
+              if name in TEMPLATES and isinstance(frame,pd.DataFrame) and not frame.empty}
+    for name,frame in snapshot.items():
+        findings=validate_dataset(name,frame,snapshot)
+        if findings:
+            issues[name]=findings
+    return issues
+
 def calculate_cpm(activities: pd.DataFrame):
     if activities.empty: raise ValueError("Import activities terlebih dahulu.")
     records=[]
