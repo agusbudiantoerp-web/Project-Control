@@ -744,6 +744,26 @@ def calculate_dcma14(tables: dict[str,pd.DataFrame], hours_per_day=8):
     task=tables.get("TASK",pd.DataFrame()).copy()
     rel=tables.get("TASKPRED",pd.DataFrame()).copy()
     if task.empty: raise ValueError("XER TASK table is empty.")
+    if not np.isfinite(hours_per_day) or hours_per_day <= 0:
+        raise ValueError("hours_per_day must be a finite number greater than zero.")
+    if "task_id" not in task:
+        raise ValueError("XER TASK table is missing task_id.")
+    task_ids=task["task_id"].astype(str).str.strip()
+    if task["task_id"].isna().any() or task_ids.eq("").any() or task_ids.duplicated().any():
+        raise ValueError("XER TASK contains blank or duplicate task_id values.")
+    if not rel.empty:
+        required_rel={"task_id","pred_task_id"}
+        missing_rel=required_rel-set(rel.columns)
+        if missing_rel:
+            raise ValueError("XER TASKPRED missing columns: "+", ".join(sorted(missing_rel)))
+        known=set(task_ids)
+        for row_no,r in rel.iterrows():
+            successor=str(r["task_id"]).strip(); predecessor=str(r["pred_task_id"]).strip()
+            if successor not in known or predecessor not in known:
+                raise ValueError(f"XER relationship row {row_no} references an unknown activity.")
+            lag=pd.to_numeric(r.get("lag_hr_cnt",0),errors="coerce")
+            if pd.isna(lag) or not np.isfinite(float(lag)):
+                raise ValueError(f"Invalid relationship lag at XER relationship row {row_no}.")
     def num(frame,col,default=0):
         if col not in frame: return pd.Series(default,index=frame.index,dtype=float)
         return pd.to_numeric(frame[col],errors="coerce").fillna(default)
