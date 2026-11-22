@@ -217,6 +217,63 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
         if not budget.empty and "boq_id" in budget:
             missing_boq=set(df["boq_id"].astype(str))-set(budget["boq_id"].astype(str))
             if missing_boq: issues.append("BOQ tidak ditemukan: "+", ".join(sorted(missing_boq)))
+    if name=="actual_cost.csv":
+        amount=pd.to_numeric(df["amount"],errors="coerce")
+        if amount.isna().any() or not np.isfinite(amount).all() or (amount<0).any():
+            issues.append("amount harus angka finite >= 0.")
+        dates=pd.to_datetime(df["transaction_date"],errors="coerce")
+        if dates.isna().any(): issues.append("transaction_date harus tanggal valid.")
+        if df["currency"].isna().any() or df["currency"].astype(str).str.strip().eq("").any():
+            issues.append("currency tidak boleh kosong.")
+        master=existing.get("project_master.csv",pd.DataFrame())
+        if not master.empty and "currency" in master:
+            expected=set(master["currency"].dropna().astype(str).str.upper())
+            found=set(df["currency"].dropna().astype(str).str.upper())
+            if expected and found-expected: issues.append("Mata uang actual_cost tidak sama dengan mata uang proyek.")
+    if name=="commitments.csv":
+        for col in ["committed_amount","paid_amount"]:
+            values=pd.to_numeric(df[col],errors="coerce")
+            if values.isna().any() or not np.isfinite(values).all() or (values<0).any():
+                issues.append(col+" harus angka finite >= 0.")
+        committed=pd.to_numeric(df["committed_amount"],errors="coerce")
+        paid=pd.to_numeric(df["paid_amount"],errors="coerce")
+        if committed.notna().all() and paid.notna().all() and (paid>committed).any():
+            issues.append("paid_amount tidak boleh melebihi committed_amount.")
+        dates=pd.to_datetime(df["commitment_date"],errors="coerce")
+        if dates.isna().any(): issues.append("commitment_date harus tanggal valid.")
+        if df["currency"].isna().any() or df["currency"].astype(str).str.strip().eq("").any():
+            issues.append("currency komitmen tidak boleh kosong.")
+        master=existing.get("project_master.csv",pd.DataFrame())
+        if not master.empty and "currency" in master:
+            expected=set(master["currency"].dropna().astype(str).str.upper())
+            found=set(df["currency"].dropna().astype(str).str.upper())
+            if expected and found-expected: issues.append("Mata uang komitmen tidak sama dengan mata uang proyek.")
+    if name=="risk_register.csv":
+        for col in ["cost_impact","schedule_impact_days"]:
+            values=pd.to_numeric(df[col],errors="coerce")
+            if values.isna().any() or not np.isfinite(values).all() or (values<0).any():
+                issues.append(col+" harus angka finite >= 0.")
+    if name=="resources.csv" and "capacity_per_day" in df:
+        capacity=pd.to_numeric(df["capacity_per_day"],errors="coerce")
+        invalid=capacity.notna() & ((capacity<=0) | ~np.isfinite(capacity))
+        if invalid.any(): issues.append("capacity_per_day harus > 0 jika diisi.")
+    if name=="change_register.csv":
+        for col in ["cost_impact","schedule_impact_days"]:
+            values=pd.to_numeric(df[col],errors="coerce")
+            if values.isna().any() or not np.isfinite(values).all() or (values<0).any():
+                issues.append(col+" harus angka finite >= 0.")
+    if name=="project_master.csv":
+        for col in ["planned_start","planned_finish","status_date"]:
+            values=pd.to_datetime(df[col],errors="coerce")
+            if values.isna().any(): issues.append(col+" harus tanggal valid.")
+        if not df["currency"].astype(str).str.strip().ne("").all():
+            issues.append("currency proyek tidak boleh kosong.")
+        start=pd.to_datetime(df["planned_start"],errors="coerce")
+        finish=pd.to_datetime(df["planned_finish"],errors="coerce")
+        if (finish<start).any(): issues.append("planned_finish tidak boleh sebelum planned_start.")
+    if name=="progress.csv":
+        periods=pd.to_datetime(df["period_end"],errors="coerce")
+        if periods.isna().any(): issues.append("period_end harus tanggal valid.")
     if name=="resources.csv" and df["rsrc_id"].astype(str).duplicated().any():
         issues.append("rsrc_id duplikat.")
     return issues
