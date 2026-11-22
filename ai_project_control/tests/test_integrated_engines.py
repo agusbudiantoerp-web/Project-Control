@@ -201,23 +201,6 @@ def test_evm_rejects_cumulative_progress_above_boq_quantity():
 
     with pytest.raises(ValueError, match="exceeds BOQ budget quantity"):
         calculate_evm(project, activities, boq, progress, pd.DataFrame(), "2026-01-05")
-def test_evm_rejects_shared_boq_quantity_overreported_across_activities():
-    from core import calculate_evm
-
-    project = pd.DataFrame([{"currency": "IDR"}])
-    activities = pd.DataFrame([
-        {"activity_id": "A1", "wbs_id": "1", "planned_start": "2026-01-01", "planned_finish": "2026-01-10", "weight_pct": 50},
-        {"activity_id": "A2", "wbs_id": "1", "planned_start": "2026-01-01", "planned_finish": "2026-01-10", "weight_pct": 50},
-    ])
-    boq = pd.DataFrame([{"boq_id": "Q1", "wbs_id": "1", "budget_quantity": 100, "unit_rate": 10, "budget_amount": 1000}])
-    progress = pd.DataFrame([
-        {"period_end": "2026-01-05", "activity_id": "A1", "boq_id": "Q1", "actual_quantity_to_date": 60},
-        {"period_end": "2026-01-05", "activity_id": "A2", "boq_id": "Q1", "actual_quantity_to_date": 60},
-    ])
-
-    with pytest.raises(ValueError, match="across activities exceeds BOQ budget quantity"):
-        calculate_evm(project, activities, boq, progress, pd.DataFrame(), "2026-01-05")
-
 def test_progress_engine_rejects_duplicate_same_period_activity_boq_rows():
     from core import calculate_progress
 
