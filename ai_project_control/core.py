@@ -326,7 +326,7 @@ def calculate_cpm(activities: pd.DataFrame):
             raise ValueError(f"CPM activity {r['activity_id']} tidak boleh menjadi predecessor dirinya sendiri.")
         unknown=sorted(set(predecessors)-known)
         if unknown:
-            raise ValueError(f"CPM predecessor tidak ditemukan untuk {r['activity_id']}: "+", ".join(unknown))
+            raise ValueError(f"CPM unknown predecessor (predecessor tidak ditemukan) untuk {r['activity_id']}: "+", ".join(unknown))
         records.append({"id":r["activity_id"],
           "duration":float(r["duration_days"]),
           "predecessors":",".join(predecessors)})
