@@ -3,7 +3,7 @@
 Local-first Streamlit application consolidating compatible project-control capabilities from the source projects in this repository.
 
 ## Integrated features
-- Project Data Hub: CSV / Excel templates, cross-dataset business validation, local SQLite persistence per project, and ZIP backup / restore.
+- Project Data Hub: CSV / Excel templates, project-wide cross-dataset business validation, local SQLite persistence per project, and validated atomic ZIP backup / restore.
 - Primavera P6 XER: PyP6Xer v2 object-model parser for projects, activities, WBS, relationships, resources, assignments, calendars and DCMA14; plus %T/%F/%R raw-table parser and conversion.
 - CSV schedule CPM: forward/backward pass, early/late dates, total float, critical path and Gantt using pmcontrols.
 - XER CPM: FS / SS / FF / SF relationships and lag on a calendar-free day scale.
@@ -14,7 +14,7 @@ Local-first Streamlit application consolidating compatible project-control capab
 - Milestone slippage and change-control impact (approved vs pending cost / schedule changes).
 - Risk register exposure Monte Carlo and activity three-point PERT schedule Monte Carlo.
 - Minimum-cost schedule crashing with scipy.optimize.linprog when approved crash assumptions are supplied.
-- Optional AI Project Advisor through Groq or Google Gemini; API key is entered per session and is not stored in SQLite. User explicitly initiates transmission.
+- Optional AI Project Advisor through Groq or Google Gemini; API key is entered per session, sent in authorization headers, and is not stored in SQLite. User explicitly initiates transmission.
 - Trend-based completion and EAC projection from at least three valid progress reporting periods; clearly labelled as trend projection, not ML.
 - PDF management report and optional Telegram document delivery; bot token and chat ID are not saved by the application.
 - PDF drawing-to-BOQ draft extraction through Gemini vision, with editable takeoff review and BOQ draft export.
@@ -29,7 +29,7 @@ Local-first Streamlit application consolidating compatible project-control capab
 
 ## Release readiness
 
-This branch contains the integrated V1 application and automated deterministic-engine tests. The latest GitHub Actions runs for commit `5330cf9` completed successfully. This confirms the tested Python engines and imports in CI; it does not replace end-to-end acceptance testing with representative Primavera XER, project BOQ, progress, cost, resource, and risk datasets. Do not treat the system as production-certified until those acceptance tests and operational deployment checks are completed.
+This branch contains the integrated V1 application and automated deterministic-engine tests, including project-wide dataset validation and export/API-key security regressions. GitHub Actions is the source of truth for the latest test status. CI confirms the automated tests and module imports only; it does not replace end-to-end acceptance testing with representative Primavera XER, project BOQ, progress, cost, resource, and risk datasets. Do not treat the system as production-certified until those acceptance tests and operational deployment checks are completed.
 
 ## Engineering boundaries
 - CSV CPM uses FS links and relative working periods. XER CPM supports FS / SS / FF / SF and lag but is calendar-free. Neither replaces native P6 recalculation with calendars, constraints, resource levelling and full project settings.
