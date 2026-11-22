@@ -10,6 +10,8 @@ Local-first Streamlit application consolidating compatible project-control capab
 - Full PyP6Xer DCMA14 schedule-quality analysis plus TPPSCI DCMA-style screening fallback.
 - Cost & EVM: BAC, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, TCPI and earned-schedule ES / SV(t) / SPI(t) / IEAC(t) when baseline inputs support it.
 - Progress quantities by activity / BOQ / reporting period.
+- Resource, manpower and equipment assignments with planned daily load and capacity-overload screening.
+- Milestone slippage and change-control impact (approved vs pending cost / schedule changes).
 - Risk register exposure Monte Carlo and activity three-point PERT schedule Monte Carlo.
 - Minimum-cost schedule crashing with scipy.optimize.linprog when approved crash assumptions are supplied.
 - Optional AI Project Advisor through Groq or Google Gemini; API key is entered per session and is not stored in SQLite. User explicitly initiates transmission.

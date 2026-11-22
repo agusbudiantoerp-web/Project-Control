@@ -520,7 +520,7 @@ def parse_xer_with_pyp6xer(raw: bytes):
           "target_start_date","target_end_date","early_start_date","early_end_date","act_start_date",
           "act_end_date","phys_complete_pct","calendar_id"])
         resource_frame=records(resources,["rsrc_id","rsrc_name","rsrc_type","unit_of_measure"])
-        assignment_frame=records(assignments,["task_id","rsrc_id","target_qty","act_reg_qty","target_cost","act_reg_cost","act_ot_cost"])
+        assignment_frame=records(assignments,["task_id","rsrc_id","target_qty","act_reg_qty","target_cost","act_reg_cost","act_ot_cost","target_start_date","target_end_date"])
         calendar_frame=records(calendars,["clndr_id","clndr_name","day_hr_cnt","week_hr_cnt","month_hr_cnt","year_hr_cnt"])
         wbs_frame=records(wbs,["wbs_id","wbs_name","parent_wbs_id","proj_id"])
         relation_frame=records(relations,["task_id","pred_task_id","pred_type","lag_hr_cnt"])

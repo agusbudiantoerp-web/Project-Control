@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -51,9 +51,9 @@ def metric_row(items):
         elif isinstance(value,float): value=f"{value:,.2f}"
         c.metric(label,value)
 
-overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, ai_advisor, reports, guide = st.tabs([
+overview, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, resources_tab, milestones_tab, ai_advisor, reports, guide = st.tabs([
     "Overview","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
-    "Optimization","Primavera XER","AI Advisor","Reports","User Guide"
+    "Optimization","Primavera XER","Resources & Manpower","Milestones & Change","AI Advisor","Reports","User Guide"
 ])
 
 with overview:
@@ -279,12 +279,65 @@ with xer_tab:
                 act_frame,wbs_frame=xer_to_frames(tables)
                 save_dataset(project_id,"activities.csv",act_frame)
                 if not wbs_frame.empty: save_dataset(project_id,"wbs.csv",wbs_frame)
-                st.success(f"Imported {len(act_frame)} activities and {len(wbs_frame)} WBS rows.")
+                try:
+                    p6_data=parse_xer_with_pyp6xer(xer_file.getvalue())
+                    for dataset,key in [("resources.csv","resources"),("resource_assignments.csv","resource_assignments"),
+                        ("calendars.csv","calendars"),("relationships.csv","relationships")]:
+                        if not p6_data[key].empty: save_dataset(project_id,dataset,p6_data[key])
+                except Exception as exc:
+                    st.warning(f"XER core converted; detailed resource/calendar extraction was skipped: {exc}")
+                st.success(f"Imported {len(act_frame)} activities and {len(wbs_frame)} WBS rows, with available P6 resource, calendar and relationship data.")
                 st.rerun()
             st.download_button("Download XER table CSV",tables[chosen].to_csv(index=False).encode("utf-8-sig"),
                 chosen.lower()+".csv","text/csv")
         except Exception as exc: st.exception(exc)
     st.warning("XER reader imports core PROJECT / PROJWBS / TASK / TASKPRED records. P6 calendars, resource assignments, cost accounts, codes and constraints are retained for future adapter extensions, not recalculated in CPM v1.")
+
+with resources_tab:
+    st.subheader("Resource, Equipment & Manpower Intelligence")
+    resource_data=ds("resources.csv")
+    assignment_data=ds("resource_assignments.csv")
+    if not assignment_data.empty:
+        resource_summary,daily_load=calculate_resource_load(resource_data,assignment_data)
+        st.markdown("#### Resource allocation summary")
+        show_df(resource_summary,350)
+        if not daily_load.empty:
+            st.markdown("#### Daily planned resource loading")
+            st.plotly_chart(px.line(daily_load,x="date",y="planned_load_per_day",color="rsrc_id",
+                title="Daily resource demand (assignment quantity spread over assigned dates)"),use_container_width=True)
+            if "over_capacity" in daily_load and daily_load["over_capacity"].any():
+                st.error(f"Capacity overload detected on {int(daily_load['over_capacity'].sum())} resource-days.")
+                show_df(daily_load[daily_load["over_capacity"]],250)
+            elif "capacity_per_day" not in daily_load or daily_load["capacity_per_day"].isna().all():
+                st.info("Capacity belum diisi. Isi capacity_per_day pada resources.csv untuk mengukur overload.")
+        st.download_button("Download resource allocation CSV",resource_summary.to_csv(index=False).encode("utf-8-sig"),
+            "resource_allocation_summary.csv","text/csv")
+    else:
+        st.info("Impor resources.csv dan resource_assignments.csv, atau gunakan konversi XER Primavera untuk mengisi keduanya.")
+    st.caption("Resource loading ini adalah screening kuantitas terhadap tanggal penugasan. Resource leveling resmi harus tetap mempertimbangkan kalender, shift, skill, dan aturan P6.")
+
+with milestones_tab:
+    st.subheader("Milestone & Change Control")
+    milestone_data=ds("milestones.csv")
+    if not milestone_data.empty:
+        milestone_result,milestone_stats=calculate_milestones(milestone_data,status_date)
+        metric_row([("Milestones",milestone_stats["total"]),("Completed",milestone_stats["completed"]),
+          ("Delayed",milestone_stats["delayed"]),("Overdue / at risk",milestone_stats["at_risk"])])
+        show_df(milestone_result,350)
+    else:
+        st.info("Impor milestones.csv untuk memantau target, forecast, actual finish dan slippage.")
+    change_data=ds("change_register.csv")
+    if not change_data.empty:
+        bac=float(pd.to_numeric(ds("boq_budget.csv").get("budget_amount",pd.Series(dtype=float)),errors="coerce").fillna(0).sum()) if not ds("boq_budget.csv").empty else 0.0
+        change_result,change_stats=calculate_change_impact(change_data,bac)
+        st.markdown("#### Change impact")
+        metric_row([("Approved cost impact",f"{change_stats['approved_cost_impact']:,.0f}"),
+          ("Approved schedule impact (days)",change_stats["approved_schedule_days"]),
+          ("Revised BAC",f"{change_stats['revised_budget']:,.0f}"),
+          ("Pending exposure",f"{change_stats['pending_cost_exposure']:,.0f}")])
+        show_df(change_result,350)
+    else:
+        st.info("Impor change_register.csv untuk mengendalikan perubahan scope, biaya, dan jadwal.")
 
 with ai_advisor:
     st.subheader("AI Project Advisor & Prediction")
@@ -369,8 +422,10 @@ with guide:
     4. Open Cost & EVM to inspect PV, EV, AC, SPI, CPI and forecasts.
     5. Update progress and actual cost each reporting period.
     6. Maintain risk register and run Monte Carlo scenarios.
-    7. Add approved crash duration and crash cost assumptions to eligible activities before optimization.
-    8. Export the integrated workbook for management review.
+    7. Import P6 resources, assignments and calendars or upload resource datasets.
+    8. Maintain milestones and change register to monitor slippage and scope impact.
+    9. Add approved crash duration and crash cost assumptions to eligible activities before optimization.
+    10. Export the integrated workbook for management review.
 
     **Calculation policy**
     - CPM and EVM are deterministic engineering calculations.
