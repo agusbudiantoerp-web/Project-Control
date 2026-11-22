@@ -71,7 +71,8 @@ def compare_recovery_scenarios(activities: pd.DataFrame, target_reduction_days: 
     cpm, stats = calculate_cpm(activities)
     baseline=float(stats.get("project_duration",0))
     result={"baseline_duration_days":baseline,"target_duration_days":max(0,baseline-int(target_reduction_days)),
-            "scenario_available":False,"scenario_duration_days":np.nan,"incremental_crash_cost":np.nan,
+            "scenario_available":False,"scenario_duration_days":np.nan,"days_saved":np.nan,
+            "incremental_crash_cost":np.nan,"cost_per_day_saved":np.nan,
             "crash_detail":pd.DataFrame(),"note":"Crash duration and crash cost per day data are required."}
     if {"crash_duration_days","crash_cost_per_day"}.issubset(activities.columns):
         try:
@@ -84,8 +85,11 @@ def compare_recovery_scenarios(activities: pd.DataFrame, target_reduction_days: 
                 if not np.isfinite(scenario_duration) or not np.isfinite(scenario_cost) or scenario_cost < 0:
                     result["note"]="Crash engine returned non-finite or invalid scenario metrics."
                 else:
+                    days_saved=max(0.0,baseline-scenario_duration)
                     result.update({"scenario_available":True,"scenario_duration_days":scenario_duration,
-                        "incremental_crash_cost":scenario_cost,"crash_detail":crash,
+                        "days_saved":days_saved,"incremental_crash_cost":scenario_cost,
+                        "cost_per_day_saved":scenario_cost/days_saved if days_saved>0 else np.nan,
+                        "crash_detail":crash,
                         "note":"Cost and duration are calculated from supplied crash limits and unit costs."})
             else:
                 result["note"]="Crash engine returned an unrecognized summary schema; review output before using."
