@@ -32,3 +32,30 @@ def test_resource_smoothing_requires_valid_capacity():
         assert "capacity" in str(exc)
     else:
         raise AssertionError("Invalid capacity should be rejected")
+
+
+
+def test_resource_smoothing_rejects_assignment_for_unknown_activity():
+    activities=pd.DataFrame([{"activity_id":"A","activity_name":"A","wbs_id":"1","duration_days":2,"predecessor_ids":""}])
+    resources=pd.DataFrame([{"rsrc_id":"R1","capacity_per_day":5}])
+    assignments=pd.DataFrame([{"task_id":"UNKNOWN","rsrc_id":"R1","target_qty":2,
+        "target_start_date":"2026-01-01","target_end_date":"2026-01-02"}])
+    try:
+        simulate_resource_smoothing(activities,resources,assignments)
+    except ValueError as exc:
+        assert "unknown activities" in str(exc)
+    else:
+        raise AssertionError("Unknown activity assignment should be rejected")
+
+
+def test_resource_smoothing_rejects_negative_shift_limit():
+    activities=pd.DataFrame([{"activity_id":"A","activity_name":"A","wbs_id":"1","duration_days":2,"predecessor_ids":""}])
+    resources=pd.DataFrame([{"rsrc_id":"R1","capacity_per_day":5}])
+    assignments=pd.DataFrame([{"task_id":"A","rsrc_id":"R1","target_qty":2,
+        "target_start_date":"2026-01-01","target_end_date":"2026-01-02"}])
+    try:
+        simulate_resource_smoothing(activities,resources,assignments,max_shift_days=-1)
+    except ValueError as exc:
+        assert "max_shift_days" in str(exc)
+    else:
+        raise AssertionError("Negative shift limit should be rejected")
