@@ -1137,19 +1137,35 @@ def import_project_backup(project_id: str, raw: bytes):
         archive_file=BytesIO(raw)
         with zipfile.ZipFile(archive_file) as archive:
             infos=archive.infolist()
-            if len(infos)>len(TEMPLATES)+2:
+            if len(infos)>len(TEMPLATES)+1:
                 raise ValueError("Backup contains too many archive entries.")
+            if any(info.is_dir() for info in infos):
+                raise ValueError("Backup must not contain directory entries.")
+            names=[info.filename for info in infos]
+            if len(names)!=len(set(names)):
+                raise ValueError("Backup contains duplicate ZIP entries.")
+            if sum(info.file_size for info in infos)>100*1024*1024:
+                raise ValueError("Backup expands beyond the 100 MB total safety limit.")
             if any(info.file_size > 25 * 1024 * 1024 for info in infos):
                 raise ValueError("A backup dataset exceeds the 25 MB per-file safety limit.")
-            names=set(archive.namelist())
             if "manifest.json" not in names:
                 raise ValueError("Backup manifest not found.")
+            manifest_info=next(info for info in infos if info.filename=="manifest.json")
+            if manifest_info.file_size>1024*1024:
+                raise ValueError("Backup manifest exceeds the 1 MB safety limit.")
             manifest=json.loads(archive.read("manifest.json"))
+            if not isinstance(manifest,dict):
+                raise ValueError("Backup manifest must be a JSON object.")
             if manifest.get("format")!="AIProjectControlBackup" or manifest.get("version")!=1:
                 raise ValueError("Unsupported backup format or version.")
             listed=manifest.get("datasets")
-            if not isinstance(listed,list) or len(listed)>len(TEMPLATES) or len(set(listed))!=len(listed):
+            if (not isinstance(listed,list) or len(listed)>len(TEMPLATES)
+                    or any(not isinstance(name,str) for name in listed)
+                    or len(set(listed))!=len(listed)):
                 raise ValueError("Backup dataset manifest is invalid.")
+            expected_names={"manifest.json"}|{f"datasets/{name}" for name in listed}
+            if set(names)!=expected_names:
+                raise ValueError("Backup contains missing or unexpected archive entries.")
             restored_frames={}
             for name in listed:
                 if not isinstance(name,str) or name not in TEMPLATES:
@@ -1159,7 +1175,7 @@ def import_project_backup(project_id: str, raw: bytes):
                     raise ValueError(f"Backup is missing {member}.")
                 frame=pd.read_csv(BytesIO(archive.read(member)))
                 restored_frames[name]=frame
-    except (zipfile.BadZipFile, json.JSONDecodeError, KeyError, pd.errors.ParserError) as exc:
+    except (zipfile.BadZipFile, json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError, pd.errors.ParserError) as exc:
         raise ValueError(f"Backup archive is invalid: {exc}") from exc
 
     existing={name:load_dataset(project_id,name) for name in TEMPLATES}
