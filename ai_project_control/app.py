@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -226,6 +226,32 @@ with cost:
         st.caption("Commitment paid amounts are reconciliation only. They are not added to actual cost (AC), preventing double counting. Cancelled, rejected and void commitments are excluded.")
     except Exception as exc:
         st.error(f"Commitment reconciliation needs correction: {exc}")
+    st.divider()
+    st.markdown("#### Monthly Cash Flow & Cost Forecast")
+    try:
+        cashflow, cash_stats, _ = build_cost_cashflow(
+            master, activities, boq, actual, commitments, status_date, prog)
+        metric_row([
+            ("Baseline Budget (BAC)",f"{cash_stats['BAC']:,.2f}"),
+            ("Actual Cost to Date",f"{cash_stats['actual_to_date']:,.2f}"),
+            ("Forecast at Completion",f"{cash_stats['forecast_at_completion']:,.2f}"),
+            ("Remaining Forecast",f"{cash_stats['remaining_forecast']:,.2f}")
+        ])
+        st.caption(cash_stats["forecast_method"])
+        if cash_stats["unallocated_remaining"]>0:
+            st.warning(f"Remaining forecast {cash_stats['unallocated_remaining']:,.2f} is unallocated because no future project months remain.")
+        if not cashflow.empty:
+            st.plotly_chart(px.bar(cashflow,x="period",y=["baseline_cost","actual_cost","remaining_forecast"],
+                title="Monthly Baseline, Actual and Remaining Forecast Cost",barmode="group"),
+                use_container_width=True)
+            st.plotly_chart(px.line(cashflow,x="period",
+                y=["cumulative_baseline","cumulative_actual","cumulative_forecast"],
+                markers=True,title="Cumulative Project Cost Curve"),use_container_width=True)
+            st.download_button("Download monthly cash flow CSV",
+                cashflow.to_csv(index=False).encode("utf-8-sig"),
+                "monthly_project_cashflow.csv","text/csv")
+    except Exception as exc:
+        st.error(f"Cash flow forecast needs correction: {exc}")
     st.markdown("#### EVM definitions")
     st.caption("CV = EV − AC | SV = EV − PV | CPI = EV / AC | SPI = EV / PV | EAC = BAC / CPI | ETC = EAC − AC | VAC = BAC − EAC.")
 
