@@ -138,3 +138,35 @@ def test_risk_analysis_rejects_invalid_seed_and_iteration_count():
                            "cost_impact": 100, "schedule_impact_days": 2}])
     with pytest.raises(ValueError):
         risk_analysis(risks, 99)
+
+
+def test_schedule_pert_rejects_invalid_duration_and_duplicate_activity_ids():
+    invalid = pd.DataFrame([
+        {"activity_id": "A", "duration_days": -2, "predecessor_ids": ""}
+    ])
+    with pytest.raises(ValueError, match="finite dan tidak negatif"):
+        calculate_schedule_pert(invalid, 1000)
+
+    duplicate = pd.DataFrame([
+        {"activity_id": "A", "duration_days": 2, "predecessor_ids": ""},
+        {"activity_id": "A", "duration_days": 3, "predecessor_ids": ""},
+    ])
+    with pytest.raises(ValueError, match="terisi dan unik"):
+        calculate_schedule_pert(duplicate, 1000)
+
+
+def test_schedule_pert_rejects_non_numeric_and_non_finite_duration():
+    for value in ["unknown", float("inf"), float("nan")]:
+        frame = pd.DataFrame([
+            {"activity_id": "A", "duration_days": value, "predecessor_ids": ""}
+        ])
+        with pytest.raises(ValueError, match="finite dan tidak negatif"):
+            calculate_schedule_pert(frame, 1000)
+
+
+def test_schedule_pert_rejects_invalid_iteration_count():
+    frame = pd.DataFrame([
+        {"activity_id": "A", "duration_days": 5, "predecessor_ids": ""}
+    ])
+    with pytest.raises(ValueError, match="minimal 100"):
+        calculate_schedule_pert(frame, 99)
