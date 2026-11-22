@@ -37,3 +37,33 @@ def test_advisor_reads_resource_engine_capacity_column():
     resources = pd.DataFrame([{"rsrc_id":"R1","peak_capacity_utilization_pct":135}])
     result = build_mitigation_advice(schedule(), resource_summary=resources)
     assert result["actions"]["finding"].str.contains("exceed 100% capacity").any()
+
+
+
+def test_recovery_scenario_uses_achieved_duration_and_crash_cost():
+    activities = schedule().copy()
+    activities["crash_duration_days"] = [2, 8]
+    activities["crash_cost_per_day"] = [100, 200]
+    result = compare_recovery_scenarios(activities, 5)
+    assert result["scenario_available"] is True
+    assert result["scenario_duration_days"] == pytest.approx(10)
+    assert result["incremental_crash_cost"] == pytest.approx(700)
+    assert not result["crash_detail"].empty
+
+
+def test_recovery_scenario_reports_infeasible_target_without_raising():
+    activities = schedule().copy()
+    activities["crash_duration_days"] = [5, 10]
+    activities["crash_cost_per_day"] = [100, 200]
+    result = compare_recovery_scenarios(activities, 5)
+    assert result["scenario_available"] is False
+    assert "infeasible" in result["note"].lower()
+
+
+def test_recovery_scenario_rejects_crash_duration_longer_than_normal():
+    activities = schedule().copy()
+    activities["crash_duration_days"] = [6, 8]
+    activities["crash_cost_per_day"] = [100, 200]
+    result = compare_recovery_scenarios(activities, 1)
+    assert result["scenario_available"] is False
+    assert "invalid" in result["note"].lower() or "exceeds" in result["note"].lower()
