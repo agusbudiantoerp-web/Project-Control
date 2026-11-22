@@ -8,7 +8,7 @@ import requests
 
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
-from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios
+from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -699,6 +699,47 @@ with ai_advisor:
                 file_name=f"{project_id}_multi_recovery_scenarios.csv",
                 mime="text/csv",
             )
+            st.markdown("#### Executive recovery decision matrix")
+            shift_context = st.session_state.get("shift_capacity_result")
+            try:
+                decision = build_recovery_decision_matrix(
+                    multi_recovery["scenarios"],
+                    shift_context,
+                    ds("risk_register.csv"),
+                )
+                if decision["recommended_option"]:
+                    chosen = decision["recommended_option"]
+                    st.success(
+                        f'Rekomendasi ekonomis: {chosen["scenario"]} | '
+                        f'Biaya tambahan {chosen["incremental_cost"]:,.2f} | '
+                        f'Hari dihemat {chosen["actual_days_saved"]:,.2f}'
+                    )
+                else:
+                    st.info(decision["decision_basis"])
+                if not decision["ranked_options"].empty:
+                    show_df(decision["ranked_options"], 300)
+                if not decision["resource_screening"].empty:
+                    st.markdown("Resource/shift screening (belum dinilai secara ekonomi)")
+                    show_df(decision["resource_screening"], 220)
+                if decision["risk_exposure"]:
+                    st.caption(
+                        "Expected risk exposure — cost: "
+                        f'{decision["risk_exposure"]["expected_cost_exposure"]:,.2f}; '
+                        "schedule: "
+                        f'{decision["risk_exposure"]["expected_schedule_exposure_days"]:.2f} days. '
+                        "Ditampilkan terpisah dari biaya crash."
+                    )
+                with st.expander("Decision assumptions and limitations"):
+                    for item in decision["limitations"]:
+                        st.write("• " + item)
+                st.download_button(
+                    "Download executive recovery decision CSV",
+                    decision["ranked_options"].to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"{project_id}_recovery_decision_matrix.csv",
+                    mime="text/csv",
+                )
+            except Exception as decision_error:
+                st.warning(f"Decision matrix belum dapat dihitung: {decision_error}")
         st.download_button("Download mitigation action register",
             mitigation["actions"].to_csv(index=False).encode("utf-8-sig"),
             file_name=f"{project_id}_mitigation_actions.csv", mime="text/csv")
