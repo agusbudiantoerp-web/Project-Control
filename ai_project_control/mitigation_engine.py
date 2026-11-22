@@ -96,3 +96,80 @@ def compare_recovery_scenarios(activities: pd.DataFrame, target_reduction_days: 
         except (ValueError, RuntimeError, KeyError, TypeError) as exc:
             result["note"]=f"Recovery target is infeasible or crash inputs are invalid: {exc}"
     return result
+
+def compare_multiple_recovery_scenarios(
+    activities: pd.DataFrame,
+    target_reductions_days=(1, 3, 5, 7, 10),
+) -> dict:
+    """Compare several feasible schedule-crashing targets against one CPM baseline.
+
+    Each alternative is independently optimized by the existing minimum-cost
+    crash solver. No unit costs, crash limits, or savings are inferred.
+    """
+    if not isinstance(activities, pd.DataFrame) or activities.empty:
+        raise ValueError("Activities must be a non-empty DataFrame.")
+    try:
+        reductions = sorted({int(value) for value in target_reductions_days})
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Target reductions must be positive whole numbers.") from exc
+    if not reductions or any(value <= 0 for value in reductions):
+        raise ValueError("At least one positive target reduction is required.")
+
+    baseline_cpm, baseline_stats = calculate_cpm(activities)
+    baseline = float(baseline_stats.get("project_duration", 0.0))
+    if not np.isfinite(baseline) or baseline <= 0:
+        raise ValueError("CPM baseline duration must be finite and greater than zero.")
+
+    scenarios = []
+    details = {}
+    for reduction in reductions:
+        target = max(0.0, baseline - reduction)
+        result = compare_recovery_scenarios(activities, int(np.ceil(reduction)))
+        achieved = result.get("scenario_duration_days", np.nan)
+        cost = result.get("incremental_crash_cost", np.nan)
+        saved = result.get("days_saved", np.nan)
+        feasible = bool(result.get("scenario_available", False))
+        scenarios.append({
+            "scenario": f"Recover {reduction} day(s)",
+            "requested_days_saved": reduction,
+            "target_duration_days": target,
+            "achieved_duration_days": achieved,
+            "actual_days_saved": saved,
+            "incremental_cost": cost,
+            "cost_per_day_saved": result.get("cost_per_day_saved", np.nan),
+            "feasible": feasible,
+            "note": result.get("note", ""),
+        })
+        details[f"reduction_{reduction}_days"] = result.get("crash_detail", pd.DataFrame())
+
+    table = pd.DataFrame(scenarios)
+    feasible_rows = table[table["feasible"]].copy()
+    if not feasible_rows.empty:
+        feasible_rows = feasible_rows.sort_values(
+            ["incremental_cost", "cost_per_day_saved", "actual_days_saved"],
+            ascending=[True, True, False], kind="stable"
+        )
+        recommended = feasible_rows.iloc[0].to_dict()
+        recommendation_basis = "Lowest incremental crash cost among feasible scenarios."
+    else:
+        recommended = None
+        recommendation_basis = (
+            "No feasible costed scenario. Confirm crash duration and crash cost/day "
+            "inputs, and review the requested recovery targets."
+        )
+    return {
+        "baseline_duration_days": baseline,
+        "critical_activity_ids": baseline_cpm.loc[
+            baseline_cpm["is_critical"].astype(bool), "activity_id"
+        ].astype(str).tolist(),
+        "scenarios": table,
+        "scenario_details": details,
+        "recommended_scenario": recommended,
+        "recommendation_basis": recommendation_basis,
+        "assumptions": [
+            "Each target is optimized independently from the same uncrashed baseline.",
+            "Crash cost/day is assumed linear as supplied by the user.",
+            "Resource availability, calendars, indirect cost and time-dependent penalties are not inferred.",
+            "A scenario is decision support only and does not change the approved baseline.",
+        ],
+    }
