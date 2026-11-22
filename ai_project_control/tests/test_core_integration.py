@@ -254,3 +254,23 @@ def test_evm_rejects_mixed_actual_cost_currencies():
         assert "multiple currencies" in str(exc)
     else:
         raise AssertionError("Mixed actual cost currencies must be rejected")
+
+
+def test_earned_schedule_metrics_produce_time_variance_and_duration_forecast():
+    from core import add_earned_schedule_metrics
+
+    project = pd.DataFrame([{
+        "planned_start":"2026-01-01", "planned_finish":"2026-01-10", "currency":"IDR"
+    }])
+    activities = pd.DataFrame([{
+        "activity_id":"A1","wbs_id":"1.1","activity_name":"Work","duration_days":10,
+        "planned_start":"2026-01-01","planned_finish":"2026-01-10",
+        "predecessor_ids":"","weight_pct":100
+    }])
+    evm = {"BAC":1000.0,"PV":500.0,"EV":400.0,"AC":300.0}
+    result = add_earned_schedule_metrics(evm,project,activities,"2026-01-05")
+    assert result is evm
+    assert result["ES"] == 3.0
+    assert result["SV(t)"] == -1.0
+    assert result["SPI(t)"] == 0.75
+    assert result["IEAC(t)"] == 12.0
