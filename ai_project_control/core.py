@@ -28,7 +28,7 @@ TEMPLATES = {
  "resources.csv": (["rsrc_id","rsrc_name","rsrc_type","unit_of_measure","capacity_per_day"], ["R-CRANE-01","Mobile Crane","Equipment","hour","8"]),
  "resource_assignments.csv": (["task_id","rsrc_id","target_qty","actual_qty","target_cost","actual_cost","target_start_date","target_end_date"], ["A100","R-CRANE-01","40","0","10000000","0","2026-01-01","2026-01-05"]),
  "calendars.csv": (["calendar_id","calendar_name","workdays_per_week","hours_per_day","holidays"], ["CAL-01","Six-day workweek","6","8",""]),
- "relationships.csv": (["task_id","pred_task_id","pred_type","lag_hr_cnt"], ["A100","","PR_FS","0"]),
+ "relationships.csv": (["task_id","pred_task_id","pred_type","lag_hr_cnt"], ["","","PR_FS","0"]),
  "milestones.csv": (["milestone_id","milestone_name","planned_date","forecast_date","actual_date","status","owner"], ["M-001","Foundation Complete","2026-02-12","2026-02-14","","At Risk","Project Manager"]),
  "change_register.csv": (["change_id","date_raised","description","cost_impact","schedule_impact_days","status","approved_by"], ["CR-001","2026-03-01","Additional drainage scope","15000000","3","Pending",""]),
  "drawing_takeoff.csv": (["drawing_id","page","discipline","item_code","description","unit","quantity","measurement_method","confidence","assumptions","review_status"], ["DWG-001","1","Civil","ITM-001","Concrete slab","m3","","Scale / dimensions required","Low","Verify drawing scale and dimensions","Pending Review"]),
