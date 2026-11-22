@@ -981,7 +981,9 @@ def takeoff_to_boq_draft(takeoff: pd.DataFrame):
     if takeoff.empty: return pd.DataFrame()
     rows=[]
     for i,(_,r) in enumerate(takeoff.iterrows(),1):
-        rows.append({'boq_id':f'BOQ-DRAFT-{i:03d}','wbs_id':str(r.get('wbs_id','') or '').strip(),'item_code':r.get('item_code',''),
+        wbs_value=r.get('wbs_id','')
+        wbs_id='' if pd.isna(wbs_value) else str(wbs_value).strip()
+        rows.append({'boq_id':f'BOQ-DRAFT-{i:03d}','wbs_id':wbs_id,'item_code':r.get('item_code',''),
           'description':r.get('description',''),'unit':r.get('unit',''),'budget_quantity':r.get('quantity'),
           'unit_rate':'','budget_amount':''})
     return pd.DataFrame(rows)
