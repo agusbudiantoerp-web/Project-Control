@@ -255,3 +255,28 @@ def test_evm_rejects_activity_finish_before_start():
         "unit_rate": 10, "budget_amount": 1000}])
     with pytest.raises(ValueError, match="planned_finish cannot be earlier"):
         calculate_evm(project, activities, boq, pd.DataFrame(), pd.DataFrame(), "2026-01-05")
+
+def test_cpm_rejects_blank_duplicate_and_invalid_activity_ids():
+    base={"activity_name":"Task","wbs_id":"1","duration_days":2,"predecessor_ids":""}
+    for rows in [
+        [{**base,"activity_id":""}],
+        [{**base,"activity_id":"A"},{**base,"activity_id":"A"}],
+    ]:
+        with pytest.raises(ValueError, match="activity_id harus terisi dan unik"):
+            calculate_cpm(pd.DataFrame(rows))
+
+
+def test_cpm_rejects_non_finite_or_negative_durations():
+    for value in [-1, "unknown", float("inf"), float("nan")]:
+        frame=pd.DataFrame([{"activity_id":"A","duration_days":value,"predecessor_ids":""}])
+        with pytest.raises(ValueError, match="duration_days harus berupa angka finite"):
+            calculate_cpm(frame)
+
+
+def test_cpm_rejects_unknown_and_self_predecessors():
+    unknown=pd.DataFrame([{"activity_id":"A","duration_days":2,"predecessor_ids":"MISSING"}])
+    with pytest.raises(ValueError, match="predecessor tidak ditemukan"):
+        calculate_cpm(unknown)
+    self_link=pd.DataFrame([{"activity_id":"A","duration_days":2,"predecessor_ids":"A"}])
+    with pytest.raises(ValueError, match="tidak boleh menjadi predecessor dirinya sendiri"):
+        calculate_cpm(self_link)
