@@ -255,3 +255,74 @@ def build_recovery_decision_matrix(
             "This is decision support; approval and baseline changes remain under project governance.",
         ],
     }
+
+def build_predictive_warnings(
+    trend: dict | None,
+    history: pd.DataFrame | None = None,
+    cpm: pd.DataFrame | None = None,
+    status_date=None,
+    planned_finish=None,
+    near_critical_threshold_days: float = 5.0,
+) -> dict:
+    """Create transparent trend-based warnings; require reporting history for trends."""
+    warnings = []
+    if trend:
+        spi = pd.to_numeric(pd.Series([trend.get("latest_SPI")]), errors="coerce").iloc[0]
+        cpi = pd.to_numeric(pd.Series([trend.get("latest_CPI")]), errors="coerce").iloc[0]
+        finish = pd.to_datetime(trend.get("trend_finish_forecast"), errors="coerce")
+        baseline_finish = pd.to_datetime(planned_finish, errors="coerce")
+        if pd.notna(spi) and spi < 1:
+            warnings.append({
+                "priority": "High" if spi < 0.9 else "Medium",
+                "signal": f"Latest SPI is {spi:.2f}, below 1.00.",
+                "recommended_action": "Review remaining durations, logic, constraints and critical/near-critical work fronts; issue a dated recovery plan.",
+                "evidence": "Latest approved EVM reporting period",
+            })
+        if pd.notna(cpi) and cpi < 1:
+            warnings.append({
+                "priority": "High" if cpi < 0.9 else "Medium",
+                "signal": f"Latest CPI is {cpi:.2f}, below 1.00.",
+                "recommended_action": "Reconcile actual cost and commitments, then validate productivity, quantities and remaining-cost assumptions.",
+                "evidence": "Latest approved EVM reporting period",
+            })
+        if pd.notna(finish) and pd.notna(baseline_finish) and finish.normalize() > baseline_finish.normalize():
+            warnings.append({
+                "priority": "High",
+                "signal": f"Trend finish forecast {finish.date()} is later than baseline finish {baseline_finish.date()}.",
+                "recommended_action": "Validate the trend with the current CPM network and quantify recovery options before changing the approved forecast.",
+                "evidence": "Linear trend of cumulative earned-value progress",
+            })
+        if history is not None and len(history) >= 4:
+            recent = history.tail(4)
+            for metric, label in [("SPI", "Schedule"), ("CPI", "Cost")]:
+                values = pd.to_numeric(recent[metric], errors="coerce").dropna()
+                if len(values) >= 4 and values.iloc[-1] < values.iloc[0] and values.iloc[-1] < 1:
+                    warnings.append({
+                        "priority": "High" if values.iloc[-1] < 0.9 else "Medium",
+                        "signal": f"{label} efficiency has deteriorated across the latest four reporting periods.",
+                        "recommended_action": f"Investigate the {label.lower()} performance trend and assign corrective actions with owners and due dates.",
+                        "evidence": f"Four-period {metric} history",
+                    })
+    else:
+        warnings.append({
+            "priority": "Information",
+            "signal": "Predictive trend unavailable: at least three valid approved reporting periods are required.",
+            "recommended_action": "Load and validate dated progress, BOQ and actual-cost reporting periods before using trend forecasts.",
+            "evidence": "Data readiness check",
+        })
+
+    if cpm is not None and not cpm.empty and "total_float_days" in cpm:
+        float_values = pd.to_numeric(cpm["total_float_days"], errors="coerce")
+        near = cpm.loc[float_values.ge(0) & float_values.le(float(near_critical_threshold_days))]
+        if not near.empty:
+            warnings.append({
+                "priority": "Medium",
+                "signal": f"{len(near)} activities have total float between 0 and {near_critical_threshold_days:g} days.",
+                "recommended_action": "Monitor near-critical activities in the look-ahead plan and verify resource, access, permit and material constraints.",
+                "evidence": "Current CPM total-float calculation",
+            })
+    return {
+        "warnings": pd.DataFrame(warnings),
+        "reporting_periods": int(trend.get("reporting_periods", 0)) if trend else 0,
+        "method": "Rule-based screening of approved EVM trends and current CPM float; not a machine-learning probability model.",
+    }
