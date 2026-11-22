@@ -15,7 +15,8 @@ Local-first Streamlit application consolidating compatible project-control capab
 - Risk register exposure Monte Carlo and activity three-point PERT schedule Monte Carlo.
 - Minimum-cost schedule crashing with scipy.optimize.linprog when approved crash assumptions are supplied.
 - Optional AI Project Advisor through Groq or Google Gemini; API key is entered per session and is not stored in SQLite. User explicitly initiates transmission.
-- Excel workbook and CSV report exports.
+- PDF management report and optional Telegram document delivery; bot token and chat ID are not saved by the application.
+- Multi-sheet Excel workbook, PDF management report and optional Telegram document delivery.
 
 ## Source integration map
 - PyP6Xer: LGPL-2.1-or-later library dependency for full P6 object-model parsing and DCMA14; not copied into this repository.

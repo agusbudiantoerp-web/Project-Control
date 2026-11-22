@@ -7,3 +7,4 @@ openpyxl>=3.1,<4
 matplotlib>=3.5
 requests>=2.31
 PyP6XER>=2.0
+reportlab>=4.2

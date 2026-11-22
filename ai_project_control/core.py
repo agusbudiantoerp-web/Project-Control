@@ -549,3 +549,63 @@ def parse_xer_with_pyp6xer(raw: bytes):
     finally:
         try: os.unlink(path)
         except OSError: pass
+
+
+def generate_pdf_report(project_code, project_name, status_date, datasets, analyses, metrics=None):
+    """Build a compact landscape PDF management pack in memory."""
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    output=BytesIO()
+    doc=SimpleDocTemplate(output,pagesize=landscape(A4),rightMargin=12*mm,leftMargin=12*mm,
+      topMargin=12*mm,bottomMargin=12*mm,title=f"{project_code} Project Controls Report")
+    styles=getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="ReportTitle",parent=styles["Title"],alignment=TA_CENTER,fontSize=18))
+    story=[Paragraph("AI PROJECT CONTROL SYSTEM",styles["ReportTitle"]),
+      Paragraph(f"{project_name} | Project: {project_code} | Status date: {status_date}",styles["Heading2"]),
+      Spacer(1,8)]
+    metrics=metrics or {}
+    if metrics:
+        story.append(Paragraph("Executive KPIs",styles["Heading2"]))
+        rows=[["Indicator","Value"]]+[[str(k),str(v)] for k,v in metrics.items()]
+        table=Table(rows,repeatRows=1,hAlign="LEFT",colWidths=[65*mm,65*mm])
+        table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#26384A")),
+          ("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),0.35,colors.grey),
+          ("FONTSIZE",(0,0),(-1,-1),8),("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+          ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#EEF2F6")])]))
+        story.extend([table,Spacer(1,10)])
+    for section,collection in [("Analysis Results",analyses),("Project Data Snapshot",datasets)]:
+        for name,frame in collection.items():
+            if not isinstance(frame,pd.DataFrame) or frame.empty: continue
+            story.append(Paragraph(f"{section}: {name}",styles["Heading3"]))
+            view=frame.head(25).copy().fillna("")
+            data=[[str(c) for c in view.columns]]
+            for _,row in view.iterrows():
+                data.append([str(x)[:80] for x in row.tolist()])
+            table=Table(data,repeatRows=1,hAlign="LEFT")
+            table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#34495E")),
+              ("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),0.25,colors.grey),
+              ("FONTSIZE",(0,0),(-1,-1),6),("VALIGN",(0,0),(-1,-1),"TOP"),
+              ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F4F6F8")])]))
+            story.extend([table,Spacer(1,8)])
+    story.append(Spacer(1,8))
+    story.append(Paragraph("Engineering note: results depend on source data quality and stated model assumptions. Primavera P6 remains authoritative for native calendars, constraints and resource levelling.",styles["Italic"]))
+    doc.build(story)
+    output.seek(0)
+    return output.getvalue()
+
+def send_telegram_document(bot_token, chat_id, file_bytes, filename, caption="AI Project Control Report"):
+    """Send a report to Telegram only when explicitly requested by the user."""
+    import requests
+    response=requests.post(
+      f"https://api.telegram.org/bot{bot_token}/sendDocument",
+      data={"chat_id":chat_id,"caption":caption},
+      files={"document":(filename,file_bytes,"application/pdf")},
+      timeout=120)
+    response.raise_for_status()
+    payload=response.json()
+    if not payload.get("ok"): raise RuntimeError(payload.get("description","Telegram API rejected the document"))
+    return payload

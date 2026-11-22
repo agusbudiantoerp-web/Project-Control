@@ -9,7 +9,7 @@ import requests
 from dashboard_metrics import forecast_completion_date
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -394,18 +394,59 @@ with reports:
     st.subheader("Management Reports & Data Export")
     datasets={n:ds(n) for n in TEMPLATES}
     analysis={}
+    report_metrics={}
     try:
         if not datasets["activities.csv"].empty:
-            analysis["CPM Results"]=calculate_cpm(datasets["activities.csv"])[0]
+            cpm_frame,cpm_stats=calculate_cpm(datasets["activities.csv"])
+            analysis["CPM Results"]=cpm_frame
+            report_metrics["Planned duration (periods)"]=round(cpm_stats["project_duration"],2)
+            report_metrics["Critical activities"]=int(cpm_stats["n_critical"])
+        if not datasets["boq_budget.csv"].empty and not datasets["activities.csv"].empty:
+            evm_values=calculate_evm(datasets["project_master.csv"],datasets["activities.csv"],
+                datasets["boq_budget.csv"],datasets["progress.csv"],datasets["actual_cost.csv"],status_date)
+            report_metrics.update({k:round(float(evm_values[k]),2) for k in ["BAC","PV","EV","AC","SPI","CPI","EAC","ETC","VAC"] if pd.notna(evm_values[k])})
         if not datasets["risk_register.csv"].empty:
-            analysis["Risk Register Ranked"]=risk_analysis(datasets["risk_register.csv"],10000)[0]
+            risk_frame,risk_stats,_=risk_analysis(datasets["risk_register.csv"],10000)
+            analysis["Risk Register Ranked"]=risk_frame
+            report_metrics["Expected risk cost exposure"]=round(risk_stats["expected_cost_exposure"],2)
+            report_metrics["Risk schedule exposure (days)"]=round(risk_stats["expected_schedule_exposure_days"],2)
+        if not datasets["milestones.csv"].empty:
+            analysis["Milestone Status"]=calculate_milestones(datasets["milestones.csv"],status_date)[0]
+        if not datasets["resource_assignments.csv"].empty:
+            analysis["Resource Allocation"]=calculate_resource_load(datasets["resources.csv"],datasets["resource_assignments.csv"])[0]
     except Exception as exc: st.warning(str(exc))
     if st.button("Generate integrated Excel workbook",type="primary"):
         try:
             book=export_workbook(datasets,analysis)
-            st.download_button("⬇️ Download AI Project Control Report.xlsx",book,
-                "AI_Project_Control_Report.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.session_state["report_excel"]=book
         except Exception as exc: st.exception(exc)
+    if "report_excel" in st.session_state:
+        st.download_button("⬇️ Download AI Project Control Report.xlsx",st.session_state["report_excel"],
+            "AI_Project_Control_Report.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    if st.button("Generate PDF management report"):
+        try:
+            st.session_state["report_pdf"]=generate_pdf_report(project_id,project_name,status_date,datasets,analysis,report_metrics)
+        except Exception as exc: st.exception(exc)
+    if "report_pdf" in st.session_state:
+        st.download_button("⬇️ Download AI Project Control Report.pdf",st.session_state["report_pdf"],
+            "AI_Project_Control_Report.pdf","application/pdf")
+    st.divider()
+    st.markdown("#### Optional Telegram delivery")
+    st.caption("The PDF is sent only when you explicitly press Send. Bot token is not saved.")
+    telegram_token=st.text_input("Telegram bot token",type="password",key="telegram_token")
+    telegram_chat=st.text_input("Telegram chat ID",key="telegram_chat")
+    if st.button("Send PDF report to Telegram"):
+        try:
+            pdf_bytes=st.session_state.get("report_pdf")
+            if pdf_bytes is None:
+                pdf_bytes=generate_pdf_report(project_id,project_name,status_date,datasets,analysis,report_metrics)
+            if not telegram_token or not telegram_chat:
+                st.error("Bot token and chat ID are required.")
+            else:
+                send_telegram_document(telegram_token,telegram_chat,pdf_bytes,"AI_Project_Control_Report.pdf",
+                    f"{project_name} | {project_id} | {status_date}")
+                st.success("PDF report sent to Telegram.")
+        except Exception as exc: st.error(f"Telegram delivery failed: {exc}")
     st.markdown("#### Individual dataset exports")
     for name,frame in datasets.items():
         if not frame.empty:
