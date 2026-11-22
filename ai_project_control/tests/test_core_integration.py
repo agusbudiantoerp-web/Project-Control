@@ -146,3 +146,42 @@ def test_xer_cpm_rejects_missing_relationship_activity():
         assert "unknown activity" in str(exc)
     else:
         raise AssertionError("Missing XER relationship activity must be rejected")
+
+
+def test_basic_calendar_inclusive_finish_and_holiday():
+    from core import add_working_days, calculate_calendar_schedule
+
+    calendars = pd.DataFrame([{
+        "calendar_id": "CAL-6", "calendar_name": "Six day", "workdays_per_week": 6,
+        "hours_per_day": 8, "holidays": "2026-01-03"
+    }])
+    assert add_working_days("2026-01-02", 2, "CAL-6", calendars) == "2026-01-05"
+    assert add_working_days("2026-01-04", 1, "CAL-6", calendars) == "2026-01-05"
+    activities = pd.DataFrame([{
+        "activity_id": "A1", "duration_days": 2,
+        "planned_start": "2026-01-02", "calendar_id": "CAL-6"
+    }])
+    result = calculate_calendar_schedule(activities, calendars)
+    assert result.iloc[0]["planned_finish_calculated"] == "2026-01-05"
+    assert result.iloc[0]["hours_per_day"] == 8
+
+
+def test_calendar_rejects_unknown_calendar_and_invalid_week():
+    from core import add_working_days
+
+    calendars = pd.DataFrame([{
+        "calendar_id": "BAD", "calendar_name": "Bad", "workdays_per_week": 4,
+        "hours_per_day": 8, "holidays": ""
+    }])
+    try:
+        add_working_days("2026-01-01", 2, "MISSING", calendars)
+    except ValueError as exc:
+        assert "not found" in str(exc)
+    else:
+        raise AssertionError("Unknown calendar must fail")
+    try:
+        add_working_days("2026-01-01", 2, "BAD", calendars)
+    except ValueError as exc:
+        assert "5, 6 or 7" in str(exc)
+    else:
+        raise AssertionError("Unsupported calendar workweek must fail")
