@@ -22,6 +22,8 @@ jobs:
     defaults:
       run:
         working-directory: ai_project_control
+    env:
+      PYTHONPATH: .
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,5 +39,7 @@ jobs:
           pip install -r requirements.txt pytest
       - name: Compile application modules
         run: python -m compileall -q app.py core.py dashboard_metrics.py pmcontrols
+      - name: Verify integrated module imports
+        run: python -c "import core; from core import calculate_milestones, calculate_change_impact, calculate_resource_load, export_project_backup, import_project_backup; import dashboard_metrics; import pmcontrols"
       - name: Run integrated engine tests
-        run: pytest -q tests
+        run: python -m pytest -q tests
