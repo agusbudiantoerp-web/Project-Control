@@ -644,7 +644,7 @@ with guide:
     - AI forecasting is intentionally not presented until sufficient historical, time-phased project data is available.
     - Primavera P6 remains the schedule authority for working calendars, resource levelling and native constraints.
     """)
-    st.info("This integrated build is a local-first application. Project datasets are saved to SQLite on this computer.")
+    st.info("This integrated build is a local-first application. Project datasets are saved to SQLite on this computer. Backup restore validates the incoming datasets before an atomic database update; keep backup copies outside this computer.")
 
 st.divider()
 st.caption("AI Project Control System | Integrated V1 | Local-first project controls")
