@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date
 import numpy as np
 import pandas as pd
-from core import calculate_cpm
+from core import calculate_cpm, build_cost_cashflow
 
 
 def _number(frame: pd.DataFrame, column: str, default: float = 0.0) -> pd.Series:
@@ -32,6 +32,8 @@ def build_integrated_forecast(
     resources: pd.DataFrame | None = None,
     resource_assignments: pd.DataFrame | None = None,
     risk_register: pd.DataFrame | None = None,
+    project_master: pd.DataFrame | None = None,
+    commitments: pd.DataFrame | None = None,
     status_date: str | date | pd.Timestamp | None = None,
     simulations: int = 5000,
     seed: int = 42,
@@ -52,6 +54,8 @@ def build_integrated_forecast(
     resources = resources.copy() if resources is not None else pd.DataFrame()
     resource_assignments = resource_assignments.copy() if resource_assignments is not None else pd.DataFrame()
     risk_register = risk_register.copy() if risk_register is not None else pd.DataFrame()
+    project_master = project_master.copy() if project_master is not None else pd.DataFrame()
+    commitments = commitments.copy() if commitments is not None else pd.DataFrame()
 
     if activities.empty:
         raise ValueError("Dataset activities kosong; forecast tidak dapat dihitung.")
@@ -172,6 +176,14 @@ def build_integrated_forecast(
     risk_adjusted_finish_p80 = forecast_finish + pd.Timedelta(days=int(np.ceil(risk_days_p80)))
     risk_adjusted_cost_p80 = (forecast_cost + risk_cost_p80
                               if np.isfinite(forecast_cost) else float("nan"))
+    cashflow = pd.DataFrame()
+    cashflow_stats = {}
+    cashflow_commitments = pd.DataFrame()
+    if not project_master.empty and not boq_budget.empty:
+        cashflow, cashflow_stats, cashflow_commitments = build_cost_cashflow(
+            project_master, activities, boq_budget, actual_cost, commitments,
+            status, progress
+        )
     return {
         "status_date": status.date().isoformat(),
         "baseline_start": project_start.date().isoformat(),
@@ -193,6 +205,9 @@ def build_integrated_forecast(
         "risk_adjusted_cost_p80": risk_adjusted_cost_p80,
         "resource_overload_assignments": overload_rows,
         "resource_summary": resource_summary,
+        "cashflow": cashflow,
+        "cashflow_stats": cashflow_stats,
+        "cashflow_commitments": cashflow_commitments,
         "risk_count": risk_count,
         "evm_available": bool(np.isfinite(bac) and np.isfinite(ev) and np.isfinite(ac)),
         "assumptions": [
