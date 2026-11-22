@@ -614,3 +614,24 @@ def test_project_wide_validation_checks_cross_dataset_references():
     issues=validate_project_datasets(datasets)
     assert "activities.csv" in issues
     assert any("WBS tidak ditemukan" in item for item in issues["activities.csv"])
+
+
+def test_gemini_drawing_api_key_is_sent_in_header_not_url(monkeypatch):
+    from unittest.mock import Mock
+    import requests
+    from core import analyze_drawing_page_gemini
+
+    response=Mock()
+    response.json.return_value={"candidates":[{"content":{"parts":[{"text":"[]"}]}}]}
+    response.raise_for_status.return_value=None
+    calls={}
+    def fake_post(url,**kwargs):
+        calls["url"]=url
+        calls.update(kwargs)
+        return response
+    monkeypatch.setattr(requests,"post",fake_post)
+    result=analyze_drawing_page_gemini(b"fake-png","secret-test-key")
+    assert result==[]
+    assert "secret-test-key" not in calls["url"]
+    assert "?" not in calls["url"]
+    assert calls["headers"]["x-goog-api-key"]=="secret-test-key"
