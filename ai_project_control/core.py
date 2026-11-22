@@ -427,7 +427,15 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
                 raise ValueError("Progress activity and BOQ must belong to the same WBS.")
             if (p["budget_quantity"]<=0).any():
                 raise ValueError("BOQ budget_quantity must be greater than zero for reported progress.")
-            p["earned_value"]=p["budget_amount"]*p["wbs_share"]*(p["actual_quantity_to_date"]/p["budget_quantity"]).clip(0,1)
+            overreported = p["actual_quantity_to_date"] > p["budget_quantity"]
+            if overreported.any():
+                examples = p.loc[overreported, ["activity_id", "boq_id", "actual_quantity_to_date", "budget_quantity"]].head(5)
+                detail = "; ".join(
+                    f"{row.activity_id}/{row.boq_id}: {row.actual_quantity_to_date} > {row.budget_quantity}"
+                    for row in examples.itertuples(index=False)
+                )
+                raise ValueError("Reported cumulative quantity exceeds BOQ budget quantity; correct the progress or approved BOQ: " + detail)
+            p["earned_value"]=p["budget_amount"]*p["wbs_share"]*(p["actual_quantity_to_date"]/p["budget_quantity"])
             ev=float(p["earned_value"].sum())
             ev_detail=p.groupby(["activity_id","wbs_id_activity"],as_index=False).agg(
                 earned_value=("earned_value","sum"))
