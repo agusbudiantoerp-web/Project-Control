@@ -370,3 +370,60 @@ def test_cashflow_rejects_invalid_activity_dates_and_mixed_actual_currency():
         assert "currency" in str(exc).lower()
     else:
         raise AssertionError("Mixed actual cost currencies must fail")
+
+
+def test_resource_load_capacity_utilization_and_validation():
+    from core import calculate_resource_load
+
+    resources = pd.DataFrame([
+        {"rsrc_id":"CR-01","rsrc_name":"Mobile Crane","rsrc_type":"Equipment",
+         "unit_of_measure":"hour","capacity_per_day":8}
+    ])
+    assignments = pd.DataFrame([
+        {"task_id":"A1","rsrc_id":"CR-01","target_qty":24,"actual_qty":12,
+         "target_cost":300,"actual_cost":120,
+         "target_start_date":"2026-01-01","target_end_date":"2026-01-03"},
+        {"task_id":"A2","rsrc_id":"CR-01","target_qty":12,"actual_qty":0,
+         "target_cost":100,"actual_cost":0,
+         "target_start_date":"2026-01-02","target_end_date":"2026-01-03"},
+    ])
+    summary, daily = calculate_resource_load(resources, assignments)
+    assert len(daily) == 3
+    jan2 = daily.loc[daily["date"] == pd.Timestamp("2026-01-02")].iloc[0]
+    assert jan2["planned_load_per_day"] == 12
+    assert jan2["capacity_utilization_pct"] == 150
+    assert bool(jan2["over_capacity"])
+    assert summary.iloc[0]["overloaded_days"] == 2
+    assert summary.iloc[0]["peak_capacity_utilization_pct"] == 150
+
+    invalid = assignments.copy()
+    invalid.loc[0, "target_qty"] = -1
+    try:
+        calculate_resource_load(resources, invalid)
+    except ValueError as exc:
+        assert "target_qty" in str(exc)
+    else:
+        raise AssertionError("Negative resource quantity must be rejected")
+
+
+def test_resource_load_rejects_unknown_resource_and_invalid_dates():
+    from core import calculate_resource_load
+
+    resources = pd.DataFrame([{"rsrc_id":"R1","capacity_per_day":8}])
+    assignments = pd.DataFrame([{"rsrc_id":"MISSING","target_qty":1,
+        "target_start_date":"2026-01-01","target_end_date":"2026-01-02"}])
+    try:
+        calculate_resource_load(resources, assignments)
+    except ValueError as exc:
+        assert "unknown resources" in str(exc)
+    else:
+        raise AssertionError("Unknown resource must be rejected")
+
+    assignments.loc[0,"rsrc_id"]="R1"
+    assignments.loc[0,"target_end_date"]="2025-12-31"
+    try:
+        calculate_resource_load(resources, assignments)
+    except ValueError as exc:
+        assert "date range" in str(exc)
+    else:
+        raise AssertionError("Invalid date range must be rejected")
