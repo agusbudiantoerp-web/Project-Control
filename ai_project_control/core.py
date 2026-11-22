@@ -367,6 +367,10 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
     a["planned_finish"]=pd.to_datetime(a["planned_finish"],errors="coerce")
     if a[["planned_start","planned_finish"]].isna().any().any():
         raise ValueError("Activity planned_start / planned_finish contains invalid dates.")
+    reversed_dates=a["planned_finish"]<a["planned_start"]
+    if reversed_dates.any():
+        bad_ids=a.loc[reversed_dates,"activity_id"].astype(str).head(10).tolist()
+        raise ValueError("Activity planned_finish cannot be earlier than planned_start: "+", ".join(bad_ids))
     a["weight_pct"]=pd.to_numeric(a["weight_pct"],errors="coerce")
     if a["weight_pct"].isna().any() or (a["weight_pct"]<0).any():
         raise ValueError("Activity weight_pct must be valid and non-negative.")
