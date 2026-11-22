@@ -625,10 +625,15 @@ with ai_advisor:
             value=5, step=1, key="recovery_target_reduction")
         recovery = compare_recovery_scenarios(mitigation_activities, int(reduction))
         if recovery["scenario_available"]:
-            metric_row([("Baseline duration", recovery["baseline_duration_days"]),
-                        ("Scenario duration", recovery["scenario_duration_days"]),
-                        ("Incremental crash cost", f'{recovery["incremental_crash_cost"]:,.0f}')])
+            metric_row([("Baseline duration", f'{recovery["baseline_duration_days"]:,.1f} days'),
+                        ("Scenario duration", f'{recovery["scenario_duration_days"]:,.1f} days'),
+                        ("Days saved", f'{recovery["days_saved"]:,.1f}'),
+                        ("Incremental crash cost", f'{recovery["incremental_crash_cost"]:,.0f}'),
+                        ("Cost per day saved", f'{recovery["cost_per_day_saved"]:,.0f}' if pd.notna(recovery["cost_per_day_saved"]) else "—")])
             st.dataframe(recovery["crash_detail"], use_container_width=True, hide_index=True)
+            st.download_button("Download recovery scenario detail",
+                recovery["crash_detail"].to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_recovery_scenario.csv", mime="text/csv")
         else:
             st.info(recovery["note"])
         st.download_button("Download mitigation action register",
