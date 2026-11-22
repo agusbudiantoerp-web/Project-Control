@@ -25,12 +25,14 @@ def test_milestone_forecast_slippage_and_completion_are_reported():
     milestones = pd.DataFrame([
         {"milestone_id": "M1", "planned_date": "2026-03-01", "forecast_date": "2026-03-06", "actual_date": None, "status": "At Risk"},
         {"milestone_id": "M2", "planned_date": "2026-03-02", "forecast_date": None, "actual_date": "2026-03-02", "status": "Completed"},
-        {"milestone_id": "M3", "planned_date": "2026-03-03", "forecast_date": "2026-03-03", "actual_date": None, "status": "On Track"},
+        {"milestone_id": "M3", "planned_date": "2026-03-05", "forecast_date": "2026-03-05", "actual_date": None, "status": "On Track"},
+        {"milestone_id": "M4", "planned_date": "2026-03-02", "forecast_date": "2026-03-03", "actual_date": None, "status": "Overdue"},
     ])
 
     frame, stats = calculate_milestones(milestones, "2026-03-04")
 
-    assert stats == {"total": 3, "completed": 1, "delayed": 1, "at_risk": 2}
+    assert stats == {"total": 4, "completed": 1, "delayed": 2, "at_risk": 2}
     assert frame.set_index("milestone_id").loc["M1", "calculated_status"] == "At Risk"
     assert frame.set_index("milestone_id").loc["M2", "calculated_status"] == "Completed"
     assert frame.set_index("milestone_id").loc["M3", "calculated_status"] == "On Track"
+    assert frame.set_index("milestone_id").loc["M4", "calculated_status"] == "Overdue"
