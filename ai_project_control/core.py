@@ -1201,11 +1201,14 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
     for _, row in a.iterrows():
         start = pd.to_datetime(row["target_start_date"], errors="coerce")
         finish = pd.to_datetime(row["target_end_date"], errors="coerce")
-        if pd.isna(start) or pd.isna(finish) or finish < start:
+        if pd.isna(start) or pd.isna(finish):
             raise ValueError(f"Invalid assignment date range for resource {row['rsrc_id']}.")
-        if (finish.normalize() - start.normalize()).days > 3660:
+        start_day, finish_day = start.normalize(), finish.normalize()
+        if finish_day < start_day:
+            raise ValueError(f"Invalid assignment date range for resource {row['rsrc_id']}.")
+        if (finish_day - start_day).days > 3660:
             raise ValueError(f"Resource assignment window exceeds 10 years for resource {row['rsrc_id']}.")
-        days = pd.date_range(start.normalize(), finish.normalize(), freq="D")
+        days = pd.date_range(start_day, finish_day, freq="D")
         per_day = float(row["target_qty"]) / len(days)
         for day in days:
             daily.append({"date": day, "rsrc_id": row["rsrc_id"],
