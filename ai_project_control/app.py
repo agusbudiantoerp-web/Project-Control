@@ -587,26 +587,72 @@ with reports:
     datasets={n:ds(n) for n in TEMPLATES}
     analysis={}
     report_metrics={}
-    try:
-        if not datasets["activities.csv"].empty:
+    report_errors=[]
+    if not datasets["activities.csv"].empty:
+        try:
             cpm_frame,cpm_stats=calculate_cpm(datasets["activities.csv"])
             analysis["CPM Results"]=cpm_frame
             report_metrics["Planned duration (periods)"]=round(cpm_stats["project_duration"],2)
             report_metrics["Critical activities"]=int(cpm_stats["n_critical"])
-        if not datasets["boq_budget.csv"].empty and not datasets["activities.csv"].empty:
+        except Exception as exc: report_errors.append(f"CPM: {exc}")
+    if not datasets["boq_budget.csv"].empty and not datasets["activities.csv"].empty and not datasets["project_master.csv"].empty:
+        try:
             evm_values=calculate_evm(datasets["project_master.csv"],datasets["activities.csv"],
                 datasets["boq_budget.csv"],datasets["progress.csv"],datasets["actual_cost.csv"],status_date)
             report_metrics.update({k:round(float(evm_values[k]),2) for k in ["BAC","PV","EV","AC","SPI","CPI","EAC","ETC","VAC"] if pd.notna(evm_values[k])})
-        if not datasets["risk_register.csv"].empty:
+            cashflow,cash_stats,commitment_detail=build_cost_cashflow(datasets["project_master.csv"],
+                datasets["activities.csv"],datasets["boq_budget.csv"],datasets["actual_cost.csv"],
+                datasets["commitments.csv"],status_date,datasets["progress.csv"])
+            analysis["Monthly Cash Flow"]=cashflow
+            analysis["Commitment Reconciliation"]=commitment_detail
+            for key in ["forecast_at_completion","remaining_forecast","commitment_outstanding","commitment_paid_reconciliation"]:
+                report_metrics[key.replace("_"," ").title()]=round(float(cash_stats[key]),2)
+            report_metrics["Forecast Method"]=cash_stats["forecast_method"]
+        except Exception as exc: report_errors.append(f"EVM / Cash flow: {exc}")
+    elif not datasets["commitments.csv"].empty:
+        try:
+            commitment_detail,commit_stats=analyze_commitments(datasets["commitments.csv"],status_date,
+                str(datasets["project_master.csv"].iloc[0].get("currency","")) if not datasets["project_master.csv"].empty else None)
+            analysis["Commitment Reconciliation"]=commitment_detail
+            report_metrics["Outstanding commitments"]=round(commit_stats["outstanding_total"],2)
+            report_metrics["Commitment paid reconciliation"]=round(commit_stats["paid_total"],2)
+        except Exception as exc: report_errors.append(f"Commitments: {exc}")
+    if not datasets["risk_register.csv"].empty:
+        try:
             risk_frame,risk_stats,_=risk_analysis(datasets["risk_register.csv"],10000)
             analysis["Risk Register Ranked"]=risk_frame
             report_metrics["Expected risk cost exposure"]=round(risk_stats["expected_cost_exposure"],2)
             report_metrics["Risk schedule exposure (days)"]=round(risk_stats["expected_schedule_exposure_days"],2)
-        if not datasets["milestones.csv"].empty:
-            analysis["Milestone Status"]=calculate_milestones(datasets["milestones.csv"],status_date)[0]
-        if not datasets["resource_assignments.csv"].empty:
-            analysis["Resource Allocation"]=calculate_resource_load(datasets["resources.csv"],datasets["resource_assignments.csv"])[0]
-    except Exception as exc: st.warning(str(exc))
+        except Exception as exc: report_errors.append(f"Risk: {exc}")
+    if not datasets["milestones.csv"].empty:
+        try:
+            milestone_frame,milestone_stats=calculate_milestones(datasets["milestones.csv"],status_date)
+            analysis["Milestone Status"]=milestone_frame
+            report_metrics["Milestones total"]=milestone_stats["total"]
+            report_metrics["Milestones completed"]=milestone_stats["completed"]
+            report_metrics["Milestones delayed"]=milestone_stats["delayed"]
+            report_metrics["Milestones at risk"]=milestone_stats["at_risk"]
+        except Exception as exc: report_errors.append(f"Milestones: {exc}")
+    if not datasets["resource_assignments.csv"].empty and not datasets["resources.csv"].empty:
+        try:
+            resource_summary,daily_load=calculate_resource_load(datasets["resources.csv"],datasets["resource_assignments.csv"])
+            analysis["Resource Allocation"]=resource_summary
+            analysis["Daily Resource Loading"]=daily_load
+            report_metrics["Resources assigned"]=int(resource_summary["rsrc_id"].nunique())
+            report_metrics["Overloaded resource days"]=int(resource_summary["overloaded_days"].sum())
+        except Exception as exc: report_errors.append(f"Resources: {exc}")
+    if not datasets["change_register.csv"].empty:
+        try:
+            original_bac=report_metrics.get("Bac",0.0)
+            change_frame,change_stats=calculate_change_impact(datasets["change_register.csv"],original_bac)
+            analysis["Change Control"]=change_frame
+            report_metrics["Approved change cost impact"]=round(change_stats["approved_cost_impact"],2)
+            report_metrics["Approved schedule impact days"]=round(change_stats["approved_schedule_days"],2)
+            report_metrics["Revised budget after approved changes"]=round(change_stats["revised_budget"],2)
+            report_metrics["Pending change cost exposure"]=round(change_stats["pending_cost_exposure"],2)
+        except Exception as exc: report_errors.append(f"Change control: {exc}")
+    if report_errors:
+        for issue in report_errors: st.warning(issue)
     if st.button("Generate integrated Excel workbook",type="primary"):
         try:
             book=export_workbook(datasets,analysis)
