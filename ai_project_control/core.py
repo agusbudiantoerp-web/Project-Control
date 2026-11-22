@@ -18,8 +18,8 @@ DB_PATH = DATA_DIR / "project_control.db"
 
 TEMPLATES = {
  "project_master.csv": (["project_id","project_name","client","location","project_type","planned_start","planned_finish","status_date","currency"], ["PRJ-001","Demo Construction Project","Demo Client","Jakarta","Construction","2026-01-01","2026-12-31","2026-03-31","IDR"]),
- "wbs.csv": (["wbs_id","parent_wbs_id","wbs_name","description","responsible_party"], ["1.1","1","Foundation","Foundation works","Civil Team"]),
- "activities.csv": (["activity_id","wbs_id","activity_name","duration_days","planned_start","planned_finish","predecessor_ids","calendar_id","weight_pct"], ["A100","1.1","Excavation","10","2026-01-05","2026-01-14","","CAL-01","5"]),
+ "wbs.csv": (["wbs_id","parent_wbs_id","wbs_name","description","responsible_party"], ["1.1","","Foundation","Foundation works","Civil Team"]),
+ "activities.csv": (["activity_id","wbs_id","activity_name","duration_days","planned_start","planned_finish","predecessor_ids","calendar_id","weight_pct"], ["A100","1.1","Excavation","10","2026-01-05","2026-01-14","","CAL-01","100"]),
  "boq_budget.csv": (["boq_id","wbs_id","item_code","description","unit","budget_quantity","unit_rate","budget_amount"], ["BOQ-001","1.1","CIV-001","Excavation","m3","1000","75000","75000000"]),
  "progress.csv": (["period_end","activity_id","boq_id","planned_quantity_to_date","actual_quantity_to_date","unit","evidence_reference","approved_by"], ["2026-03-31","A100","BOQ-001","800","650","m3","DAILY-REPORT-001","Site Engineer"]),
  "actual_cost.csv": (["transaction_date","wbs_id","boq_id","cost_code","cost_category","vendor","description","amount","currency","document_reference"], ["2026-03-31","1.1","BOQ-001","CIV-001","Material","Demo Vendor","Sample cost","25000000","IDR","INV-001"]),
@@ -28,7 +28,7 @@ TEMPLATES = {
  "resources.csv": (["rsrc_id","rsrc_name","rsrc_type","unit_of_measure","capacity_per_day"], ["R-CRANE-01","Mobile Crane","Equipment","hour","8"]),
  "resource_assignments.csv": (["task_id","rsrc_id","target_qty","actual_qty","target_cost","actual_cost","target_start_date","target_end_date"], ["A100","R-CRANE-01","40","0","10000000","0","2026-01-01","2026-01-05"]),
  "calendars.csv": (["calendar_id","calendar_name","workdays_per_week","hours_per_day","holidays"], ["CAL-01","Six-day workweek","6","8",""]),
- "relationships.csv": (["task_id","pred_task_id","pred_type","lag_hr_cnt"], ["A110","A100","PR_FS","0"]),
+ "relationships.csv": (["task_id","pred_task_id","pred_type","lag_hr_cnt"], ["A100","","PR_FS","0"]),
  "milestones.csv": (["milestone_id","milestone_name","planned_date","forecast_date","actual_date","status","owner"], ["M-001","Foundation Complete","2026-02-12","2026-02-14","","At Risk","Project Manager"]),
  "change_register.csv": (["change_id","date_raised","description","cost_impact","schedule_impact_days","status","approved_by"], ["CR-001","2026-03-01","Additional drainage scope","15000000","3","Pending",""]),
  "drawing_takeoff.csv": (["drawing_id","page","discipline","item_code","description","unit","quantity","measurement_method","confidence","assumptions","review_status"], ["DWG-001","1","Civil","ITM-001","Concrete slab","m3","","Scale / dimensions required","Low","Verify drawing scale and dimensions","Pending Review"]),
