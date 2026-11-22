@@ -184,3 +184,14 @@ def test_resource_load_rejects_malformed_capacity_and_extreme_date_window():
     assignments.loc[0,"target_end_date"]="2040-01-01"
     with pytest.raises(ValueError, match="exceeds 10 years"):
         calculate_resource_load(resources, assignments)
+
+def test_resource_load_compares_calendar_dates_not_time_of_day():
+    resources = pd.DataFrame([{"rsrc_id":"R1","capacity_per_day":8}])
+    assignments = pd.DataFrame([{
+        "rsrc_id":"R1","target_qty":8,
+        "target_start_date":"2026-01-01 18:00:00",
+        "target_end_date":"2026-01-01 06:00:00",
+    }])
+    summary, daily = calculate_resource_load(resources, assignments)
+    assert len(daily) == 1
+    assert daily.iloc[0]["planned_load_per_day"] == 8
