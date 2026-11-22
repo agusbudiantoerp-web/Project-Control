@@ -523,3 +523,37 @@ def test_project_backup_restore_rejects_manifest_path_traversal(tmp_path, monkey
         assert "Unsupported dataset" in str(exc)
     else:
         raise AssertionError("Manifest path traversal must be rejected")
+
+
+def test_business_validation_rejects_actual_cost_and_commitment_errors():
+    from core import validate_dataset
+
+    master=pd.DataFrame([{"project_id":"P1","currency":"IDR"}])
+    actual=pd.DataFrame([{"transaction_date":"2026-01-01","amount":100,
+        "currency":"USD"}])
+    issues=validate_dataset("actual_cost.csv",actual,{"project_master.csv":master})
+    assert any("Mata uang actual_cost" in issue for issue in issues)
+
+    commitments=pd.DataFrame([{"commitment_id":"C1","commitment_date":"2026-01-01",
+        "committed_amount":100,"paid_amount":120,"currency":"IDR"}])
+    issues=validate_dataset("commitments.csv",commitments,{"project_master.csv":master})
+    assert any("melebihi" in issue for issue in issues)
+
+    commitments.loc[0,"paid_amount"]=20
+    commitments.loc[0,"commitment_date"]="not-a-date"
+    issues=validate_dataset("commitments.csv",commitments,{"project_master.csv":master})
+    assert any("commitment_date" in issue for issue in issues)
+
+
+def test_business_validation_rejects_negative_risk_and_invalid_capacity():
+    from core import validate_dataset
+
+    risk=pd.DataFrame([{"risk_id":"R1","risk_description":"Rain",
+        "probability":0.5,"cost_impact":-1,"schedule_impact_days":2}])
+    issues=validate_dataset("risk_register.csv",risk,{})
+    assert any("cost_impact" in issue for issue in issues)
+
+    resources=pd.DataFrame([{"rsrc_id":"EQ1","rsrc_name":"Crane",
+        "rsrc_type":"Equipment","capacity_per_day":0}])
+    issues=validate_dataset("resources.csv",resources,{})
+    assert any("capacity_per_day" in issue for issue in issues)
