@@ -255,6 +255,67 @@ with portfolio_tab:
         )
         st.caption("Prioritas merupakan screening berbasis indikator yang tersedia. Rekomendasi adalah tindakan awal untuk ditinjau Project Manager; bukan keputusan otomatis atau pengganti validasi lapangan.")
 
+        st.markdown("### AI Portfolio Advisor — Groq / Gemini")
+        st.caption("Analisis hanya dikirim ke provider setelah Anda menekan tombol. API key dibaca dari environment atau Streamlit secrets dan tidak disimpan ke database.")
+        advisor_col1, advisor_col2 = st.columns(2)
+        with advisor_col1:
+            portfolio_provider = st.selectbox("AI provider", ["Groq", "Gemini"], key="portfolio_ai_provider")
+        with advisor_col2:
+            portfolio_model = st.text_input(
+                "Model",
+                "llama-3.3-70b-versatile" if portfolio_provider == "Groq" else "gemini-2.5-flash",
+                key="portfolio_ai_model",
+            )
+        if st.button("Generate AI portfolio analysis", key="generate_ai_portfolio_analysis"):
+            portfolio_key_name = "GROQ_API_KEY" if portfolio_provider == "Groq" else "GEMINI_API_KEY"
+            portfolio_key = configured_secret(portfolio_key_name)
+            if not portfolio_key:
+                st.error(f"{portfolio_key_name} belum dikonfigurasi. Tambahkan melalui environment atau .streamlit/secrets.toml.")
+            else:
+                portfolio_metrics = {
+                    "project_count": int(len(portfolio)),
+                    "projects_with_spi": int(portfolio["SPI"].notna().sum()),
+                    "projects_with_cpi": int(portfolio["CPI"].notna().sum()),
+                    "critical_projects": int((portfolio["portfolio_status"] == "Critical").sum()),
+                    "at_risk_projects": int((portfolio["portfolio_status"] == "At Risk").sum()),
+                    "risk_status_counts": risk_rows["risk_status"].value_counts(dropna=False).to_dict(),
+                    "cost_forecast_by_currency": currency_summary.to_dict("records") if not currency_summary.empty else [],
+                    "delayed_forecast_projects": int((schedule_summary["schedule_slip_days"] > 0).sum()) if "schedule_summary" in locals() and not schedule_summary.empty else None,
+                }
+                portfolio_findings = executive[[
+                    "project_id", "project_name", "risk_score", "risk_status",
+                    "SPI", "CPI", "cost_variance_pct", "schedule_slip_days", "evidence"
+                ]].copy()
+                portfolio_actions = executive[[
+                    "project_id", "project_name", "intervention_priority",
+                    "recommended_management_action"
+                ]].copy()
+                with st.spinner(f"Meminta analisis portfolio dari {portfolio_provider}..."):
+                    portfolio_ai_result = generate_narrative_advice(
+                        portfolio_metrics,
+                        findings=portfolio_findings,
+                        action_plan=portfolio_actions,
+                        provider=portfolio_provider,
+                        groq_api_key=portfolio_key if portfolio_provider == "Groq" else None,
+                        gemini_api_key=portfolio_key if portfolio_provider == "Gemini" else None,
+                        groq_model=portfolio_model if portfolio_provider == "Groq" else "llama-3.3-70b-versatile",
+                        gemini_model=portfolio_model if portfolio_provider == "Gemini" else "gemini-2.5-flash",
+                    )
+                if portfolio_ai_result.get("ok"):
+                    st.session_state["portfolio_ai_advice"] = portfolio_ai_result
+                else:
+                    st.error(portfolio_ai_result.get("error", "AI portfolio analysis failed."))
+        if "portfolio_ai_advice" in st.session_state:
+            saved_advice = st.session_state["portfolio_ai_advice"]
+            st.markdown(f"**Provider:** {saved_advice.get('provider')} · **Model:** {saved_advice.get('model')}")
+            st.markdown(saved_advice.get("text", ""))
+            st.download_button(
+                "Download AI portfolio advice",
+                saved_advice.get("text", "").encode("utf-8"),
+                file_name="AI_Project_Control_Portfolio_Advice.md",
+                mime="text/markdown",
+            )
+
         st.markdown("### Portfolio Executive Report")
         st.caption("Generate a consolidated management pack from the currently saved local portfolio. Cost totals remain separated by currency.")
         if st.button("Generate Portfolio Excel & PDF Pack", type="primary", key="generate_portfolio_pack"):
