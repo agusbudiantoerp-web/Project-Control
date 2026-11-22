@@ -665,7 +665,12 @@ def calculate_dcma14(tables: dict[str,pd.DataFrame], hours_per_day=8):
     ends=[str(r["task_id"]) for _,r in incomplete.iterrows() if str(r["task_id"]) not in succ_ids]
     start_id=min(starts,key=lambda x: str(task.loc[task["task_id"].astype(str)==x].iloc[0].get("early_start_date",""))) if starts else None
     end_id=max(ends,key=lambda x: str(task.loc[task["task_id"].astype(str)==x].iloc[0].get("early_end_date",""))) if ends else None
-    missing_logic=[x for x in missing_logic if not (x==start_id and x not in ends) and not (x==end_id and x not in starts)]
+    # A single-activity schedule is simultaneously its own start and finish;
+    # it must not be penalized as an open-end logic defect.
+    if len(incomplete) == 1 and len(task_ids) == 1:
+        missing_logic = []
+    else:
+        missing_logic=[x for x in missing_logic if not (x==start_id and x not in ends) and not (x==end_id and x not in starts)]
     lag=num(rel,"lag_hr_cnt")
     high_float=num(incomplete,"total_float_hr_cnt")>44*hours_per_day
     neg_float=num(incomplete,"total_float_hr_cnt")<0
