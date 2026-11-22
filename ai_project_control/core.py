@@ -1374,6 +1374,10 @@ def build_cost_cashflow(project: pd.DataFrame, activities: pd.DataFrame,
         raise ValueError("Activities need valid planned dates and weight_pct.")
     if (a["planned_finish"]<a["planned_start"]).any() or (a["weight_pct"]<0).any():
         raise ValueError("Activity dates or weights are invalid.")
+    outside=a[(a["planned_start"]<ps)|(a["planned_finish"]>pf)]
+    if not outside.empty:
+        ids=outside["activity_id"].astype(str).tolist() if "activity_id" in outside else outside.index.astype(str).tolist()
+        raise ValueError("Activity planned dates must fall within project master dates; review: "+", ".join(ids))
     b["budget_quantity"]=pd.to_numeric(b["budget_quantity"],errors="coerce")
     b["unit_rate"]=pd.to_numeric(b["unit_rate"],errors="coerce")
     if b[["budget_quantity","unit_rate"]].isna().any().any() or (b[["budget_quantity","unit_rate"]]<0).any().any():
