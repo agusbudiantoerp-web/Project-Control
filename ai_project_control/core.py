@@ -751,15 +751,25 @@ def calculate_dcma14(tables: dict[str,pd.DataFrame], hours_per_day=8):
 
 
 def calculate_schedule_pert(activities: pd.DataFrame, iterations=10000, seed=42):
-    """Three-point schedule-risk analysis using the audited pmcontrols PERT engine."""
+    """Three-point schedule-risk analysis; optimistic=0.90x and pessimistic=1.25x are explicit screening assumptions."""
     if activities.empty: raise ValueError("Activities belum diimpor.")
+    if not isinstance(iterations, (int, np.integer)) or iterations < 100:
+        raise ValueError("iterations harus bilangan bulat minimal 100.")
+    required={"activity_id","duration_days"}
+    missing=required-set(activities.columns)
+    if missing: raise ValueError("Kolom aktivitas PERT belum lengkap: "+", ".join(sorted(missing)))
+    ids=activities["activity_id"].astype(str).str.strip()
+    if ids.eq("").any() or ids.duplicated().any():
+        raise ValueError("activity_id untuk PERT harus terisi dan unik.")
+    durations=pd.to_numeric(activities["duration_days"],errors="coerce")
+    if durations.isna().any() or not np.isfinite(durations).all() or (durations<0).any():
+        raise ValueError("duration_days PERT harus angka finite dan tidak negatif.")
     rows=[]
-    for _,r in activities.iterrows():
-        d=float(pd.to_numeric(r["duration_days"],errors="raise"))
+    for (_,r),d in zip(activities.iterrows(),durations):
         pred=r.get("predecessor_ids","")
         pred="" if pd.isna(pred) else str(pred)
-        rows.append({"id":str(r["activity_id"]),"predecessors":pred,
-          "a":d*0.90 if d>0 else 0.0,"m":d,"b":d*1.25 if d>0 else 0.0})
+        rows.append({"id":str(r["activity_id"]).strip(),"predecessors":pred,
+          "a":float(d)*0.90,"m":float(d),"b":float(d)*1.25})
     from pmcontrols.network import pert
     result=pert(rows,n_sim=int(iterations),seed=int(seed),keep_samples=True)
     return result.table,result.stats,result.meta
