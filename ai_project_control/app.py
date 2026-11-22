@@ -547,8 +547,9 @@ with ai_advisor:
                     response.raise_for_status()
                     answer=response.json()["choices"][0]["message"]["content"]
                 else:
-                    url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-                    response=requests.post(url,json={"contents":[{"parts":[{"text":prompt}]}]},timeout=90)
+                    url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                    response=requests.post(url,headers={"x-goog-api-key":api_key},
+                      json={"contents":[{"parts":[{"text":prompt}]}]},timeout=90)
                     response.raise_for_status()
                     answer=response.json()["candidates"][0]["content"]["parts"][0]["text"]
                 st.markdown(answer)
