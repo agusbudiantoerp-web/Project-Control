@@ -8,7 +8,7 @@ import requests
 
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
-from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix
+from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix, build_predictive_warnings
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -127,6 +127,39 @@ with overview:
     else:
         st.success("No schedule or cost warning identified from the available validated EVM metrics.")
     st.caption("Executive health is a screening view. It does not replace approved project controls or management review.")
+    st.markdown("### Predictive Project Warnings")
+    try:
+        warning_trend, warning_history = predict_project_trend(
+            master, acts, boq, ds("progress.csv"), ds("actual_cost.csv")
+        ) if not acts.empty and not boq.empty else (None, pd.DataFrame())
+        warning_cpm = executive_cpm
+        baseline_finish = master.iloc[0].get("planned_finish") if not master.empty else None
+        warning_result = build_predictive_warnings(
+            warning_trend, warning_history, warning_cpm, status_date, baseline_finish
+        )
+        warning_df = warning_result["warnings"]
+        if not warning_df.empty:
+            for item in warning_df.to_dict("records"):
+                level = item["priority"]
+                message = f'{item["signal"]} Action: {item["recommended_action"]}'
+                if level == "High":
+                    st.error(message)
+                elif level == "Medium":
+                    st.warning(message)
+                else:
+                    st.info(message)
+        st.caption(
+            f'Basis: {warning_result["method"]} | '
+            f'Valid reporting periods: {warning_result["reporting_periods"]}'
+        )
+        if not warning_df.empty:
+            st.download_button(
+                "Download predictive warning register",
+                warning_df.to_csv(index=False).encode("utf-8-sig"),
+                f"{project_id}_predictive_warnings.csv", "text/csv"
+            )
+    except Exception as warning_error:
+        st.info(f"Predictive warnings unavailable: {warning_error}")
     st.markdown("### Integrated platform modules")
     modules=[
       ("Project Data Hub","CSV / Excel import, validation, project dataset storage"),
