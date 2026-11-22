@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date
 import numpy as np
 import pandas as pd
+from core import calculate_cpm
 
 
 def _number(frame: pd.DataFrame, column: str, default: float = 0.0) -> pd.Series:
@@ -105,14 +106,25 @@ def build_integrated_forecast(
         etc = eac - ac if np.isfinite(eac) else float("nan")
         forecast_cost = eac
 
-    # Trend forecast uses measured physical progress where available.
+    # CPM baseline: identify critical path and total network duration.
+    cpm_frame = activities.copy()
+    if "duration_days" not in cpm_frame:
+        cpm_frame["duration_days"] = (
+            (_date(cpm_frame, "planned_finish") - _date(cpm_frame, "planned_start")).dt.days + 1
+        )
+    cpm_result, cpm_stats = calculate_cpm(cpm_frame)
+    cpm_duration = float(cpm_stats.get("project_duration", 0.0))
+    critical_count = int(cpm_result["is_critical"].sum()) if "is_critical" in cpm_result else 0
+    critical_ids = cpm_result.loc[cpm_result["is_critical"], "activity_id"].astype(str).tolist() if "is_critical" in cpm_result else []
+
+    # Trend forecast uses measured progress; CPM remains the network baseline.
     physical_progress = (ev / bac) if np.isfinite(ev) and bac > 0 else float("nan")
     if np.isfinite(spi) and spi > 0:
         forecast_finish = status + pd.Timedelta(days=int(np.ceil(remaining / spi)))
-        schedule_basis = "EVM SPI"
+        schedule_basis = "CPM network + EVM SPI adjustment"
     else:
         forecast_finish = baseline_finish
-        schedule_basis = "Baseline finish (SPI unavailable)"
+        schedule_basis = "CPM network baseline (SPI unavailable)"
 
     # Resource load screening: spread each assignment over its activity's planned span.
     overload_rows = 0
@@ -163,6 +175,10 @@ def build_integrated_forecast(
         "forecast_finish": forecast_finish.date().isoformat(),
         "risk_adjusted_finish_p80": risk_adjusted_finish_p80.date().isoformat(),
         "schedule_basis": schedule_basis,
+        "cpm_project_duration_days": cpm_duration,
+        "critical_activity_count": critical_count,
+        "critical_activity_ids": critical_ids,
+        "cpm_activity_detail": cpm_result,
         "baseline_duration_days": total_baseline_days,
         "remaining_baseline_days": remaining,
         "bac": bac, "pv": pv, "ev": ev, "ac": ac,
