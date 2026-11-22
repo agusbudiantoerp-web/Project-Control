@@ -107,3 +107,40 @@ def test_cashflow_baseline_reconciles_when_activity_dates_cover_project_window()
 
     assert cashflow["baseline_cost"].sum() == pytest.approx(stats["BAC"])
     assert stats["BAC"] == pytest.approx(1000)
+
+
+def test_change_impact_separates_approved_pending_and_rejected_changes():
+    from core import calculate_change_impact
+
+    changes = pd.DataFrame([
+        {"change_id": "C1", "status": "Approved", "cost_impact": 150,
+         "schedule_impact_days": 5},
+        {"change_id": "C2", "status": "Pending", "cost_impact": 80,
+         "schedule_impact_days": 2},
+        {"change_id": "C3", "status": "Rejected", "cost_impact": 40,
+         "schedule_impact_days": 1},
+    ])
+
+    detail, stats = calculate_change_impact(changes, 1000)
+
+    assert stats["approved_cost_impact"] == pytest.approx(150)
+    assert stats["approved_schedule_days"] == pytest.approx(5)
+    assert stats["revised_budget"] == pytest.approx(1150)
+    assert stats["pending_count"] == 1
+    assert stats["pending_cost_exposure"] == pytest.approx(80)
+    assert detail.loc[detail["change_id"] == "C3", "control_class"].iloc[0] == "Other / rejected"
+
+
+def test_change_impact_allows_approved_cost_reduction():
+    from core import calculate_change_impact
+
+    changes = pd.DataFrame([
+        {"change_id": "CR-1", "status": "Accepted", "cost_impact": -100,
+         "schedule_impact_days": -3},
+    ])
+
+    _, stats = calculate_change_impact(changes, 1000)
+
+    assert stats["approved_cost_impact"] == pytest.approx(-100)
+    assert stats["approved_schedule_days"] == pytest.approx(-3)
+    assert stats["revised_budget"] == pytest.approx(900)
