@@ -664,5 +664,6 @@ def test_default_templates_have_consistent_reference_ids_and_evm_weights():
     assert str(assignment["rsrc_id"]) in resource_ids
 
     relationship = samples["relationships.csv"].iloc[0]
-    assert str(relationship["task_id"]) in activity_ids
-    assert str(relationship["pred_task_id"]) in activity_ids
+    # The template row is intentionally an unlinked placeholder, not a self-link.
+    assert not str(relationship["task_id"]).strip()
+    assert not str(relationship["pred_task_id"]).strip()
