@@ -8,6 +8,7 @@ import requests
 
 from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
+from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets)
@@ -524,6 +525,38 @@ with drawing_tab:
 
 with ai_advisor:
     st.subheader("AI Project Advisor & Prediction")
+    st.markdown("#### Rules-based Mitigation & Recovery")
+    st.caption("Rekomendasi awal berbasis CPM, EVM, risiko dan kapasitas. Angka penghematan hanya ditampilkan jika data crash cost tersedia.")
+    try:
+        mitigation_activities = ds("activities.csv")
+        mitigation_evm = {}
+        if not ds("boq_budget.csv").empty and not mitigation_activities.empty:
+            mitigation_evm = calculate_evm(ds("project_master.csv"), mitigation_activities,
+                ds("boq_budget.csv"), ds("progress.csv"), ds("actual_cost.csv"), status_date)
+        mitigation_resource_summary, _ = calculate_resource_load(ds("resources.csv"), ds("resource_assignments.csv"))
+        mitigation = build_mitigation_advice(mitigation_activities, mitigation_evm,
+            ds("risk_register.csv"), mitigation_resource_summary, status_date)
+        metric_row([("Critical activities", len(mitigation["critical_activity_ids"])),
+                    ("CPM duration (days)", mitigation["cpm_project_duration_days"]),
+                    ("Recommended actions", len(mitigation["actions"]))])
+        st.dataframe(mitigation["actions"], use_container_width=True, hide_index=True)
+        st.markdown("#### Recovery scenario comparison")
+        reduction = st.number_input("Target duration reduction (days)", min_value=1, max_value=365,
+            value=5, step=1, key="recovery_target_reduction")
+        recovery = compare_recovery_scenarios(mitigation_activities, int(reduction))
+        if recovery["scenario_available"]:
+            metric_row([("Baseline duration", recovery["baseline_duration_days"]),
+                        ("Scenario duration", recovery["scenario_duration_days"]),
+                        ("Incremental crash cost", f'{recovery["incremental_crash_cost"]:,.0f}')])
+            st.dataframe(recovery["crash_detail"], use_container_width=True, hide_index=True)
+        else:
+            st.info(recovery["note"])
+        st.download_button("Download mitigation action register",
+            mitigation["actions"].to_csv(index=False).encode("utf-8-sig"),
+            file_name=f"{project_id}_mitigation_actions.csv", mime="text/csv")
+    except Exception as mitigation_error:
+        st.warning(f"Mitigation analysis belum dapat dihitung: {mitigation_error}")
+
     st.warning("Mengirim ringkasan proyek ke penyedia AI eksternal hanya setelah Anda menekan Analyze. Jangan kirim data rahasia klien tanpa persetujuan.")
     provider=st.selectbox("AI provider",["Groq","Google Gemini"],key="ai_provider")
     api_key=st.text_input("API key (hanya untuk sesi ini; tidak disimpan)",type="password",key="ai_api_key")
