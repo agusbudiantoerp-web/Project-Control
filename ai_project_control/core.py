@@ -403,6 +403,20 @@ def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataF
             unknown_boq=set(p["boq_id"].astype(str))-boq_ids
             if unknown_activities: raise ValueError("Progress references unknown activities: "+", ".join(sorted(unknown_activities)))
             if unknown_boq: raise ValueError("Progress references unknown BOQ: "+", ".join(sorted(unknown_boq)))
+            duplicate_reports = p.duplicated(
+                ["period_end", "activity_id", "boq_id"], keep=False
+            )
+            if duplicate_reports.any():
+                duplicate_keys = p.loc[duplicate_reports, ["period_end", "activity_id", "boq_id"]]
+                examples = duplicate_keys.astype(str).drop_duplicates().head(5)
+                detail = "; ".join(
+                    f"{row.period_end} / {row.activity_id} / {row.boq_id}"
+                    for row in examples.itertuples(index=False)
+                )
+                raise ValueError(
+                    "Progress contains duplicate rows for the same reporting period, "
+                    f"activity and BOQ. Resolve duplicates before EVM: {detail}"
+                )
             p=p.sort_values("period_end").drop_duplicates(["activity_id","boq_id"],keep="last")
             q=b[["boq_id","wbs_id","budget_quantity","budget_amount"]].copy()
             allocation=a[["activity_id","wbs_id","wbs_share"]].copy()
