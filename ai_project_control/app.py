@@ -302,6 +302,7 @@ with risk_tab:
             if not ds("activities.csv").empty:
                 schedule_pert,pert_stats,pert_meta=calculate_schedule_pert(ds("activities.csv"),iterations)
                 st.markdown("#### PERT schedule uncertainty (activity three-point estimate)")
+                st.caption("Asumsi screening otomatis: optimistic = 90% durasi dasar, most likely = durasi dasar, pessimistic = 125%. Ini bukan estimasi tiga titik dari estimator proyek; ganti dengan data optimistik / paling mungkin / pesimistik yang disetujui sebelum dipakai sebagai baseline risiko resmi.")
                 metric_row([("PERT expected duration",pert_stats["expected_duration"]),
                   ("Schedule P50",pert_stats["mc_p50"]),("Schedule P80",pert_stats["mc_p80"]),
                   ("Schedule P95",pert_stats["mc_p95"])])
