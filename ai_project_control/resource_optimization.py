@@ -22,6 +22,8 @@ def simulate_resource_smoothing(
                 "scenario": pd.DataFrame(), "summary": pd.DataFrame()}
     required_a={"task_id","rsrc_id","target_qty","target_start_date","target_end_date"}
     required_r={"rsrc_id","capacity_per_day"}
+    if not isinstance(max_shift_days,(int,np.integer)) or max_shift_days < 0:
+        raise ValueError("max_shift_days must be a non-negative integer.")
     if required_a-set(assignments.columns):
         raise ValueError("Resource assignments missing: "+", ".join(sorted(required_a-set(assignments.columns))))
     if required_r-set(resources.columns):
@@ -35,8 +37,14 @@ def simulate_resource_smoothing(
     float_map=dict(zip(cpm["activity_id"].astype(str),pd.to_numeric(cpm["total_float_days"],errors="coerce").fillna(0).clip(lower=0)))
     cap_map=dict(zip(resources["rsrc_id"].astype(str),pd.to_numeric(resources["capacity_per_day"],errors="coerce")))
     rows=assignments.copy().reset_index(drop=True)
-    rows["task_id"]=rows["task_id"].astype(str)
-    rows["rsrc_id"]=rows["rsrc_id"].astype(str)
+    if rows["task_id"].isna().any() or rows["task_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("Resource assignment task_id must be non-blank.")
+    rows["task_id"]=rows["task_id"].astype(str).str.strip()
+    rows["rsrc_id"]=rows["rsrc_id"].astype(str).str.strip()
+    known_tasks=set(cpm["activity_id"].astype(str))
+    unknown_tasks=set(rows["task_id"])-known_tasks
+    if unknown_tasks:
+        raise ValueError("Resource assignments reference unknown activities: "+", ".join(sorted(unknown_tasks)))
     rows["target_qty"]=pd.to_numeric(rows["target_qty"],errors="coerce")
     rows["base_start"]=pd.to_datetime(rows["target_start_date"],errors="coerce").dt.normalize()
     rows["base_finish"]=pd.to_datetime(rows["target_end_date"],errors="coerce").dt.normalize()
