@@ -191,12 +191,15 @@ with risk_tab:
         iterations=st.slider("Simulation iterations",1000,50000,10000,1000)
         try:
             ranked,stats,samples=risk_analysis(risks,iterations)
-            schedule_pert,pert_stats,pert_meta=calculate_schedule_pert(ds("activities.csv"),iterations)
-            st.markdown("#### PERT schedule uncertainty (activity three-point estimate)")
-            metric_row([("PERT expected duration",pert_stats["expected_duration"]),
-              ("Schedule P50",pert_stats["mc_p50"]),("Schedule P80",pert_stats["mc_p80"]),
-              ("Schedule P95",pert_stats["mc_p95"])])
-            show_df(schedule_pert,300)
+            if not ds("activities.csv").empty:
+                schedule_pert,pert_stats,pert_meta=calculate_schedule_pert(ds("activities.csv"),iterations)
+                st.markdown("#### PERT schedule uncertainty (activity three-point estimate)")
+                metric_row([("PERT expected duration",pert_stats["expected_duration"]),
+                  ("Schedule P50",pert_stats["mc_p50"]),("Schedule P80",pert_stats["mc_p80"]),
+                  ("Schedule P95",pert_stats["mc_p95"])])
+                show_df(schedule_pert,300)
+            else:
+                st.info("Import activities.csv to run schedule PERT simulation.")
             metric_row([("Expected cost exposure",f"{stats['expected_cost_exposure']:,.0f}"),
                         ("Schedule exposure (days)",f"{stats['expected_schedule_exposure_days']:,.1f}"),
                         ("Cost P80",f"{stats['cost_p80']:,.0f}"),("Delay P80 (days)",f"{stats['delay_p80']:,.1f}")])
