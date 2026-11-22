@@ -397,26 +397,51 @@ def calculate_progress(activities, progress, boq=None):
       "unreported_activities":max(0,len(activities)-reported),"status_date":status_date}
 
 def risk_analysis(risks: pd.DataFrame, iterations=10000, seed=42):
-    if risks.empty: raise ValueError("Risk register belum diimpor.")
-    r=risks.copy()
-    r["probability"]=pd.to_numeric(r["probability"],errors="coerce").fillna(0).clip(0,1)
-    r["cost_impact"]=pd.to_numeric(r["cost_impact"],errors="coerce").fillna(0)
-    r["schedule_impact_days"]=pd.to_numeric(r["schedule_impact_days"],errors="coerce").fillna(0)
-    r["cost_exposure"]=r["probability"]*r["cost_impact"]
-    r["schedule_exposure_days"]=r["probability"]*r["schedule_impact_days"]
-    rng=np.random.default_rng(seed)
-    probs=r["probability"].to_numpy()
-    cost=r["cost_impact"].to_numpy()
-    days=r["schedule_impact_days"].to_numpy()
-    occur=rng.random((iterations,len(r)))<probs
-    cost_samples=(occur*cost).sum(axis=1)
-    day_samples=(occur*days).sum(axis=1)
-    stats={"expected_cost_exposure":float(r["cost_exposure"].sum()),
-      "expected_schedule_exposure_days":float(r["schedule_exposure_days"].sum()),
-      "cost_p50":float(np.percentile(cost_samples,50)),"cost_p80":float(np.percentile(cost_samples,80)),
-      "cost_p95":float(np.percentile(cost_samples,95)),"delay_p50":float(np.percentile(day_samples,50)),
-      "delay_p80":float(np.percentile(day_samples,80)),"delay_p95":float(np.percentile(day_samples,95))}
-    return r.sort_values("cost_exposure",ascending=False),stats,pd.DataFrame({"cost":cost_samples,"delay_days":day_samples})
+    """Independent Bernoulli Monte Carlo risk exposure; impacts are non-negative."""
+    if risks.empty:
+        raise ValueError("Risk register belum diimpor.")
+    if not isinstance(iterations, (int, np.integer)) or iterations < 100:
+        raise ValueError("iterations harus bilangan bulat minimal 100.")
+    required = {"risk_id", "probability", "cost_impact", "schedule_impact_days"}
+    missing = required - set(risks.columns)
+    if missing:
+        raise ValueError("Kolom risk register belum lengkap: " + ", ".join(sorted(missing)))
+    r = risks.copy()
+    if r["risk_id"].isna().any() or r["risk_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("risk_id tidak boleh kosong.")
+    if r["risk_id"].astype(str).duplicated().any():
+        raise ValueError("risk_id harus unik.")
+    for col in ["probability", "cost_impact", "schedule_impact_days"]:
+        r[col] = pd.to_numeric(r[col], errors="coerce")
+        if r[col].isna().any() or not np.isfinite(r[col]).all():
+            raise ValueError(f"{col} harus berisi angka valid.")
+    if ((r["probability"] < 0) | (r["probability"] > 1)).any():
+        raise ValueError("probability harus berada antara 0 dan 1.")
+    for col in ["cost_impact", "schedule_impact_days"]:
+        if (r[col] < 0).any():
+            raise ValueError(f"{col} tidak boleh negatif.")
+    r["cost_exposure"] = r["probability"] * r["cost_impact"]
+    r["schedule_exposure_days"] = r["probability"] * r["schedule_impact_days"]
+    rng = np.random.default_rng(seed)
+    occur = rng.random((iterations, len(r))) < r["probability"].to_numpy()
+    cost_samples = (occur * r["cost_impact"].to_numpy()).sum(axis=1)
+    day_samples = (occur * r["schedule_impact_days"].to_numpy()).sum(axis=1)
+    stats = {
+        "expected_cost_exposure": float(r["cost_exposure"].sum()),
+        "expected_schedule_exposure_days": float(r["schedule_exposure_days"].sum()),
+        "cost_p50": float(np.percentile(cost_samples, 50)),
+        "cost_p80": float(np.percentile(cost_samples, 80)),
+        "cost_p90": float(np.percentile(cost_samples, 90)),
+        "cost_p95": float(np.percentile(cost_samples, 95)),
+        "delay_p50": float(np.percentile(day_samples, 50)),
+        "delay_p80": float(np.percentile(day_samples, 80)),
+        "delay_p90": float(np.percentile(day_samples, 90)),
+        "delay_p95": float(np.percentile(day_samples, 95)),
+        "iterations": int(iterations),
+        "seed": int(seed),
+    }
+    samples = pd.DataFrame({"cost": cost_samples, "delay_days": day_samples})
+    return r.sort_values("cost_exposure", ascending=False), stats, samples
 
 def optimize_crash(activities: pd.DataFrame, target_days: float):
     required={"crash_duration_days","crash_cost_per_day"}
