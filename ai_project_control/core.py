@@ -485,6 +485,15 @@ def calculate_progress(activities, progress, boq=None):
     if missing:
         raise ValueError("Progress missing columns: "+", ".join(sorted(missing)))
     p=progress.copy()
+    if activities["activity_id"].isna().any() or activities["activity_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("Activities contain blank activity_id values.")
+    if activities["activity_id"].astype(str).duplicated().any():
+        raise ValueError("Activities contain duplicate activity_id values.")
+    if p["activity_id"].isna().any() or p["activity_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("Progress contains blank activity_id values.")
+    unknown_activities=set(p["activity_id"].astype(str))-set(activities["activity_id"].astype(str))
+    if unknown_activities:
+        raise ValueError("Progress references unknown activities: "+", ".join(sorted(unknown_activities)))
     p["period_end"]=pd.to_datetime(p["period_end"],errors="coerce")
     if p["period_end"].isna().any():
         raise ValueError("Progress contains invalid period_end dates.")
