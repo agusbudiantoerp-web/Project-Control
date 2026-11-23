@@ -11,6 +11,7 @@ from .streamlit_recovery_scenario_planner import render_recovery_scenario_planne
 from .resource_loading_summary import build_resource_loading_summary
 from .manpower_equipment_planner import build_manpower_equipment_plan
 from .boq_schedule_resource_integration import build_boq_schedule_resource_integration
+from .cost_forecast import build_cost_forecast
 
 
 def render_project_workspace_dashboard(
@@ -55,6 +56,22 @@ def render_project_workspace_dashboard(
     if evm["status"] != "ASSESSED":
         st.warning("EVM is incomplete: " + ", ".join(evm["data_gaps"]))
     st.caption("EAC uses BAC/CPI and assumes current cost efficiency continues. Review method limitations before using forecasts.")
+
+    st.markdown("#### Cost Forecast Scenarios")
+    try:
+        cost_forecast = build_cost_forecast(evm)
+        if cost_forecast["status"] == "INSUFFICIENT_DATA":
+            st.info("Cost forecast belum dapat dihitung. Lengkapi PV, EV, AC, BAC, dan mata uang proyek.")
+            st.caption("Data gaps: " + ", ".join(cost_forecast["data_gaps"]))
+        elif cost_forecast["status"] == "REVIEW_REQUIRED":
+            st.warning("Earned Value melebihi BAC. Periksa baseline, pengukuran progres, dan perubahan lingkup sebelum membuat forecast.")
+        else:
+            st.caption(f"Mata uang: {cost_forecast['currency']} | CPI: {cost_forecast['cpi']} | SPI: {cost_forecast['spi']}")
+            st.dataframe(cost_forecast["scenarios"], use_container_width=True, hide_index=True)
+            st.caption("Tiga skenario EAC adalah estimasi berbasis kinerja, bukan komitmen biaya atau anggaran revisi yang disetujui.")
+    except (TypeError, ValueError) as exc:
+        st.error("Cost forecast data needs correction: " + str(exc))
+
 
     st.markdown("#### Schedule & Critical Path")
     schedule = result["schedule"]
