@@ -9,6 +9,7 @@ from .portfolio_executive_report import build_portfolio_executive_report
 from .workspace_service import build_workspace_overview
 from .streamlit_recovery_scenario_planner import render_recovery_scenario_planner
 from .resource_loading_summary import build_resource_loading_summary
+from .manpower_equipment_planner import build_manpower_equipment_plan
 
 
 def render_project_workspace_dashboard(
@@ -100,6 +101,26 @@ def render_project_workspace_dashboard(
                 st.info("Some resource-period records cannot be assessed because demand or capacity data is incomplete.")
     except (TypeError, ValueError) as exc:
         st.error("Resource loading data needs correction: " + str(exc))
+
+    st.markdown("#### Manpower & Equipment Planning")
+    try:
+        planning_result = build_manpower_equipment_plan(result["workspace"]["resources"])
+        if planning_result["status"] == "NO_DATA":
+            st.info("No manpower/equipment records are stored yet. Add resource_type, resource_id, period, unit, planned_units, actual_units, and capacity_units to assess the plan.")
+        else:
+            p1, p2, p3 = st.columns(3)
+            p1.metric("Resource-period records", len(planning_result["rows"]))
+            p2.metric("Overloaded records", planning_result["overloaded_count"])
+            p3.metric("Unassessed records", planning_result["unassessed_count"])
+            st.dataframe(planning_result["type_summary"], use_container_width=True, hide_index=True)
+            st.dataframe(planning_result["rows"], use_container_width=True, hide_index=True)
+            st.caption("Manpower and equipment remain separated by resource type and unit. The planner does not infer shifts, productivity, overtime, or labor cost.")
+            if planning_result["overloaded_count"]:
+                st.warning("Some manpower/equipment periods exceed declared capacity. Validate rosters, equipment availability, maintenance, and working calendars before approving changes.")
+            if planning_result["unassessed_count"]:
+                st.info("Some records are not assessable because demand or positive capacity data is incomplete.")
+    except (TypeError, ValueError) as exc:
+        st.error("Manpower/equipment data needs correction: " + str(exc))
 
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
