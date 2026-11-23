@@ -13,7 +13,7 @@ def test_review_keeps_resource_and_risk_evidence_separate_from_matrix_inputs():
     assert result["decision"]["priority"] == "P1"
     assert result["decision"]["risk_score"] is None
     assert result["decision"]["overloaded_resource_days"] is None
-    assert result["summary"]["attention_count"] == 4
+    assert result["summary"]["attention_count"] == 5
 
 
 def test_review_does_not_call_missing_inputs_stable():
