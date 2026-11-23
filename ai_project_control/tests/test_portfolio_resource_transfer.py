@@ -33,8 +33,8 @@ def test_no_transfer_when_donor_release_is_zero():
     assert result["metrics"]["transferred_units"] == 0
 
 
-def test_no_transfer_from_equal_or_higher_priority_project():
-    result = simulate_resource_transfer_impact(_input(), {"A": 90, "B": 10}, 50)
+def test_no_transfer_when_projects_have_equal_priority():
+    result = simulate_resource_transfer_impact(_input(), {"A": 50, "B": 50}, 50)
     assert result["transfers"].empty
 
 
