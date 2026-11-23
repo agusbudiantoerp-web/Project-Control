@@ -29,6 +29,7 @@ from project_director_decision_matrix import build_decision_matrix
 from executive_action_register import create_action, transition_action, build_action_register, ALLOWED_TRANSITIONS
 from project_recovery_control import assess_recovery_control
 from recovery_scenario_comparator import compare_recovery_scenarios
+from integrated_executive_report import build_integrated_executive_report
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
@@ -1142,6 +1143,54 @@ with portfolio_tab:
                 )
             with st.expander("Scenario ranking methodology and limitations"):
                 st.write(scenario_result["method"])
+
+
+        st.markdown("### Integrated Portfolio Executive Report")
+        st.caption("Menggabungkan register proyek, prioritas direktur, tindakan korektif, tren, dan assessment pemulihan yang tersedia. Bagian yang tidak memiliki data akan ditandai, bukan diisi dengan asumsi.")
+        integrated_report_language = st.selectbox(
+            "Integrated report language", ["Bahasa Indonesia", "English"],
+            key="integrated_portfolio_report_language",
+        )
+        if st.button("Build integrated portfolio executive report", key="build_integrated_portfolio_report"):
+            try:
+                report_actions_df = ds("executive_action_register.csv")
+                report_events_df = ds("executive_action_events.csv")
+                report_actions = build_action_register(
+                    report_actions_df.to_dict("records") if not report_actions_df.empty else [],
+                    report_events_df.to_dict("records") if not report_events_df.empty else [],
+                )
+                report_health_df = ds("portfolio_health_snapshots.csv")
+                report_health = build_health_monitoring(
+                    report_health_df.to_dict("records") if not report_health_df.empty else []
+                )
+                report_recovery = st.session_state.get("project_recovery_control_result")
+                if report_recovery and report_recovery.get("project_id") != project_id:
+                    report_recovery = None
+                report_scenarios = st.session_state.get("recovery_scenario_comparison_result")
+                if report_scenarios and report_scenarios.get("project_id") != project_id:
+                    report_scenarios = None
+                integrated_report_text = build_integrated_executive_report(
+                    portfolio_records=portfolio.to_dict("records"),
+                    status_date=status_date,
+                    director_decisions=director_matrix,
+                    action_register=report_actions,
+                    health_monitoring=report_health,
+                    recovery_assessment=report_recovery,
+                    scenario_comparison=report_scenarios,
+                    language="id" if integrated_report_language == "Bahasa Indonesia" else "en",
+                )
+                st.session_state["integrated_portfolio_executive_report"] = integrated_report_text
+            except Exception as integrated_report_error:
+                st.error(f"Integrated report could not be built: {integrated_report_error}")
+        if st.session_state.get("integrated_portfolio_executive_report"):
+            st.markdown(st.session_state["integrated_portfolio_executive_report"])
+            st.download_button(
+                "Download integrated portfolio executive report",
+                st.session_state["integrated_portfolio_executive_report"].encode("utf-8"),
+                file_name=f"portfolio_executive_report_{status_date.isoformat()}.md",
+                mime="text/markdown",
+                key="download_integrated_portfolio_executive_report",
+            )
 
 with overview:
     master=ds("project_master.csv")
