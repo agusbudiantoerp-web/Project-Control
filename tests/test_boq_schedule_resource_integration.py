@@ -4,8 +4,8 @@ from ai_project_control.boq_schedule_resource_integration import build_boq_sched
 
 def sample():
     boq = [
-        {"boq_id": "B1", "activity_id": "A", "quantity": 10, "unit": "m3", "unit_rate": 5},
-        {"boq_id": "B2", "activity_id": "A", "quantity": 2, "unit": "day", "amount": 30},
+        {"boq_id": "B1", "activity_id": "A", "quantity": 10, "unit": "m3", "unit_rate": 5, "currency": "IDR"},
+        {"boq_id": "B2", "activity_id": "A", "quantity": 2, "unit": "day", "amount": 30, "currency": "IDR"},
     ]
     activities = [
         {"activity_id": "A", "duration_days": 3},
@@ -24,7 +24,8 @@ def test_links_boq_schedule_and_resources():
     row = result["rows"][0]
     assert result["status"] == "ASSESSED"
     assert row["boq_item_count"] == 2
-    assert row["boq_quantity"] == 12
+    assert row["boq_quantity"] is None
+    assert row["boq_quantity_by_unit"] == "day: 2; m3: 10"
     assert row["boq_amount"] == 80
     assert row["duration_days"] == 3
     assert row["is_critical"] is True
@@ -58,3 +59,13 @@ def test_rejects_negative_boq_quantity():
 def test_no_inputs_is_no_linked_activities():
     result = build_boq_schedule_resource_integration([], [], [])
     assert result["status"] == "NO_LINKED_ACTIVITIES"
+
+
+def test_mixed_currency_amounts_are_not_combined():
+    boq, activities, resources = sample()
+    boq[1]["currency"] = "USD"
+    result = build_boq_schedule_resource_integration(boq, activities, resources)
+    row = result["rows"][0]
+    assert row["boq_amount"] is None
+    assert "IDR:" in row["boq_amount_by_currency"]
+    assert "USD:" in row["boq_amount_by_currency"]
