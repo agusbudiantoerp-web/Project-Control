@@ -135,6 +135,34 @@ def render_project_workspace_dashboard(
                 "Project for recovery tracking", list(project_options.keys()),
                 format_func=lambda key: project_options[key], key="pc_recovery_project_select",
             )
+            with st.expander("Create a recovery plan"):
+                with st.form("pc_create_recovery_plan_form"):
+                    plan_title = st.text_input("Recovery plan title")
+                    plan_owner = st.text_input("Accountable owner")
+                    plan_start = st.date_input("Plan start date")
+                    plan_target_finish = st.date_input("Recovery target finish")
+                    plan_baseline_finish = st.date_input("Approved baseline finish")
+                    first_milestone_name = st.text_input("First milestone")
+                    first_milestone_due = st.date_input("First milestone due date")
+                    first_milestone_target = st.number_input("Milestone target progress (%)", min_value=0.0, max_value=100.0, value=100.0, step=5.0)
+                    create_plan_clicked = st.form_submit_button("Create recovery plan")
+                if create_plan_clicked:
+                    try:
+                        if not plan_title.strip() or not plan_owner.strip() or not first_milestone_name.strip():
+                            raise ValueError("Title, owner and milestone name are required.")
+                        recovery_store.create(
+                            project_id=selected_recovery_project, title=plan_title,
+                            owner=plan_owner, start_date=plan_start,
+                            target_finish=plan_target_finish, baseline_finish=plan_baseline_finish,
+                            milestones=[{
+                                "milestone_id": "M1", "name": first_milestone_name,
+                                "due_date": first_milestone_due, "target_percent": first_milestone_target,
+                                "owner": plan_owner,
+                            }],
+                        )
+                        st.success("Recovery plan created. Refresh the dashboard to load it.")
+                    except (TypeError, ValueError, OSError) as create_error:
+                        st.error("Recovery plan not created: " + str(create_error))
             existing_plans = recovery_store.list_project(selected_recovery_project)
             if existing_plans:
                 plan_labels = {row["plan_id"]: row["title"] for row in existing_plans}
