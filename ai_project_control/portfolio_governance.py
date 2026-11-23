@@ -210,9 +210,9 @@ def build_portfolio_governance_overview(
     }
     combined["status"] = combined.get("status", pd.Series("", index=combined.index)).fillna("Unknown").astype(str)
     combined["_status_order"] = combined["status"].map(status_order).fillna(99)
-    combined["proposed_budget"] = pd.to_numeric(combined.get("proposed_budget"), errors="coerce")
+    combined["proposed_budget"] = pd.to_numeric(combined.get("proposed_budget", pd.Series(index=combined.index, dtype=float)), errors="coerce")
     combined["currency"] = combined.get("currency", pd.Series("", index=combined.index)).fillna("").astype(str).str.strip().str.upper()
-    combined["created_at"] = pd.to_datetime(combined.get("created_at"), errors="coerce", utc=True)
+    combined["created_at"] = pd.to_datetime(combined.get("created_at", pd.Series(index=combined.index, dtype=object)), errors="coerce", utc=True)
     now = pd.Timestamp.now(tz="UTC")
     combined["request_age_days"] = (now - combined["created_at"]).dt.total_seconds() / 86400
     combined["request_age_days"] = combined["request_age_days"].clip(lower=0).round(1)
@@ -226,7 +226,7 @@ def build_portfolio_governance_overview(
         if len(risk_cols) > 1:
             combined = combined.merge(risk_register[risk_cols].drop_duplicates("project_id"), on="project_id", how="left")
 
-    combined["risk_score"] = pd.to_numeric(combined.get("risk_score"), errors="coerce")
+    combined["risk_score"] = pd.to_numeric(combined.get("risk_score", pd.Series(index=combined.index, dtype=float)), errors="coerce")
     combined["_risk_sort"] = combined["risk_score"].fillna(-1)
     combined["_age_sort"] = combined["request_age_days"].fillna(-1)
     decision_queue = combined.sort_values(
