@@ -17,6 +17,14 @@ except ImportError:  # Support Streamlit execution with ai_project_control as wo
     from project_director_decision_matrix import build_decision_matrix
 
 
+def _finite(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number == number and abs(number) != float("inf") else None
+
+
 def build_integrated_project_intelligence(
     records: Iterable[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -30,6 +38,11 @@ def build_integrated_project_intelligence(
 
     risk_inputs = []
     for row in source:
+        forecast_variance = _finite(row.get("forecast_variance_pct"))
+        bac = _finite(row.get("BAC"))
+        eac = _finite(row.get("EAC"))
+        if forecast_variance is None and bac is not None and eac is not None and bac > 0:
+            forecast_variance = (eac - bac) / bac * 100
         risk_inputs.append({
             "project_id": row.get("project_id"),
             "project_name": row.get("project_name"),
@@ -38,7 +51,7 @@ def build_integrated_project_intelligence(
             "total_float_days": row.get("total_float_days"),
             "risk_exposure": row.get("risk_exposure"),
             "risk_capacity": row.get("risk_capacity"),
-            "forecast_variance_pct": row.get("forecast_variance_pct"),
+            "forecast_variance_pct": forecast_variance,
             "currency": row.get("currency"),
         })
     risk_rows = rank_portfolio(risk_inputs)
@@ -56,7 +69,13 @@ def build_integrated_project_intelligence(
             "overloaded_resource_days": row.get("overloaded_resource_days"),
         })
     decision_result = build_decision_matrix(director_inputs)
-    scorecard = build_portfolio_scorecard(source)
+    scorecard_inputs = []
+    for row in source:
+        score_record = dict(row)
+        if score_record.get("budget_at_completion") in (None, ""):
+            score_record["budget_at_completion"] = score_record.get("EAC")
+        scorecard_inputs.append(score_record)
+    scorecard = build_portfolio_scorecard(scorecard_inputs)
     score_by_id = {row["project_id"]: row for row in scorecard["projects"]}
 
     integrated = []
