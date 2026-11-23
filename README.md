@@ -12,7 +12,7 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 - Recovery scenario comparison and resource-based recovery estimates
 - Executive action register, audit events and escalation review
 - Portfolio command center, snapshot monitoring and executive reporting
-- Historical KPI snapshot store, next-snapshot dataset export and trend-based early warning
+- Historical KPI snapshot store, next-snapshot dataset export, chronological Random Forest baseline evaluation and trend-based early warning
 - Telegram executive reporting integration (requires explicit bot configuration)
 
 ## Panduan
