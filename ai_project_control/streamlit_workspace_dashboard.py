@@ -51,6 +51,22 @@ def render_project_workspace_dashboard(
     except (TypeError, ValueError, OSError) as exc:
         st.warning("Portfolio command center unavailable: " + str(exc))
 
+    st.subheader("Portfolio-wide Executive Actions")
+    try:
+        portfolio_actions = ActionRegisterStore(database_path).list_portfolio()
+        pa = portfolio_actions["summary"]
+        pa1, pa2, pa3, pa4 = st.columns(4)
+        pa1.metric("Total actions", pa["action_count"])
+        pa2.metric("Open / In progress", pa["open_count"] + pa["in_progress_count"])
+        pa3.metric("Blocked", pa["blocked_count"])
+        pa4.metric("Overdue", pa["overdue_count"])
+        if portfolio_actions["actions"]:
+            st.dataframe(portfolio_actions["actions"], use_container_width=True, hide_index=True)
+        else:
+            st.info("No portfolio-wide executive actions recorded yet.")
+    except (TypeError, ValueError, OSError) as exc:
+        st.warning("Portfolio action register unavailable: " + str(exc))
+
     st.subheader("Project Workspace")
     project_id = st.text_input("Project ID to open", key="pc_workspace_project_id").strip()
     if not project_id:
