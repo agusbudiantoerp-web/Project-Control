@@ -50,5 +50,5 @@ jobs:
             tests/test_manpower_equipment_planner.py \
             tests/test_boq_schedule_resource_integration.py \
             tests/test_cost_forecast.py \
-            tests/test_risk_cost_simulation.py \\
-            tests/test_action_register_store.py 
+            tests/test_risk_cost_simulation.py \
+            tests/test_action_register_store.py
