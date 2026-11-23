@@ -73,7 +73,7 @@ def build_integrated_project_intelligence(
     for row in source:
         score_record = dict(row)
         if score_record.get("budget_at_completion") in (None, ""):
-            score_record["budget_at_completion"] = score_record.get("EAC")
+            score_record["budget_at_completion"] = score_record.get("BAC")
         scorecard_inputs.append(score_record)
     scorecard = build_portfolio_scorecard(scorecard_inputs)
     score_by_id = {row["project_id"]: row for row in scorecard["projects"]}
