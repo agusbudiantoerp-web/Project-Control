@@ -21,6 +21,7 @@ from portfolio_resource_transfer import simulate_resource_transfer_impact
 from executive_command_center import build_executive_command_center
 from executive_recovery_strategies import build_executive_recovery_strategies
 from recovery_scenario_optimizer import optimize_recovery_scenarios
+from integrated_recovery_impact import build_integrated_recovery_impact
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -1437,6 +1438,33 @@ with ai_advisor:
                         st.caption("• " + assumption)
             except Exception as optimizer_error:
                 st.warning(f"Recovery optimizer belum dapat dihitung: {optimizer_error}")
+
+            st.markdown("#### Integrated Recovery Impact — Schedule, Cost, Resource & Risk")
+            st.caption("Analisis menggabungkan dampak yang benar-benar tersedia. Domain yang belum memiliki data skenario ditandai NOT ASSESSED, bukan dianggap aman.")
+            shift_assessment = st.session_state.get("shift_capacity_result")
+            if isinstance(shift_assessment, pd.DataFrame) and "scenario" not in shift_assessment.columns:
+                shift_assessment = None
+            try:
+                integrated_impact = build_integrated_recovery_impact(
+                    multi_recovery["scenarios"],
+                    resource_assessment=shift_assessment,
+                )
+                if integrated_impact["available"]:
+                    impact_table = integrated_impact["comparison"]
+                    show_df(impact_table, 360)
+                    st.download_button(
+                        "Download integrated recovery impact register",
+                        impact_table.to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"{project_id}_integrated_recovery_impact.csv",
+                        mime="text/csv",
+                    )
+                    with st.expander("Integrated impact assumptions and validation gates"):
+                        for item in integrated_impact["assumptions"]:
+                            st.write("• " + item)
+                else:
+                    st.info("Integrated impact belum dapat dihitung: " + "; ".join(integrated_impact["assumptions"]))
+            except Exception as integrated_error:
+                st.warning(f"Integrated recovery impact belum dapat dihitung: {integrated_error}")
 
             st.markdown("#### Executive recovery decision matrix")
             shift_context = st.session_state.get("shift_capacity_result")
