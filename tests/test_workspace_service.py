@@ -31,6 +31,7 @@ def test_workspace_overview_reads_inventory_validation_and_history(tmp_path):
     assert result["evm"]["status"] == "INSUFFICIENT_DATA"
     assert result["evm"]["PV"] is None
     assert result["schedule"]["status"] == "NO_ACTIVITIES"
+    assert result["schedule_forecast"]["status"] == "NO_ACTIVITIES"
 
 
 def test_missing_project_is_not_reported_as_empty_success(tmp_path):
