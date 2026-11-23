@@ -16,6 +16,7 @@ from .risk_cost_simulation import build_risk_cost_simulation
 from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
 from .action_register_store import ActionRegisterStore
+from .action_escalation import build_action_escalations
 
 
 def render_project_workspace_dashboard(
@@ -66,6 +67,24 @@ def render_project_workspace_dashboard(
             st.info("No portfolio-wide executive actions recorded yet.")
     except (TypeError, ValueError, OSError) as exc:
         st.warning("Portfolio action register unavailable: " + str(exc))
+
+    st.subheader("Governance Escalation Review")
+    try:
+        escalation_result = build_action_escalations(portfolio_actions["actions"])
+        es1, es2, es3 = st.columns(3)
+        es1.metric("Escalations", escalation_result["summary"]["escalation_count"])
+        es2.metric("Project Director", escalation_result["summary"]["director_count"])
+        es3.metric("Project Manager", escalation_result["summary"]["manager_count"])
+        if escalation_result["escalations"]:
+            st.dataframe(escalation_result["escalations"], use_container_width=True, hide_index=True)
+            st.warning("Escalation rows are review recommendations only. No Telegram/email notification or status change is triggered.")
+        else:
+            st.success("No action escalation is currently indicated by the recorded due dates and statuses.")
+        with st.expander("Escalation rules and limitations"):
+            for limitation in escalation_result["limitations"]:
+                st.write("• " + limitation)
+    except (TypeError, ValueError) as exc:
+        st.warning("Governance escalation review unavailable: " + str(exc))
 
     st.subheader("Project Workspace")
     project_id = st.text_input("Project ID to open", key="pc_workspace_project_id").strip()
