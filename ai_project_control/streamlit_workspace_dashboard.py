@@ -15,6 +15,7 @@ from .cost_forecast import build_cost_forecast
 from .risk_cost_simulation import build_risk_cost_simulation
 from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
+from .portfolio_monitoring import PortfolioMonitoringStore
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
 from .telegram_executive_reporting import (
@@ -60,6 +61,27 @@ def render_project_workspace_dashboard(
                     st.write("• " + limitation)
     except (TypeError, ValueError, OSError) as exc:
         st.warning("Portfolio command center unavailable: " + str(exc))
+
+    st.subheader("Portfolio Change Monitoring")
+    try:
+        current_projects = portfolio.get("projects", []) if isinstance(portfolio, dict) else []
+        st.caption("Snapshot disimpan hanya saat tombol ditekan. Perbandingan menggunakan snapshot sebelumnya pada database workspace lokal.")
+        if st.button("Capture & compare portfolio snapshot", key="pc_capture_monitor_snapshot"):
+            monitoring = PortfolioMonitoringStore(database_path)
+            monitoring_result = monitoring.compare_with_previous(current_projects)
+            st.metric("Adverse changes detected", monitoring_result["change_count"])
+            if monitoring_result["changes"]:
+                st.dataframe(monitoring_result["changes"], use_container_width=True, hide_index=True)
+                st.warning("Perubahan ini adalah sinyal untuk ditinjau, bukan diagnosis penyebab atau instruksi mengubah baseline.")
+            elif monitoring_result["previous_snapshot_available"]:
+                st.success("Tidak ada perubahan adverse material dibanding snapshot sebelumnya.")
+            else:
+                st.info("Snapshot pertama tersimpan. Ambil snapshot berikutnya untuk mulai membandingkan perubahan.")
+            with st.expander("Monitoring limitations"):
+                for limitation in monitoring_result["limitations"]:
+                    st.write("• " + limitation)
+    except (TypeError, ValueError, OSError) as monitor_error:
+        st.warning("Portfolio monitoring unavailable: " + str(monitor_error))
 
     st.subheader("Portfolio-wide Executive Actions")
     try:
