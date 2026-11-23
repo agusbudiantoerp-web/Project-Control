@@ -63,6 +63,23 @@ def render_project_workspace_dashboard(
     else:
         st.error("Schedule network requires correction: " + "; ".join(schedule["issues"]))
 
+    st.markdown("#### Schedule Delay Early Warning")
+    forecast = result["schedule_forecast"]
+    if forecast["status"] == "NO_ACTIVITIES":
+        st.info("No activities available for schedule delay assessment.")
+    else:
+        f1, f2, f3 = st.columns(3)
+        f1.metric("Delayed activities", len(forecast["delayed_activity_ids"]))
+        f2.metric("Unassessed activities", len(forecast["unassessed_activity_ids"]))
+        f3.metric(
+            "Project delay (calendar days)",
+            forecast["project_delay_days"] if forecast["project_delay_days"] is not None else "Not available",
+        )
+        if forecast["delayed_activity_ids"]:
+            st.warning("Delayed / behind-progress activities: " + ", ".join(forecast["delayed_activity_ids"]))
+        st.dataframe(forecast["activities"], use_container_width=True, hide_index=True)
+        st.caption("Progress variance is percentage points, not a duration forecast. Finish-date delay requires explicit baseline and forecast dates.")
+
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
     st.dataframe(inventory, use_container_width=True, hide_index=True)
