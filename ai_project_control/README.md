@@ -30,6 +30,19 @@ Local-first Streamlit application consolidating compatible project-control capab
 - project-controls-dashboard-main/src/metrics.py: adapted EVM performance indices and SPI finish forecast in dashboard_metrics.py; MIT.
 - EVM_Project-main: reference-only workbook EVM workflow; not used as the authoritative calculation engine.
 
+## Portfolio executive integration additions
+
+The portfolio command center also includes:
+- Integrated Project Intelligence: joins the EVM performance scorecard, portfolio risk indicators and Project Director review priorities by project ID. Where BAC and EAC are supplied, forecast variance is derived consistently for risk screening.
+- Project Director Decision Matrix: transparent P1 / P2 / P3 review bands with DATA_REVIEW and UNASSESSED states for missing evidence.
+- Portfolio Health Monitoring: compares the latest two distinct dated snapshots per project and flags duplicate-date conflicts.
+- Executive Action Register: corrective / preventive action ownership, due dates, controlled status transitions and event history. The current local workspace is not an enterprise multi-user database; actor names are attribution, not authentication.
+- Project Recovery Control and Recovery Scenario Comparator: compares supplied baseline / forecast / recovery targets and explicit scenario duration, incremental cost and risk assumptions. These tools do not recalculate CPM or approve acceleration.
+- Integrated bilingual Executive Report: combines the available portfolio, decision, action, health and recovery records without filling missing values by assumption.
+- Optional Telegram Executive Briefing: user-triggered text summary to a configured chat. The bot token and chat ID are not stored in the project database; configure `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` through environment variables or Streamlit secrets, or enter them at send time.
+
+A focused GitHub Actions workflow (`.github/workflows/project-control-focused-tests.yml`) runs deterministic tests for these portfolio, recovery and Telegram service modules on pushes and pull requests to the integration branch. A passing focused workflow is not an end-to-end Streamlit acceptance test.
+
 ## Release readiness
 
 This branch contains the integrated V1 application and automated deterministic-engine tests, including project-wide dataset validation and export/API-key security regressions. GitHub Actions is the source of truth for the latest test status. CI confirms the automated tests and module imports only; it does not replace end-to-end acceptance testing with representative Primavera XER, project BOQ, progress, cost, resource, and risk datasets. Do not treat the system as production-certified until those acceptance tests and operational deployment checks are completed.
