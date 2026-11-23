@@ -14,7 +14,7 @@ from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
 from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix, build_predictive_warnings, diagnose_project_drivers, build_root_cause_action_plan
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
-from portfolio_resource_intelligence import build_portfolio_resource_summary
+from portfolio_resource_intelligence import build_portfolio_resource_summary, detect_shared_resource_conflicts
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -299,6 +299,24 @@ with portfolio_tab:
                 file_name="portfolio_daily_resource_loading.csv",
                 mime="text/csv",
             )
+            shared_conflicts = detect_shared_resource_conflicts(portfolio_resource)
+            st.markdown("**Cross-project shared resource conflicts**")
+            if not shared_conflicts["available"]:
+                st.info("Belum ada konflik lintas proyek yang dapat dihitung. Isi shared_resource_id yang sama pada resource fisik yang benar-benar dipakai bersama.")
+            else:
+                st.dataframe(shared_conflicts["summary"], use_container_width=True, hide_index=True)
+                conflict_days = shared_conflicts["daily_conflicts"]
+                conflict_days = conflict_days[
+                    conflict_days["over_capacity"] | conflict_days["capacity_mismatch"] |
+                    (conflict_days["project_count"] > 1)
+                ]
+                st.dataframe(conflict_days, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download cross-project resource conflict register",
+                    conflict_days.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="cross_project_resource_conflicts.csv",
+                    mime="text/csv",
+                )
         st.caption("Overload dihitung per proyek dan resource ID. Sistem tidak menganggap dua ID yang sama pada proyek berbeda sebagai alat atau kru yang sama tanpa shared_resource_id yang disepakati.")
 
         st.markdown("### AI Portfolio Advisor — Groq / Gemini")
