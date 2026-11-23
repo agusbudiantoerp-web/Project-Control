@@ -201,3 +201,23 @@ def test_recovery_budget_rejects_invalid_budget_caps():
     overview = build_portfolio_governance_overview({"PRJ-01": register})
     with pytest.raises(ValueError):
         simulate_recovery_budget_allocation(overview, {"IDR": -100})
+
+
+def test_recovery_budget_uses_approval_readiness_when_risk_is_tied():
+    from portfolio_governance import (
+        build_portfolio_governance_overview, simulate_recovery_budget_allocation,
+    )
+    proposed, proposed_id = _submitted()
+    approved, approved_id = _submitted()
+    approved = transition_recovery_action(
+        approved, approved_id, "PM Approved", "PM", "Project Manager"
+    )
+    proposed.loc[:, "risk_score"] = 70
+    approved.loc[:, "risk_score"] = 70
+    overview = build_portfolio_governance_overview({
+        "P-PROPOSED": proposed, "P-APPROVED": approved,
+    })
+    result = simulate_recovery_budget_allocation(overview, {"IDR": 125000})
+    decisions = result["allocations"].set_index("request_id")["funding_decision"]
+    assert decisions.loc[approved_id] == "Fully funded"
+    assert decisions.loc[proposed_id] == "Not funded - budget cap"
