@@ -22,7 +22,7 @@ from executive_command_center import build_executive_command_center
 from executive_recovery_strategies import build_executive_recovery_strategies
 from recovery_scenario_optimizer import optimize_recovery_scenarios
 from integrated_recovery_impact import build_integrated_recovery_impact
-from portfolio_governance import submit_recovery_action, transition_recovery_action, governance_summary, TRANSITIONS
+from portfolio_governance import submit_recovery_action, transition_recovery_action, governance_summary, build_portfolio_governance_overview, TRANSITIONS
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -711,6 +711,52 @@ with portfolio_tab:
                 except Exception:
                     st.warning("Audit history could not be parsed.")
         st.warning("Governance limitation: role is selected by the operator and is not authenticated against individual user accounts. This is an operational register, not a tamper-proof or legally binding e-signature system. Deploy with authenticated role-based access, database audit controls and approval policy before production use.")
+
+
+        st.markdown("### Portfolio-wide Recovery Governance & Decision Queue")
+        st.caption("Konsolidasi seluruh register recovery yang tersedia pada database lokal komputer ini.")
+        governance_registers = {pid: load_dataset(pid, "recovery_governance.csv") for pid in list_project_ids()}
+        portfolio_governance = build_portfolio_governance_overview(
+            governance_registers, portfolio=portfolio, risk_register=risk_rows
+        )
+        if not portfolio_governance["available"]:
+            st.info(portfolio_governance["assumptions"][0])
+        else:
+            pg_queue = portfolio_governance["decision_queue"]
+            active_governance_statuses = ["Proposed", "PM Approved", "Director Approved", "COO Approved", "In Progress"]
+            active_governance = pg_queue[pg_queue["status"].isin(active_governance_statuses)]
+            pg1, pg2, pg3, pg4 = st.columns(4)
+            pg1.metric("Recovery requests", len(pg_queue))
+            pg2.metric("Active requests", len(active_governance))
+            pg3.metric("Projects involved", int(active_governance["project_id"].nunique()))
+            pg4.metric("Awaiting first review", int((pg_queue["status"] == "Proposed").sum()))
+            st.markdown("**Cross-project decision queue**")
+            queue_cols = [
+                "request_id", "project_id", "project_name", "scenario", "recovery_action",
+                "owner", "status", "risk_score", "risk_status", "request_age_days",
+                "proposed_budget", "currency", "requested_by", "created_at",
+            ]
+            st.dataframe(pg_queue[[col for col in queue_cols if col in pg_queue]],
+                         use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download portfolio governance decision queue",
+                pg_queue.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_recovery_governance_decision_queue.csv",
+                mime="text/csv",
+            )
+            st.markdown("**Recovery request status summary**")
+            st.dataframe(portfolio_governance["status_summary"], use_container_width=True, hide_index=True)
+            st.markdown("**Active proposed budget by currency**")
+            st.dataframe(portfolio_governance["budget_by_currency"], use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download active recovery budget by currency",
+                portfolio_governance["budget_by_currency"].to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_active_recovery_budget_by_currency.csv",
+                mime="text/csv",
+            )
+            with st.expander("Portfolio governance methodology and limitations"):
+                for assumption in portfolio_governance["assumptions"]:
+                    st.write("• " + assumption)
 
 with overview:
     master=ds("project_master.csv")
