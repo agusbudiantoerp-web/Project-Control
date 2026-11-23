@@ -8,8 +8,8 @@ def test_report_includes_supplied_portfolio_and_decision_records():
         status_date="2026-11-23",
         director_decisions={
             "summary": {"p1_count": 1, "p2_count": 0, "data_review_count": 0, "unassessed_count": 0},
-            "decisions": [{"project_name": "Plant", "priority": "P1", "score": 7,
-                           "recommendation": "Review recovery plan"}],
+            "decisions": [{"project_name": "Plant", "priority": "P1", "evidence_points": 7,
+                           "recommended_action": "Review recovery plan"}],
         },
     )
     assert "2026-11-23" in report
