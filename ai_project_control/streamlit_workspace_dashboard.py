@@ -21,6 +21,11 @@ from .telegram_executive_reporting import (
     build_telegram_executive_message,
     send_telegram_executive_message,
 )
+from .integrated_executive_report import build_integrated_executive_report
+from .executive_report_export import (
+    build_executive_report_pdf,
+    build_executive_report_xlsx,
+)
 
 
 def render_project_workspace_dashboard(
@@ -71,6 +76,58 @@ def render_project_workspace_dashboard(
             st.info("No portfolio-wide executive actions recorded yet.")
     except (TypeError, ValueError, OSError) as exc:
         st.warning("Portfolio action register unavailable: " + str(exc))
+
+    st.subheader("Executive Report Export")
+    try:
+        portfolio_data = locals().get("portfolio", {})
+        report_projects = portfolio_data.get("projects", []) if isinstance(portfolio_data, dict) else []
+        report_records = [
+            {
+                "project_id": row.get("project_id"),
+                "project_name": row.get("project_name"),
+                "SPI": row.get("SPI"),
+                "CPI": row.get("CPI"),
+                "portfolio_status": row.get("priority", row.get("portfolio_status")),
+            }
+            for row in report_projects
+        ]
+        report_decisions = {
+            "decisions": [
+                {
+                    "project_name": row.get("project_name"),
+                    "priority": row.get("priority"),
+                    "evidence_points": row.get("evidence_points"),
+                    "recommended_action": row.get("recommended_action"),
+                }
+                for row in report_projects
+            ],
+            "summary": portfolio_data.get("decision_summary", {}),
+        }
+        from datetime import date
+        executive_report_text = build_integrated_executive_report(
+            portfolio_records=report_records,
+            status_date=date.today(),
+            director_decisions=report_decisions,
+            action_register=portfolio_actions,
+        )
+        st.caption("Laporan dibuat dari data workspace lokal yang tersedia. Bagian yang datanya tidak tersedia akan ditandai, bukan diperkirakan.")
+        ex1, ex2 = st.columns(2)
+        ex1.download_button(
+            "Unduh Executive Report (Excel)",
+            data=build_executive_report_xlsx(executive_report_text),
+            file_name="project_control_executive_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="pc_download_exec_xlsx",
+        )
+        ex2.download_button(
+            "Unduh Executive Report (PDF)",
+            data=build_executive_report_pdf(executive_report_text),
+            file_name="project_control_executive_report.pdf",
+            mime="application/pdf",
+            key="pc_download_exec_pdf",
+        )
+    except (TypeError, ValueError, OSError, ImportError) as report_error:
+        st.warning("Executive report export belum tersedia: " + str(report_error))
 
     st.subheader("Governance Escalation Review")
     try:
