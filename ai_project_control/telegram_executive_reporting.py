@@ -72,8 +72,6 @@ def send_telegram_executive_message(
     timeout: int = 30,
 ) -> list[dict[str, Any]]:
     """Send a message only when explicitly invoked by the host application."""
-    import requests
-
     token = str(bot_token or "").strip()
     target = str(chat_id or "").strip()
     if not token:
@@ -83,6 +81,8 @@ def send_telegram_executive_message(
     chunks = split_telegram_message(message)
     if not chunks:
         raise ValueError("Telegram message is empty")
+    import requests
+
     results = []
     for chunk in chunks:
         response = requests.post(
