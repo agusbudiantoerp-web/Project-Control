@@ -38,9 +38,12 @@ def build_portfolio_command_center(database_path: str | Path) -> dict[str, Any]:
         base_cost = evm.get("BAC")
         risk_result = None
         if workspace["risk"] and base_cost is not None and currency:
-            risk_result = build_risk_cost_simulation(
-                workspace["risk"], base_cost, currency, iterations=5000, seed=42
-            )
+            try:
+                risk_result = build_risk_cost_simulation(
+                    workspace["risk"], base_cost, currency, iterations=5000, seed=42
+                )
+            except (TypeError, ValueError) as exc:
+                risk_result = {"status": "INVALID_DATA", "reason": str(exc)}
         record = {
             "project_id": project_id,
             "project_name": project.get("project_name", ""),
@@ -68,6 +71,7 @@ def build_portfolio_command_center(database_path: str | Path) -> dict[str, Any]:
             "resource_overloaded_count": resources.get("overloaded_count", 0),
             "resource_unassessed_count": resources.get("unassessed_count", 0),
             "risk_status": risk_result.get("status") if risk_result else "UNASSESSED",
+            "risk_issue": risk_result.get("reason") if risk_result else None,
             "risk_p80_contingency": risk_result.get("p80_contingency") if risk_result else None,
             "risk_currency": risk_result.get("currency") if risk_result else currency,
         })
@@ -79,7 +83,11 @@ def build_portfolio_command_center(database_path: str | Path) -> dict[str, Any]:
     for decision in decisions["decisions"]:
         ranked.append({**decision, **detail_by_id.get(decision["project_id"], {})})
     return {
-        "status": "NO_PROJECTS" if not ids else "ASSESSED",
+        "status": (
+            "NO_PROJECTS" if not ids else
+            "INSUFFICIENT_DATA" if scorecard["summary"]["insufficient_data_count"] else
+            "ASSESSED"
+        ),
         "project_count": len(ids),
         "projects": ranked,
         "performance_scorecard": scorecard,
