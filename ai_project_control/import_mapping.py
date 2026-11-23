@@ -59,6 +59,9 @@ ALIASES = {
         "exposure": ("exposure", "paparan risiko"),
     },
     "resources": {
+        "resource_type": ("resource type", "jenis resource", "jenis sumber daya", "category"),
+        "resource_name": ("resource name", "nama resource", "nama sumber daya"),
+        "unit": ("unit", "satuan", "uom"),
         "project_id": ("project id", "project code", "kode proyek"),
         "resource_id": ("resource id", "resource code", "kode resource"),
         "period": ("period", "month", "periode", "bulan"),
