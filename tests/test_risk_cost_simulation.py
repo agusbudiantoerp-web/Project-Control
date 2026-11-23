@@ -6,7 +6,7 @@ def risks():
     return [
         {"risk_id": "R1", "probability": 0.5, "cost_impact_min": 100,
          "cost_impact_most_likely": 200, "cost_impact_max": 300,
-         "risk_type": "THREAT", "currency": "IDR"},
+         "risk_type": "THREAT", "currency": "IDR", "activity_id": "A1", "wbs_id": "W1"},
         {"risk_id": "R2", "probability": 0.2, "cost_impact_min": 50,
          "cost_impact_most_likely": 100, "cost_impact_max": 150,
          "risk_type": "OPPORTUNITY", "currency": "IDR"},
@@ -18,6 +18,8 @@ def test_monte_carlo_is_reproducible_and_reports_percentiles():
     again = build_risk_cost_simulation(risks(), 1000, "IDR", iterations=2000, seed=7)
     assert result == again
     assert result["status"] == "ASSESSED"
+    assert result["risk_register"][0]["activity_id"] == "A1"
+    assert result["risk_register"][0]["wbs_id"] == "W1"
     assert result["p50_cost"] >= 0
     assert result["p80_cost"] >= result["p50_cost"]
     assert result["p90_cost"] >= result["p80_cost"]
