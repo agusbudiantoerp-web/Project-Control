@@ -22,3 +22,16 @@ def test_review_does_not_call_missing_inputs_stable():
     )
     assert result["status"] == "UNASSESSED"
     assert result["summary"]["unassessed_count"] == 2
+
+def test_absent_schedule_resource_and_risk_data_are_unassessed():
+    result = build_project_director_review(
+        {"project_id": "P3"},
+        {"SPI": 1.0, "CPI": 1.0},
+        resource_summary={"status": "NO_DATA", "overloaded_count": 0, "unassessed_count": 0},
+        schedule_forecast={"status": "NO_ACTIVITIES"},
+    )
+    statuses = {item["area"]: item["status"] for item in result["signals"]}
+    assert statuses["ACTIVITY_PROGRESS"] == "UNASSESSED"
+    assert statuses["RESOURCE_CAPACITY"] == "UNASSESSED"
+    assert statuses["RISK_COST"] == "UNASSESSED"
+    assert result["summary"]["unassessed_count"] == 3
