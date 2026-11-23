@@ -109,8 +109,8 @@ def render_project_workspace_dashboard(
                                 bot_token=bot_token, chat_id=chat_id, message=report_message
                             )
                             st.success("Pesan Telegram berhasil dikirim.")
-                        except (ValueError, RuntimeError, OSError) as send_error:
-                            st.error("Pengiriman Telegram gagal: " + str(send_error))
+                        except Exception:
+                            st.error("Pengiriman Telegram gagal. Periksa koneksi aplikasi, token, chat ID, dan log server; token tidak ditampilkan.")
             except (TypeError, ValueError) as config_error:
                 st.warning("Telegram notification belum tersedia: " + str(config_error))
     except (TypeError, ValueError) as exc:
