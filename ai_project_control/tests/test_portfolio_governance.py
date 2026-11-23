@@ -98,3 +98,47 @@ def test_fully_approved_action_can_start_and_close_with_evidence():
     assert [event["to"] for event in history] == [
         "Proposed", "PM Approved", "Director Approved", "COO Approved", "In Progress", "Closed"
     ]
+
+
+def test_portfolio_overview_consolidates_projects_and_separates_currencies():
+    from portfolio_governance import build_portfolio_governance_overview
+
+    first, _ = _submitted()
+    second, _ = _submitted()
+    second.loc[:, "project_id"] = "PRJ-02"
+    second.loc[:, "currency"] = "USD"
+    second.loc[:, "proposed_budget"] = 500
+    result = build_portfolio_governance_overview(
+        {"PRJ-01": first, "PRJ-02": second},
+        portfolio=pd.DataFrame([
+            {"project_id": "PRJ-01", "project_name": "Bridge", "portfolio_status": "Critical"},
+            {"project_id": "PRJ-02", "project_name": "Plant", "portfolio_status": "At Risk"},
+        ]),
+        risk_register=pd.DataFrame([
+            {"project_id": "PRJ-01", "risk_score": 80, "risk_status": "Critical"},
+            {"project_id": "PRJ-02", "risk_score": 55, "risk_status": "High"},
+        ]),
+    )
+    assert result["available"] is True
+    assert len(result["decision_queue"]) == 2
+    assert set(result["budget_by_currency"]["currency"]) == {"IDR", "USD"}
+    assert result["budget_by_currency"]["active_budget"].sum() == 125500
+    assert result["decision_queue"].iloc[0]["risk_score"] == 80
+
+
+def test_portfolio_overview_handles_missing_risk_and_optional_fields():
+    from portfolio_governance import build_portfolio_governance_overview
+
+    register, _ = _submitted()
+    result = build_portfolio_governance_overview({"PRJ-01": register})
+    assert result["available"] is True
+    assert result["decision_queue"]["risk_score"].isna().all()
+    assert result["decision_queue"]["request_age_days"].notna().all()
+
+
+def test_portfolio_overview_empty_registers_returns_unavailable():
+    from portfolio_governance import build_portfolio_governance_overview
+
+    result = build_portfolio_governance_overview({"PRJ-01": pd.DataFrame()})
+    assert result["available"] is False
+    assert result["decision_queue"].empty
