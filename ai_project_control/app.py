@@ -16,6 +16,7 @@ from mitigation_engine import build_mitigation_advice, compare_recovery_scenario
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
 from portfolio_resource_intelligence import build_portfolio_resource_summary, detect_shared_resource_conflicts
 from portfolio_resource_allocation import build_resource_allocation_scenario
+from portfolio_resource_scenarios import compare_resource_allocation_scenarios
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -351,6 +352,42 @@ with portfolio_tab:
                 )
                 st.markdown("**Scenario assumptions**")
                 for assumption in scenario_result["assumptions"]:
+                    st.caption("• " + assumption)
+
+            st.markdown("**Portfolio Resource Optimization — Compare Policies**")
+            optimization_result = compare_resource_allocation_scenarios(
+                portfolio_resource, project_priorities=scenario_priority
+            )
+            if not optimization_result["available"]:
+                st.info("Perbandingan kebijakan alokasi belum tersedia untuk data resource bersama saat ini.")
+            else:
+                policy_comparison = optimization_result["comparison"].sort_values(
+                    ["weighted_unmet", "total_unmet"], ascending=[True, True]
+                )
+                st.dataframe(policy_comparison, use_container_width=True, hide_index=True)
+                st.markdown("**Detailed allocation by scenario**")
+                scenario_choice = st.selectbox(
+                    "Choose allocation policy",
+                    policy_comparison["scenario"].tolist(),
+                    key="portfolio_resource_policy_choice",
+                )
+                selected_policy = optimization_result["allocations"].loc[
+                    optimization_result["allocations"]["scenario"] == scenario_choice
+                ]
+                st.dataframe(selected_policy, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download all resource optimization scenarios",
+                    optimization_result["allocations"].to_csv(index=False).encode("utf-8-sig"),
+                    file_name="portfolio_resource_optimization_scenarios.csv",
+                    mime="text/csv",
+                )
+                st.download_button(
+                    "Download selected allocation policy",
+                    selected_policy.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="selected_resource_allocation_policy.csv",
+                    mime="text/csv",
+                )
+                for assumption in optimization_result["assumptions"]:
                     st.caption("• " + assumption)
         st.caption("Overload dihitung per proyek dan resource ID. Sistem tidak menganggap dua ID yang sama pada proyek berbeda sebagai alat atau kru yang sama tanpa shared_resource_id yang disepakati.")
 
