@@ -12,6 +12,7 @@ from .resource_loading_summary import build_resource_loading_summary
 from .manpower_equipment_planner import build_manpower_equipment_plan
 from .boq_schedule_resource_integration import build_boq_schedule_resource_integration
 from .cost_forecast import build_cost_forecast
+from .risk_cost_simulation import build_risk_cost_simulation
 
 
 def render_project_workspace_dashboard(
@@ -164,6 +165,36 @@ def render_project_workspace_dashboard(
             st.caption("BOQ units and resource units are not added across unlike measures. CPM dates are relative working-day offsets, not calendar dates. No productivity or resource demand is inferred.")
     except (TypeError, ValueError) as exc:
         st.error("BOQ/schedule/resource integration data needs correction: " + str(exc))
+
+    st.markdown("#### Risk Register & Monte Carlo Cost Contingency")
+    try:
+        risk_rows = result["workspace"]["risk"]
+        base_cost = evm.get("BAC")
+        project_currency = str(project.get("currency", "")).strip().upper()
+        if not risk_rows:
+            st.info("Risk register kosong. Ini bukan bukti bahwa proyek tidak memiliki risiko. Masukkan risk_id, probability (0–1), cost_impact_min, cost_impact_most_likely, cost_impact_max, risk_type, dan currency.")
+        elif base_cost is None:
+            st.warning("BAC belum tersedia; simulasi contingency belum dapat dijalankan.")
+        else:
+            risk_result = build_risk_cost_simulation(
+                risk_rows, base_cost, project_currency, iterations=10000, seed=42
+            )
+            if risk_result["status"] == "INSUFFICIENT_DATA":
+                st.warning(risk_result["reason"])
+            else:
+                q1, q2, q3, q4 = st.columns(4)
+                q1.metric("P50 Cost", f"{risk_result['currency']} {risk_result['p50_cost']:,.2f}")
+                q2.metric("P80 Cost", f"{risk_result['currency']} {risk_result['p80_cost']:,.2f}")
+                q3.metric("P90 Cost", f"{risk_result['currency']} {risk_result['p90_cost']:,.2f}")
+                q4.metric("P80 Contingency", f"{risk_result['currency']} {risk_result['p80_contingency']:,.2f}")
+                st.metric("Probability of cost exceeding base", f"{risk_result['probability_over_base']:.2f}%")
+                st.dataframe(risk_result["risk_register"], use_container_width=True, hide_index=True)
+                st.caption("Monte Carlo uses independent risk events and triangular cost-impact distributions. P80 contingency is a scenario estimate, not an approved reserve.")
+                with st.expander("Simulation assumptions and limitations"):
+                    for limitation in risk_result["limitations"]:
+                        st.write("• " + limitation)
+    except (TypeError, ValueError) as exc:
+        st.error("Risk register data needs correction: " + str(exc))
 
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
