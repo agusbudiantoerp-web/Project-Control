@@ -20,6 +20,7 @@ from portfolio_resource_scenarios import compare_resource_allocation_scenarios
 from portfolio_resource_transfer import simulate_resource_transfer_impact
 from executive_command_center import build_executive_command_center
 from executive_recovery_strategies import build_executive_recovery_strategies
+from recovery_scenario_optimizer import optimize_recovery_scenarios
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -1384,6 +1385,59 @@ with ai_advisor:
                 file_name=f"{project_id}_multi_recovery_scenarios.csv",
                 mime="text/csv",
             )
+            st.markdown("#### Recovery Scenario Optimizer — Budget & Trade-off Controls")
+            optimizer_col1, optimizer_col2, optimizer_col3 = st.columns(3)
+            budget_limit = optimizer_col1.number_input(
+                "Maximum incremental recovery budget (project currency)",
+                min_value=0.0, value=0.0, step=100000.0,
+                help="Set 0 to leave the budget unconstrained. Currency follows this project's cost inputs.",
+                key="recovery_optimizer_budget",
+            )
+            min_days_saved = optimizer_col2.number_input(
+                "Minimum realized days saved", min_value=0.0, value=0.0, step=1.0,
+                key="recovery_optimizer_min_days",
+            )
+            max_cost_day = optimizer_col3.number_input(
+                "Maximum cost per day saved (project currency)",
+                min_value=0.0, value=0.0, step=10000.0,
+                help="Set 0 to leave cost/day unconstrained.",
+                key="recovery_optimizer_max_cost_day",
+            )
+            try:
+                optimizer_result = optimize_recovery_scenarios(
+                    multi_recovery["scenarios"],
+                    budget_limit=float(budget_limit) if budget_limit > 0 else None,
+                    minimum_days_saved=float(min_days_saved),
+                    maximum_cost_per_day=float(max_cost_day) if max_cost_day > 0 else None,
+                )
+                if optimizer_result["available"]:
+                    if optimizer_result["recommended"]:
+                        best_option = optimizer_result["recommended"]
+                        st.success(
+                            f'Rekomendasi sesuai batasan: {best_option["scenario"]} | '
+                            f'{best_option["actual_days_saved"]:,.2f} hari | '
+                            f'{best_option["incremental_cost"]:,.2f} biaya tambahan | '
+                            f'{best_option["cost_per_day_saved"]:,.2f} biaya/hari'
+                        )
+                    else:
+                        st.info(optimizer_result["recommendation_basis"])
+                    st.markdown("**Eligible alternatives — ranked by cost per day saved**")
+                    show_df(optimizer_result["eligible"], 300)
+                    st.markdown("**Pareto-efficient alternatives**")
+                    show_df(optimizer_result["pareto"], 240)
+                    with st.expander("Excluded alternatives and reasons"):
+                        show_df(optimizer_result["excluded"], 260)
+                    st.download_button(
+                        "Download recovery optimizer results",
+                        optimizer_result["eligible"].to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"{project_id}_recovery_optimizer_eligible.csv",
+                        mime="text/csv",
+                    )
+                    for assumption in optimizer_result["assumptions"]:
+                        st.caption("• " + assumption)
+            except Exception as optimizer_error:
+                st.warning(f"Recovery optimizer belum dapat dihitung: {optimizer_error}")
+
             st.markdown("#### Executive recovery decision matrix")
             shift_context = st.session_state.get("shift_capacity_result")
             try:
