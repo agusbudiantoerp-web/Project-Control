@@ -23,6 +23,7 @@ from .recovery_evm_bridge import evaluate_recovery_evm
 from .schedule_cost_outlook import build_schedule_cost_outlook
 from .schedule_risk_simulation import simulate_schedule_risk
 from .risk_exposure_matrix import build_risk_exposure_matrix
+from .recovery_resource_planner import estimate_resource_recovery
 import json
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
@@ -127,6 +128,56 @@ def render_project_workspace_dashboard(
                 st.write("• " + limitation)
     except (TypeError, ValueError) as recovery_error:
         st.warning("Project recovery intelligence unavailable: " + str(recovery_error))
+
+    st.subheader("Resource-Based Recovery Estimator")
+    with st.expander("Estimate additional manpower/equipment impact", expanded=False):
+        st.caption("Masukkan produktivitas dan biaya berdasarkan estimasi yang sudah divalidasi tim proyek. Hasil ini adalah estimasi work-package, bukan simulasi CPM.")
+        with st.form("pc_resource_recovery_estimator_form"):
+            rr1, rr2 = st.columns(2)
+            with rr1:
+                rr_work = st.number_input("Remaining work units", min_value=0.01, value=1000.0, step=100.0)
+                rr_base_rate = st.number_input("Current productivity per working day", min_value=0.01, value=50.0, step=5.0)
+                rr_crews = st.number_input("Additional crews", min_value=0, value=0, step=1)
+                rr_crew_rate = st.number_input("Productivity per additional crew/day", min_value=0.0, value=0.0, step=1.0)
+            with rr2:
+                rr_equipment = st.number_input("Additional equipment units", min_value=0, value=0, step=1)
+                rr_equipment_rate = st.number_input("Productivity per additional equipment/day", min_value=0.0, value=0.0, step=1.0)
+                rr_efficiency = st.number_input("Added-resource efficiency factor (0–1)", min_value=0.01, max_value=1.0, value=0.8, step=0.05)
+                rr_days_week = st.number_input("Working days per week", min_value=1, max_value=7, value=5, step=1)
+            rr_base_cost = st.number_input("Current daily cost", min_value=0.0, value=0.0, step=100000.0)
+            rr_crew_cost = st.number_input("Daily cost per additional crew", min_value=0.0, value=0.0, step=100000.0)
+            rr_equipment_cost = st.number_input("Daily cost per additional equipment", min_value=0.0, value=0.0, step=100000.0)
+            rr_currency = st.text_input("Cost currency", value="IDR", key="pc_rr_currency")
+            run_resource_estimate = st.form_submit_button("Calculate resource recovery")
+        if run_resource_estimate:
+            try:
+                rr_result = estimate_resource_recovery(
+                    remaining_work_units=rr_work,
+                    current_daily_productivity=rr_base_rate,
+                    additional_crew_count=rr_crews,
+                    productivity_per_additional_crew=rr_crew_rate,
+                    additional_equipment_count=rr_equipment,
+                    productivity_per_additional_equipment=rr_equipment_rate,
+                    efficiency_factor=rr_efficiency,
+                    current_daily_cost=rr_base_cost,
+                    additional_crew_daily_cost=rr_crew_cost,
+                    additional_equipment_daily_cost=rr_equipment_cost,
+                    working_days_per_week=rr_days_week,
+                    currency=rr_currency,
+                )
+                base_days = rr_result["baseline"]["duration_working_days"]
+                recovery_days = rr_result["recovery"]["duration_working_days"]
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Baseline duration (working days)", base_days)
+                m2.metric("Recovery duration (working days)", recovery_days, delta=round(recovery_days - base_days, 2))
+                m3.metric("Estimated days saved", rr_result["recovery"]["days_saved"])
+                st.json(rr_result["recovery"])
+                st.caption(f"Estimated incremental cost: {rr_result['currency']} {rr_result['recovery']['incremental_cost_vs_baseline']:,.2f}")
+                with st.expander("Assumptions and limitations"):
+                    for assumption in rr_result["assumptions"]:
+                        st.write("• " + assumption)
+            except (TypeError, ValueError) as rr_error:
+                st.error("Resource recovery estimate failed: " + str(rr_error))
 
     st.subheader("Recovery Execution Tracker")
     try:
