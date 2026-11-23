@@ -71,8 +71,8 @@ ALIASES = {
 
 def _normalise_header(value: Any) -> str:
     text = str(value or "").strip().lower()
-    text = re.sub(r"[_\\-]+", " ", text)
-    return re.sub(r"\\s+", " ", text)
+    text = re.sub(r"[_-]+", " ", text)
+    return re.sub(r"\s+", " ", text)
 
 
 def suggest_column_mapping(table: str, source_columns: list[str]) -> dict[str, Any]:
