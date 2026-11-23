@@ -26,7 +26,7 @@ from portfolio_governance import submit_recovery_action, transition_recovery_act
 from portfolio_risk_engine import rank_portfolio
 from portfolio_health_monitoring import build_health_monitoring
 from project_director_decision_matrix import build_decision_matrix
-from executive_action_register import create_action, transition_action, build_action_register
+from executive_action_register import create_action, transition_action, build_action_register, ALLOWED_TRANSITIONS
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
@@ -953,13 +953,25 @@ with portfolio_tab:
                 st.markdown("**Update action status and record audit event**")
                 with st.form("executive_action_transition_form"):
                     selected_action_id = st.selectbox("Action ID", active_action_ids, key="transition_action_id")
-                    next_action_status = st.selectbox(
-                        "New status", ["IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED"],
-                        key="transition_action_status",
+                    selected_action_row = action_view.loc[
+                        action_view["action_id"].astype(str) == selected_action_id
+                    ].iloc[0]
+                    allowed_action_transitions = sorted(
+                        ALLOWED_TRANSITIONS.get(str(selected_action_row["status"]).upper(), set())
                     )
+                    if allowed_action_transitions:
+                        next_action_status = st.selectbox(
+                            "New status", allowed_action_transitions,
+                            key="transition_action_status",
+                        )
+                    else:
+                        next_action_status = None
+                        st.info("No further status transitions are allowed.")
                     action_actor = st.text_input("Changed by", key="transition_action_actor")
                     action_note = st.text_area("Update note / completion evidence", key="transition_action_note")
-                    transition_submit = st.form_submit_button("Save status change")
+                    transition_submit = st.form_submit_button(
+                        "Save status change", disabled=not bool(allowed_action_transitions)
+                    )
                 if transition_submit:
                     try:
                         current_action = action_view.loc[
