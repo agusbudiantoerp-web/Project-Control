@@ -14,6 +14,7 @@ from .boq_schedule_resource_integration import build_boq_schedule_resource_integ
 from .cost_forecast import build_cost_forecast
 from .risk_cost_simulation import build_risk_cost_simulation
 from .project_director_review import build_project_director_review
+from .portfolio_command_center import build_portfolio_command_center
 
 
 def render_project_workspace_dashboard(
@@ -23,6 +24,31 @@ def render_project_workspace_dashboard(
         import streamlit as st
     except ImportError as exc:
         raise RuntimeError("Streamlit is required to render this component.") from exc
+
+    st.subheader("Project Portfolio Command Center")
+    try:
+        portfolio = build_portfolio_command_center(database_path)
+        if portfolio["status"] == "NO_PROJECTS":
+            st.info("Belum ada proyek tersimpan di workspace lokal ini.")
+        else:
+            summary = portfolio["performance_scorecard"]["summary"]
+            p1, p2, p3, p4 = st.columns(4)
+            p1.metric("Projects", portfolio["project_count"])
+            p2.metric("P1 priority", portfolio["decision_summary"]["p1_count"])
+            p3.metric("P2 priority", portfolio["decision_summary"]["p2_count"])
+            p4.metric("Insufficient EVM data", summary["insufficient_data_count"])
+            st.dataframe(portfolio["projects"], use_container_width=True, hide_index=True)
+            st.caption("Budget totals by currency: " + " | ".join(
+                f"{currency} {amount:,.2f}"
+                for currency, amount in portfolio["budget_by_currency"].items()
+            ))
+            if portfolio["status"] == "INSUFFICIENT_DATA":
+                st.warning("Sebagian proyek belum memiliki SPI/CPI yang cukup. Proyek tersebut tetap ditampilkan sebagai UNASSESSED.")
+            with st.expander("Portfolio governance and limitations"):
+                for limitation in portfolio["limitations"]:
+                    st.write("• " + limitation)
+    except (TypeError, ValueError, OSError) as exc:
+        st.warning("Portfolio command center unavailable: " + str(exc))
 
     st.subheader("Project Workspace")
     project_id = st.text_input("Project ID to open", key="pc_workspace_project_id").strip()
