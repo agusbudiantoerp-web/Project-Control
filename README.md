@@ -8,6 +8,7 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 - BOQ, schedule, resource and manpower/equipment planning
 - EVM performance review (SPI, CPI, EAC and related indicators)
 - Cost and schedule forecasting, Monte Carlo risk assessment
+- Combined marginal cost and schedule outlook with explicit non-correlation caveat
 - Risk exposure matrix, WBS/activity traceability and mitigation review
 - Recovery scenario comparison and resource-based recovery estimates
 - Executive action register, audit events and escalation review
