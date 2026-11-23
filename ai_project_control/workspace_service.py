@@ -9,6 +9,7 @@ from .portfolio_performance import build_portfolio_scorecard
 from .project_store import ProjectStore
 from .evm_engine import calculate_evm
 from .schedule_engine import calculate_critical_path
+from .schedule_forecast import assess_schedule_delays
 
 
 def build_workspace_overview(database_path: str | Path, project_id: str) -> dict[str, Any]:
@@ -34,10 +35,15 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
     }])
     evm = calculate_evm(project, workspace["progress"], workspace["actual_cost"])
     schedule = calculate_critical_path(workspace["activities"])
+    schedule_forecast = assess_schedule_delays(
+        workspace["activities"],
+        as_of_date=__import__("datetime").date.today(),
+    )
     return {
         "project": project,
         "evm": evm,
         "schedule": schedule,
+        "schedule_forecast": schedule_forecast,
         "dataset_counts": {name: len(workspace[name]) for name in TABLE_KEYS},
         "total_records": sum(len(rows) for rows in workspace.values()),
         "validation": store.validate_workspace(project_id),
