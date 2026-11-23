@@ -66,4 +66,5 @@ jobs:
             tests/test_risk_exposure_matrix.py \
             tests/test_recovery_resource_planner.py \
             tests/test_recovery_decision_engine.py \
-            tests/test_predictive_early_warning.py
+            tests/test_predictive_early_warning.py \\
+            tests/test_project_performance_history.py
