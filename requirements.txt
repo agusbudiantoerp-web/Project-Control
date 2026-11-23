@@ -5,3 +5,4 @@ openpyxl>=3.1,<4
 reportlab>=4,<6
 pytest>=8,<10
 requests>=2.31,<3
+scikit-learn>=1.5,<2
