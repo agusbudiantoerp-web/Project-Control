@@ -24,7 +24,7 @@ def test_aggregates_same_resource_unit_and_period():
     ])
     assert len(result["rows"]) == 1
     assert result["rows"].iloc[0]["planned_units"] == 5
-    assert result["rows"].iloc[0]["capacity_units"] == 10
+    assert result["rows"].iloc[0]["capacity_units"] == 5
 
 
 def test_missing_capacity_is_unassessed():
@@ -53,3 +53,13 @@ def test_rejects_negative_demand():
 
 def test_empty_data_is_not_zero_capacity():
     assert build_manpower_equipment_plan([])["status"] == "NO_DATA"
+
+
+def test_conflicting_capacity_declarations_are_unassessed():
+    result = build_manpower_equipment_plan([
+        {"resource_type": "MANPOWER", "resource_id": "OP", "unit": "person",
+         "period": "W1", "planned_units": 3, "capacity_units": 5},
+        {"resource_type": "MANPOWER", "resource_id": "OP", "unit": "person",
+         "period": "W1", "planned_units": 2, "capacity_units": 7},
+    ])
+    assert result["rows"].iloc[0]["status"] == "UNASSESSED"
