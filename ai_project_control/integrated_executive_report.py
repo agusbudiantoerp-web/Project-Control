@@ -54,10 +54,10 @@ def build_integrated_executive_report(
         for key, label in (("p1_count", "P1"), ("p2_count", "P2"), ("data_review_count", "DATA_REVIEW"), ("unassessed_count", "UNASSESSED")):
             if key in decision_summary:
                 lines.append(f"- {label}: {decision_summary[key]}")
-        lines.extend(["", "| Project | Priority | Score | Recommendation |", "|---|---|---:|---|"])
+        lines.extend(["", "| Project | Priority | Evidence points | Recommended action |", "|---|---|---:|---|"])
         for row in decisions:
             lines.append("| " + " | ".join(_safe(row.get(k)) for k in
-                ("project_name", "priority", "score", "recommendation")) + " |")
+                ("project_name", "priority", "evidence_points", "recommended_action")) + " |")
     else:
         lines.append("- " + ("Decision matrix data not supplied." if en else "Data matriks keputusan belum tersedia."))
 
