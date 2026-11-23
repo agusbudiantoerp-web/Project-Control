@@ -170,6 +170,21 @@ def render_project_workspace_dashboard(
         h2.metric("Projects with history", len({row["project_id"] for row in history_rows}))
         if history_rows:
             st.dataframe(history_rows, use_container_width=True, hide_index=True)
+        if st.button("Evaluate historical KPI ML baselines", key="pc_train_historical_kpi_models"):
+            try:
+                training_dataset = history_store.build_next_snapshot_dataset()
+                training_result = train_historical_kpi_models(training_dataset["rows"])
+                st.metric("Model evaluation status", training_result["status"])
+                if training_result["metrics"]:
+                    st.dataframe(training_result["metrics"], use_container_width=True, hide_index=True)
+                st.caption(training_result.get("model_family", "No model trained"))
+                with st.expander("Model evaluation limitations"):
+                    for limitation in training_result["limitations"]:
+                        st.write("• " + limitation)
+                if training_result["status"] == "INSUFFICIENT_HISTORY":
+                    st.info("Histori proyek belum cukup untuk melatih dan mengevaluasi model secara bertanggung jawab.")
+            except (TypeError, ValueError, RuntimeError) as training_error:
+                st.error("Historical KPI model evaluation unavailable: " + str(training_error))
         if st.button("Build next-snapshot learning dataset", key="pc_build_history_dataset"):
             dataset_result = history_store.build_next_snapshot_dataset()
             st.metric("Usable next-snapshot rows", dataset_result["row_count"])
