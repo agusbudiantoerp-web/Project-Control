@@ -60,4 +60,5 @@ jobs:
             tests/test_recovery_effectiveness.py \
             tests/test_recovery_evm_bridge.py \
             tests/test_schedule_cost_outlook.py \
+            tests/test_schedule_risk_simulation.py \
             tests/test_integrated_forecast.py
