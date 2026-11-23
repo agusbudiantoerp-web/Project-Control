@@ -51,15 +51,16 @@ def build_manpower_equipment_plan(records: list[dict[str, Any]]) -> dict[str, An
     grouped = frame.groupby(keys, as_index=False, dropna=False).agg(
         planned_units=("planned_units", "sum"),
         actual_units=("actual_units", lambda values: values.sum(min_count=1)),
-        capacity_units=("capacity_units", "sum"),
+        capacity_units=("capacity_units", "max"),
+        capacity_consistent=("capacity_units", lambda values: values.dropna().nunique() <= 1),
         planned_complete=("planned_units", lambda values: values.notna().all()),
         actual_complete=("actual_units", lambda values: values.notna().all()),
         capacity_complete=("capacity_units", lambda values: values.notna().all()),
     )
     grouped["planned_utilization_pct"] = pd.NA
     grouped["actual_utilization_pct"] = pd.NA
-    planned_ok = grouped["planned_complete"] & grouped["capacity_complete"] & grouped["capacity_units"].gt(0)
-    actual_ok = grouped["actual_complete"] & grouped["capacity_complete"] & grouped["capacity_units"].gt(0)
+    planned_ok = grouped["planned_complete"] & grouped["capacity_complete"] & grouped["capacity_consistent"] & grouped["capacity_units"].gt(0)
+    actual_ok = grouped["actual_complete"] & grouped["capacity_complete"] & grouped["capacity_consistent"] & grouped["capacity_units"].gt(0)
     grouped.loc[planned_ok, "planned_utilization_pct"] = (
         grouped.loc[planned_ok, "planned_units"] / grouped.loc[planned_ok, "capacity_units"] * 100
     )
