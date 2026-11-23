@@ -55,4 +55,5 @@ jobs:
             tests/test_action_register_store.py \
             tests/test_action_escalation.py \
             tests/test_portfolio_monitoring.py \
-            tests/test_project_recovery_intelligence.py
+            tests/test_project_recovery_intelligence.py \
+            tests/test_recovery_execution.py
