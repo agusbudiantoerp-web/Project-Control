@@ -49,6 +49,9 @@ def render_project_workspace_dashboard(
     except ImportError as exc:
         raise RuntimeError("Streamlit is required to render this component.") from exc
 
+    portfolio: dict[str, Any] = {"projects": []}
+    portfolio_actions: dict[str, Any] = {"actions": [], "summary": {"action_count": 0, "open_count": 0, "in_progress_count": 0, "blocked_count": 0, "overdue_count": 0}}
+
     st.subheader("Project Portfolio Command Center")
     try:
         portfolio = build_portfolio_command_center(database_path)
