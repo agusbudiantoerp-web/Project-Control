@@ -53,7 +53,7 @@ def simulate_resource_transfer_impact(
         projects = group.groupby("project_id", as_index=False).agg(
             demand=("demand_per_day", "sum"),
             priority=("priority_score", "max"),
-            resource_name=("resource_name", "first") if "resource_name" in group else ("rsrc_id", "first),
+            resource_name=("resource_name", "first") if "resource_name" in group else ("rsrc_id", "first"),
         )
         projects = projects.sort_values(["priority", "project_id"], ascending=[False, True]).reset_index(drop=True)
         remaining = capacity
