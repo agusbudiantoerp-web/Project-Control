@@ -8,7 +8,7 @@ def _scenarios():
         {"scenario": "A", "actual_days_saved": 5, "incremental_cost": 500, "feasible": True},
         {"scenario": "B", "actual_days_saved": 8, "incremental_cost": 1200, "feasible": True},
         {"scenario": "C", "actual_days_saved": 3, "incremental_cost": 200, "feasible": True},
-        {"scenario": "D", "actual_days_saved": 9, "incremental_cost": 5000, "feasible": True},
+        {"scenario": "D", "actual_days_saved": 8, "incremental_cost": 5000, "feasible": True},
         {"scenario": "E", "actual_days_saved": 10, "incremental_cost": None, "feasible": True},
         {"scenario": "F", "actual_days_saved": 10, "incremental_cost": 100, "feasible": False},
     ])
