@@ -22,6 +22,7 @@ from .recovery_effectiveness import evaluate_recovery_effectiveness
 from .recovery_evm_bridge import evaluate_recovery_evm
 from .schedule_cost_outlook import build_schedule_cost_outlook
 from .schedule_risk_simulation import simulate_schedule_risk
+from .risk_exposure_matrix import build_risk_exposure_matrix
 import json
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
@@ -665,6 +666,30 @@ def render_project_workspace_dashboard(
                         st.write("• " + limitation)
     except (TypeError, ValueError) as exc:
         st.error("Risk register data needs correction: " + str(exc))
+
+    st.markdown("#### Risk Exposure Matrix & Mitigation Intelligence")
+    try:
+        exposure_result = build_risk_exposure_matrix(
+            result["workspace"]["risk"],
+            activities=result["workspace"]["activities"],
+            wbs=result["workspace"]["wbs"],
+        )
+        if exposure_result["status"] == "NO_RISKS":
+            st.info("Risk register belum berisi data. Tidak ada risiko tercatat bukan berarti proyek bebas risiko.")
+        else:
+            r1, r2, r3, r4 = st.columns(4)
+            r1.metric("Critical risks", exposure_result["priority_summary"]["CRITICAL"])
+            r2.metric("High risks", exposure_result["priority_summary"]["HIGH"])
+            r3.metric("Critical-activity risks", exposure_result["critical_activity_risk_count"])
+            r4.metric("Unlinked activity/WBS", exposure_result["unlinked_activity_count"] + exposure_result["unlinked_wbs_count"])
+            st.dataframe(exposure_result["risks"], use_container_width=True, hide_index=True)
+            with st.expander("Risk probability × impact matrix"):
+                st.json(exposure_result["matrix"])
+            with st.expander("Methodology and limitations"):
+                for limitation in exposure_result["caveats"]:
+                    st.write("• " + limitation)
+    except (TypeError, ValueError, KeyError) as exposure_error:
+        st.warning("Risk exposure matrix unavailable: " + str(exposure_error))
 
     st.markdown("#### Project Director Decision Review")
     try:
