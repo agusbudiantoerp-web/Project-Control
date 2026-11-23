@@ -19,6 +19,7 @@ from .portfolio_monitoring import PortfolioMonitoringStore
 from .project_recovery_intelligence import build_project_recovery_intelligence
 from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
 from .recovery_effectiveness import evaluate_recovery_effectiveness
+from .recovery_evm_bridge import evaluate_recovery_evm
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
 from .telegram_executive_reporting import (
@@ -259,6 +260,69 @@ def render_project_workspace_dashboard(
                     st.caption("• " + limitation)
             except (TypeError, ValueError) as effectiveness_error:
                 st.error("Effectiveness assessment failed: " + str(effectiveness_error))
+
+    st.subheader("EVM-Based Recovery Comparison")
+    with st.expander("Compare before/after recovery using EVM"):
+        st.caption("Masukkan PV, EV, dan AC untuk masing-masing periode. Nilai kosong akan tetap tidak dinilai. Pastikan data memakai scope, mata uang, dan konvensi periode yang konsisten.")
+        with st.form("pc_recovery_evm_comparison_form"):
+            evm_project_id = st.text_input("Project ID", key="pc_evm_bridge_project_id")
+            evm_bac = st.text_input("Budget at Completion (BAC)", key="pc_evm_bridge_bac")
+            evm_currency = st.text_input("Currency", value="IDR", key="pc_evm_bridge_currency")
+            before_period = st.text_input("Before period (optional)", key="pc_evm_bridge_before_period")
+            after_period = st.text_input("After period (optional)", key="pc_evm_bridge_after_period")
+            b1, b2 = st.columns(2)
+            with b1:
+                st.markdown("**Before recovery**")
+                b_pv = st.text_input("PV before", key="pc_evm_b_pv")
+                b_ev = st.text_input("EV before", key="pc_evm_b_ev")
+                b_ac = st.text_input("AC before", key="pc_evm_b_ac")
+            with b2:
+                st.markdown("**After recovery**")
+                a_pv = st.text_input("PV after", key="pc_evm_a_pv")
+                a_ev = st.text_input("EV after", key="pc_evm_a_ev")
+                a_ac = st.text_input("AC after", key="pc_evm_a_ac")
+            recovery_budget_input = st.text_input("Approved recovery budget (optional)", key="pc_evm_recovery_budget")
+            recovery_cost_input = st.text_input("Actual recovery cost (optional)", key="pc_evm_recovery_cost")
+            run_evm_bridge = st.form_submit_button("Evaluate EVM recovery")
+        if run_evm_bridge:
+            try:
+                def _optional_number(raw, label):
+                    if not str(raw).strip():
+                        return None
+                    try:
+                        return float(raw)
+                    except (TypeError, ValueError):
+                        raise ValueError(label + " must be numeric or blank.")
+                project_input = {"project_id": evm_project_id, "BAC": _optional_number(evm_bac, "BAC"), "currency": evm_currency}
+                before_progress = [{"project_id": evm_project_id, "period": before_period or "before",
+                                    "planned_value": _optional_number(b_pv, "PV before"),
+                                    "earned_value": _optional_number(b_ev, "EV before")}]
+                before_cost = [{"project_id": evm_project_id, "period": before_period or "before",
+                                "actual_cost": _optional_number(b_ac, "AC before")}]
+                after_progress = [{"project_id": evm_project_id, "period": after_period or "after",
+                                   "planned_value": _optional_number(a_pv, "PV after"),
+                                   "earned_value": _optional_number(a_ev, "EV after")}]
+                after_cost = [{"project_id": evm_project_id, "period": after_period or "after",
+                               "actual_cost": _optional_number(a_ac, "AC after")}]
+                bridge = evaluate_recovery_evm(
+                    project_input, before_progress_rows=before_progress,
+                    before_actual_cost_rows=before_cost, after_progress_rows=after_progress,
+                    after_actual_cost_rows=after_cost,
+                    approved_recovery_budget=_optional_number(recovery_budget_input, "Recovery budget"),
+                    actual_recovery_cost=_optional_number(recovery_cost_input, "Recovery cost"),
+                    before_period=before_period or None, after_period=after_period or None,
+                )
+                st.metric("EVM comparison status", bridge["status"])
+                st.write("**Before recovery**")
+                st.json(bridge["before_evm"])
+                st.write("**After recovery**")
+                st.json(bridge["after_evm"])
+                st.write("**Recovery effectiveness**")
+                st.json(bridge["recovery_effectiveness"])
+                for limitation in bridge["limitations"]:
+                    st.caption("• " + limitation)
+            except (TypeError, ValueError) as bridge_error:
+                st.error("EVM recovery evaluation failed: " + str(bridge_error))
 
     st.subheader("Executive Report Export")
     try:
