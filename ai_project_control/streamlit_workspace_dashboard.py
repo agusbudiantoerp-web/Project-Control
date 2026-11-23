@@ -8,6 +8,7 @@ from .data_quality_validation import TABLE_KEYS
 from .portfolio_executive_report import build_portfolio_executive_report
 from .workspace_service import build_workspace_overview
 from .streamlit_recovery_scenario_planner import render_recovery_scenario_planner
+from .resource_loading_summary import build_resource_loading_summary
 
 
 def render_project_workspace_dashboard(
@@ -80,6 +81,25 @@ def render_project_workspace_dashboard(
             st.warning("Delayed / behind-progress activities: " + ", ".join(forecast["delayed_activity_ids"]))
         st.dataframe(forecast["activities"], use_container_width=True, hide_index=True)
         st.caption("Progress variance is percentage points, not a duration forecast. Finish-date delay requires explicit baseline and forecast dates.")
+
+    st.markdown("#### Resource Loading & Capacity")
+    try:
+        resource_result = build_resource_loading_summary(result["workspace"]["resources"])
+        if resource_result["status"] == "NO_DATA":
+            st.info("No resource loading records are stored. Import resource_id, period, planned_units, actual_units, and capacity_units to assess capacity.")
+        else:
+            r1, r2, r3 = st.columns(3)
+            r1.metric("Resource-period rows", len(resource_result["rows"]))
+            r2.metric("Overloaded rows", resource_result["overloaded_count"])
+            r3.metric("Unassessed rows", resource_result["unassessed_count"])
+            st.dataframe(resource_result["rows"], use_container_width=True, hide_index=True)
+            st.caption("Utilization is calculated only where demand and positive capacity are complete. Missing capacity is unassessed, not zero.")
+            if resource_result["overloaded_count"]:
+                st.warning("Resource demand exceeds declared capacity in one or more periods. Review assignments and approved working calendars before changing the baseline.")
+            if resource_result["unassessed_count"]:
+                st.info("Some resource-period records cannot be assessed because demand or capacity data is incomplete.")
+    except (TypeError, ValueError) as exc:
+        st.error("Resource loading data needs correction: " + str(exc))
 
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
