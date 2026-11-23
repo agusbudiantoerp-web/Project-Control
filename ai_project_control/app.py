@@ -22,7 +22,7 @@ from executive_command_center import build_executive_command_center
 from executive_recovery_strategies import build_executive_recovery_strategies
 from recovery_scenario_optimizer import optimize_recovery_scenarios
 from integrated_recovery_impact import build_integrated_recovery_impact
-from portfolio_governance import submit_recovery_action, transition_recovery_action, governance_summary, build_portfolio_governance_overview, TRANSITIONS
+from portfolio_governance import submit_recovery_action, transition_recovery_action, governance_summary, build_portfolio_governance_overview, simulate_recovery_budget_allocation, TRANSITIONS
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -757,6 +757,62 @@ with portfolio_tab:
             with st.expander("Portfolio governance methodology and limitations"):
                 for assumption in portfolio_governance["assumptions"]:
                     st.write("• " + assumption)
+
+            st.markdown("**Recovery budget prioritization simulator**")
+            st.caption("Uji batas dana yang tersedia per mata uang. Simulasi ini tidak mencadangkan dana atau menyetujui permintaan.")
+            budget_currencies = sorted({
+                str(value).strip().upper()
+                for value in pg_queue.get("currency", pd.Series(dtype=str)).dropna().tolist()
+                if str(value).strip()
+            })
+            if not budget_currencies:
+                st.info("Mata uang belum tersedia pada permintaan recovery.")
+            else:
+                with st.form("portfolio_recovery_budget_simulation_form"):
+                    st.write("Masukkan batas dana maksimum untuk setiap mata uang.")
+                    budget_caps = {}
+                    budget_cols = st.columns(min(3, len(budget_currencies)))
+                    for idx, currency_code in enumerate(budget_currencies):
+                        with budget_cols[idx % len(budget_cols)]:
+                            budget_caps[currency_code] = st.number_input(
+                                f"Available budget ({currency_code})",
+                                min_value=0.0, value=0.0, step=100000.0,
+                                key=f"recovery_budget_cap_{currency_code}",
+                            )
+                    run_budget_simulation = st.form_submit_button(
+                        "Simulate recovery budget priority", type="primary"
+                    )
+                if run_budget_simulation:
+                    try:
+                        st.session_state["portfolio_recovery_budget_simulation"] = (
+                            simulate_recovery_budget_allocation(portfolio_governance, budget_caps)
+                        )
+                    except Exception as budget_error:
+                        st.error(f"Budget simulation failed: {budget_error}")
+                budget_result = st.session_state.get("portfolio_recovery_budget_simulation")
+                if budget_result and budget_result.get("available"):
+                    st.markdown("**Funding scenario by currency**")
+                    st.dataframe(budget_result["summary"], use_container_width=True, hide_index=True)
+                    st.markdown("**Request-level funding recommendation**")
+                    funding_cols = [
+                        "request_id", "project_id", "scenario", "recovery_action", "status",
+                        "risk_score", "currency", "proposed_budget", "allocated_budget",
+                        "funding_gap", "funding_decision", "remaining_budget_after_decision",
+                    ]
+                    funding_detail = budget_result["allocations"]
+                    st.dataframe(
+                        funding_detail[[col for col in funding_cols if col in funding_detail]],
+                        use_container_width=True, hide_index=True,
+                    )
+                    st.download_button(
+                        "Download recovery budget prioritization scenario",
+                        funding_detail.to_csv(index=False).encode("utf-8-sig"),
+                        file_name="portfolio_recovery_budget_prioritization.csv",
+                        mime="text/csv",
+                    )
+                    with st.expander("Budget prioritization rules and limitations"):
+                        for assumption in budget_result["assumptions"]:
+                            st.write("• " + assumption)
 
 with overview:
     master=ds("project_master.csv")
