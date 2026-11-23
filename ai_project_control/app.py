@@ -1229,7 +1229,11 @@ with portfolio_tab:
                     report_health_df.to_dict("records") if not report_health_df.empty else []
                 )
                 report_recovery = st.session_state.get("project_recovery_control_result")
+                if report_recovery and report_recovery.get("project_id") != project_id:
+                    report_recovery = None
                 report_scenarios = st.session_state.get("recovery_scenario_comparison_result")
+                if report_scenarios and report_scenarios.get("project_id") != project_id:
+                    report_scenarios = None
                 integrated_report_text = build_integrated_executive_report(
                     portfolio_records=portfolio.to_dict("records"),
                     status_date=status_date,
