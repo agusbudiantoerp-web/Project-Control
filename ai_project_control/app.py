@@ -26,6 +26,7 @@ from portfolio_governance import submit_recovery_action, transition_recovery_act
 from portfolio_risk_engine import rank_portfolio
 from portfolio_health_monitoring import build_health_monitoring
 from project_director_decision_matrix import build_decision_matrix
+from executive_action_register import create_action, transition_action, build_action_register
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
@@ -895,6 +896,96 @@ with portfolio_tab:
                     with st.expander("Budget prioritization rules and limitations"):
                         for assumption in budget_result["assumptions"]:
                             st.write("• " + assumption)
+
+
+        st.markdown("### Executive Action Register")
+        st.caption("Action register tersimpan pada database lokal workspace ini. Nama pencatat merupakan atribusi operator, bukan autentikasi akun.")
+        action_store = ds("executive_action_register.csv")
+        event_store = ds("executive_action_events.csv")
+        with st.form("executive_action_create_form"):
+            st.write("**Create corrective / preventive action**")
+            action_project_options = portfolio["project_id"].astype(str).tolist()
+            action_project = st.selectbox("Related project", action_project_options, key="action_project")
+            action_title = st.text_input("Action title", key="action_title")
+            action_owner = st.text_input("Accountable owner", key="action_owner")
+            action_due = st.date_input("Due date", value=date.today(), key="action_due")
+            action_priority = st.selectbox("Priority", ["P1", "P2", "P3"], index=1, key="action_priority")
+            action_description = st.text_area("Required action / expected evidence", key="action_description")
+            action_creator = st.text_input("Recorded by", key="action_creator")
+            create_action_submit = st.form_submit_button("Add executive action")
+        if create_action_submit:
+            try:
+                created_action = create_action(
+                    title=action_title, owner=action_owner, due_date=action_due,
+                    project_id=action_project, priority=action_priority,
+                    description=action_description, created_by=action_creator,
+                )
+                action_store = pd.concat([action_store, pd.DataFrame([created_action])], ignore_index=True)
+                save_dataset(project_id, "executive_action_register.csv", action_store)
+                st.success("Executive action added: " + created_action["action_id"])
+                st.rerun()
+            except Exception as action_error:
+                st.error(f"Action was not saved: {action_error}")
+
+        if not action_store.empty:
+            action_result = build_action_register(
+                action_store.to_dict("records"),
+                event_store.to_dict("records") if not event_store.empty else [],
+            )
+            action_view = pd.DataFrame(action_result["actions"])
+            ac1, ac2, ac3, ac4 = st.columns(4)
+            ac1.metric("Open", action_result["summary"]["open_count"])
+            ac2.metric("In progress", action_result["summary"]["in_progress_count"])
+            ac3.metric("Blocked", action_result["summary"]["blocked_count"])
+            ac4.metric("Overdue", action_result["summary"]["overdue_count"])
+            st.dataframe(action_view, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download executive action register",
+                action_view.to_csv(index=False).encode("utf-8-sig"),
+                file_name="executive_action_register.csv",
+                mime="text/csv",
+            )
+            active_action_ids = action_view.loc[
+                ~action_view["status"].astype(str).isin(["COMPLETED", "CANCELLED"]),
+                "action_id"
+            ].astype(str).tolist()
+            if active_action_ids:
+                st.markdown("**Update action status and record audit event**")
+                with st.form("executive_action_transition_form"):
+                    selected_action_id = st.selectbox("Action ID", active_action_ids, key="transition_action_id")
+                    next_action_status = st.selectbox(
+                        "New status", ["IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED"],
+                        key="transition_action_status",
+                    )
+                    action_actor = st.text_input("Changed by", key="transition_action_actor")
+                    action_note = st.text_area("Update note / completion evidence", key="transition_action_note")
+                    transition_submit = st.form_submit_button("Save status change")
+                if transition_submit:
+                    try:
+                        current_action = action_view.loc[
+                            action_view["action_id"].astype(str) == selected_action_id
+                        ].iloc[0].to_dict()
+                        updated_action, action_event = transition_action(
+                            current_action, new_status=next_action_status,
+                            changed_by=action_actor, note=action_note,
+                        )
+                        action_store.loc[
+                            action_store["action_id"].astype(str) == selected_action_id,
+                            list(updated_action.keys())
+                        ] = list(updated_action.values())
+                        event_store = pd.concat([event_store, pd.DataFrame([action_event])], ignore_index=True)
+                        save_dataset(project_id, "executive_action_register.csv", action_store)
+                        save_dataset(project_id, "executive_action_events.csv", event_store)
+                        st.success("Action status and audit event saved.")
+                        st.rerun()
+                    except Exception as action_error:
+                        st.error(f"Status change was not saved: {action_error}")
+            if not event_store.empty:
+                with st.expander("Executive action audit history"):
+                    st.dataframe(event_store, use_container_width=True, hide_index=True)
+            with st.expander("Action register governance limitations"):
+                for limitation in action_result["limitations"]:
+                    st.write("• " + limitation)
 
 with overview:
     master=ds("project_master.csv")
