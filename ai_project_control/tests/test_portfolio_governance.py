@@ -142,3 +142,62 @@ def test_portfolio_overview_empty_registers_returns_unavailable():
     result = build_portfolio_governance_overview({"PRJ-01": pd.DataFrame()})
     assert result["available"] is False
     assert result["decision_queue"].empty
+
+
+def test_recovery_budget_allocation_respects_currency_caps_and_whole_request_rule():
+    from portfolio_governance import (
+        build_portfolio_governance_overview, simulate_recovery_budget_allocation,
+    )
+    idr, _ = _submitted()
+    usd, _ = _submitted()
+    usd.loc[:, "project_id"] = "PRJ-USD"
+    usd.loc[:, "currency"] = "USD"
+    usd.loc[:, "proposed_budget"] = 500
+    overview = build_portfolio_governance_overview({"IDR-PROJ": idr, "USD-PROJ": usd})
+    result = simulate_recovery_budget_allocation(
+        overview, {"IDR": 100000, "USD": 1000}
+    )
+    assert result["available"]
+    rows = result["allocations"].set_index("currency")
+    assert rows.loc["IDR", "funding_decision"] == "Not funded - budget cap"
+    assert rows.loc["USD", "funding_decision"] == "Fully funded"
+    assert rows.loc["IDR", "allocated_budget"] == 0
+    assert rows.loc["USD", "allocated_budget"] == 500
+
+
+def test_recovery_budget_prioritizes_risk_then_approval_readiness():
+    from portfolio_governance import (
+        build_portfolio_governance_overview, simulate_recovery_budget_allocation,
+    )
+    first, first_id = _submitted()
+    second, second_id = _submitted()
+    first.loc[:, "project_id"] = "P-LOW"
+    second.loc[:, "project_id"] = "P-HIGH"
+    first.loc[:, "risk_score"] = 30
+    second.loc[:, "risk_score"] = 90
+    overview = build_portfolio_governance_overview({"P-LOW": first, "P-HIGH": second})
+    result = simulate_recovery_budget_allocation(overview, {"IDR": 125000})
+    funded = result["allocations"].set_index("request_id")
+    assert funded.loc[second_id, "funding_decision"] == "Fully funded"
+    assert funded.loc[first_id, "funding_decision"] == "Not funded - budget cap"
+
+
+def test_recovery_budget_excludes_in_progress_rejected_and_closed():
+    from portfolio_governance import (
+        build_portfolio_governance_overview, simulate_recovery_budget_allocation,
+    )
+    register, request_id = _submitted()
+    register.loc[:, "status"] = "In Progress"
+    overview = build_portfolio_governance_overview({"PRJ-01": register})
+    result = simulate_recovery_budget_allocation(overview, {"IDR": 1000000})
+    assert not result["available"]
+
+
+def test_recovery_budget_rejects_invalid_budget_caps():
+    from portfolio_governance import (
+        build_portfolio_governance_overview, simulate_recovery_budget_allocation,
+    )
+    register, _ = _submitted()
+    overview = build_portfolio_governance_overview({"PRJ-01": register})
+    with pytest.raises(ValueError):
+        simulate_recovery_budget_allocation(overview, {"IDR": -100})
