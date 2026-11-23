@@ -55,14 +55,19 @@ def build_integrated_recovery_impact(
             resource["resource_shortfall"] = np.nan
         if "resource_notes" not in resource:
             resource["resource_notes"] = "See resource assessment source."
+        resource = resource.rename(columns={
+            "resource_assessment_status": "_incoming_resource_status",
+            "resource_shortfall": "_incoming_resource_shortfall",
+            "resource_notes": "_incoming_resource_notes",
+        })
         result = result.merge(
-            resource[["scenario", "resource_assessment_status", "resource_shortfall", "resource_notes"]],
-            on="scenario", how="left", suffixes=("", "_resource"),
+            resource[["scenario", "_incoming_resource_status", "_incoming_resource_shortfall", "_incoming_resource_notes"]],
+            on="scenario", how="left",
         )
-        result["resource_assessment_status"] = result["resource_assessment_status_resource"].fillna(result["resource_assessment_status"])
-        result["resource_shortfall"] = result["resource_shortfall_resource"].combine_first(result["resource_shortfall"])
-        result["resource_notes"] = result["resource_notes_resource"].fillna(result["resource_notes"])
-        result = result.drop(columns=[c for c in result if c.endswith("_resource")])
+        result["resource_assessment_status"] = result["_incoming_resource_status"].fillna(result["resource_assessment_status"])
+        result["resource_shortfall"] = result["_incoming_resource_shortfall"].combine_first(result["resource_shortfall"])
+        result["resource_notes"] = result["_incoming_resource_notes"].fillna(result["resource_notes"])
+        result = result.drop(columns=["_incoming_resource_status", "_incoming_resource_shortfall", "_incoming_resource_notes"])
 
     result["risk_assessment_status"] = "NOT ASSESSED"
     result["baseline_expected_risk_cost"] = np.nan
