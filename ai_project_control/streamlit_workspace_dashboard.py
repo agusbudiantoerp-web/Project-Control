@@ -212,7 +212,7 @@ def render_project_workspace_dashboard(
     st.subheader("Recovery Effectiveness Scorecard")
     with st.expander("Compare project indicators before and after recovery"):
         with st.form("pc_recovery_effectiveness_form"):
-            st.caption("Masukkan indikator dari dua periode pelaporan yang sebanding. Biarkan kosong bila data tidak tersedia.")
+            st.caption("Masukkan indikator dari dua periode pelaporan yang sebanding. Nilai 0 adalah angka valid; ganti nilai awal sesuai data aktual sebelum menghitung.")
             before_col, after_col = st.columns(2)
             with before_col:
                 st.markdown("**Before recovery**")
@@ -233,19 +233,19 @@ def render_project_workspace_dashboard(
             recovery_currency = st.text_input("Currency (e.g. IDR)", value="IDR", key="pc_eff_currency")
             assess_effectiveness = st.form_submit_button("Evaluate recovery effectiveness")
         if assess_effectiveness:
-            before_values = {"SPI": before_spi or None, "CPI": before_cpi or None,
-                             "risk_score": before_risk or None,
-                             "delayed_activity_count": before_delay or None,
-                             "overdue_action_count": before_overdue or None}
-            after_values = {"SPI": after_spi or None, "CPI": after_cpi or None,
-                            "risk_score": after_risk or None,
-                            "delayed_activity_count": after_delay or None,
-                            "overdue_action_count": after_overdue or None}
+            before_values = {"SPI": before_spi, "CPI": before_cpi,
+                             "risk_score": before_risk,
+                             "delayed_activity_count": before_delay,
+                             "overdue_action_count": before_overdue}
+            after_values = {"SPI": after_spi, "CPI": after_cpi,
+                            "risk_score": after_risk,
+                            "delayed_activity_count": after_delay,
+                            "overdue_action_count": after_overdue}
             try:
                 effectiveness = evaluate_recovery_effectiveness(
                     before_values, after_values,
-                    approved_recovery_budget=approved_budget or None,
-                    actual_recovery_cost=actual_recovery_cost or None,
+                    approved_recovery_budget=approved_budget,
+                    actual_recovery_cost=actual_recovery_cost,
                     currency=recovery_currency,
                 )
                 st.metric("Recovery indicator outcome", effectiveness["status"])
