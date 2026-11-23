@@ -73,6 +73,14 @@ def load_dataset(project_id: str, name: str):
                           (project_id,name)).fetchone()
     return pd.DataFrame(json.loads(row[0])) if row else pd.DataFrame()
 
+def list_project_ids():
+    """Return all project IDs available in the local portfolio database."""
+    init_db()
+    with sqlite3.connect(DB_PATH) as con:
+        rows = con.execute("SELECT DISTINCT project_id FROM datasets ORDER BY project_id").fetchall()
+    return [row[0] for row in rows]
+
+
 def list_datasets(project_id: str):
     init_db()
     with sqlite3.connect(DB_PATH) as con:
