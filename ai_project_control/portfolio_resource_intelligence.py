@@ -103,3 +103,80 @@ def build_portfolio_resource_summary(projects: list[dict]) -> dict:
         )
     return {"available": not detail.empty, "resources": detail, "daily_load": daily,
             "project_summary": project_summary}
+
+
+def detect_shared_resource_conflicts(resource_summary: dict) -> dict:
+    """Detect cross-project contention for explicitly shared physical resources.
+
+    Capacity is treated as one shared pool, not added once per project. If
+    projects declare different capacities for the same shared ID, the lowest
+    declared capacity is used conservatively and the mismatch is flagged.
+    """
+    daily = resource_summary.get("daily_load")
+    details = resource_summary.get("resources")
+    if not isinstance(daily, pd.DataFrame) or daily.empty or not isinstance(details, pd.DataFrame) or details.empty:
+        empty = pd.DataFrame(columns=[
+            "shared_resource_id", "date", "projects", "demand_per_day",
+            "capacity_per_day", "utilization_pct", "over_capacity", "capacity_mismatch"
+        ])
+        return {"available": False, "daily_conflicts": empty, "summary": empty.copy()}
+
+    shared_ids = details[["project_id", "rsrc_id", "shared_resource_id", "capacity_per_day"]].copy()
+    shared_ids["shared_resource_id"] = shared_ids["shared_resource_id"].fillna("").astype(str).str.strip()
+    shared_ids = shared_ids[shared_ids["shared_resource_id"] != ""]
+    if shared_ids.empty:
+        empty = pd.DataFrame(columns=[
+            "shared_resource_id", "date", "projects", "demand_per_day",
+            "capacity_per_day", "utilization_pct", "over_capacity", "capacity_mismatch"
+        ])
+        return {"available": False, "daily_conflicts": empty, "summary": empty.copy()}
+
+    shared_daily = daily.merge(
+        shared_ids[["project_id", "rsrc_id", "shared_resource_id", "capacity_per_day"]],
+        on=["project_id", "rsrc_id"], how="inner", suffixes=("", "_declared")
+    )
+    if shared_daily.empty:
+        empty = pd.DataFrame(columns=[
+            "shared_resource_id", "date", "projects", "demand_per_day",
+            "capacity_per_day", "utilization_pct", "over_capacity", "capacity_mismatch"
+        ])
+        return {"available": False, "daily_conflicts": empty, "summary": empty.copy()}
+
+    output = []
+    for shared_id, rows in shared_daily.groupby("shared_resource_id"):
+        capacities = pd.to_numeric(rows["capacity_per_day_declared"], errors="coerce").dropna().unique()
+        if len(capacities) == 0:
+            continue
+        capacity_mismatch = len(capacities) > 1
+        capacity = float(min(capacities))
+        for day, day_rows in rows.groupby("date"):
+            demand = float(day_rows["demand_per_day"].sum())
+            project_ids = sorted(day_rows["project_id"].astype(str).unique().tolist())
+            output.append({
+                "shared_resource_id": shared_id,
+                "date": day,
+                "projects": ", ".join(project_ids),
+                "project_count": len(project_ids),
+                "demand_per_day": demand,
+                "capacity_per_day": capacity,
+                "utilization_pct": demand / capacity * 100.0 if capacity > 0 else np.nan,
+                "over_capacity": demand > capacity + 1e-9,
+                "capacity_mismatch": capacity_mismatch,
+            })
+    conflicts = pd.DataFrame(output)
+    if conflicts.empty:
+        return {"available": False, "daily_conflicts": conflicts, "summary": conflicts.copy()}
+    summary = conflicts.groupby("shared_resource_id", dropna=False).agg(
+        project_count=("project_count", "max"),
+        overloaded_days=("over_capacity", "sum"),
+        peak_demand_per_day=("demand_per_day", "max"),
+        capacity_per_day=("capacity_per_day", "min"),
+        peak_utilization_pct=("utilization_pct", "max"),
+        capacity_mismatch=("capacity_mismatch", "max"),
+    ).reset_index()
+    summary["allocation_status"] = summary.apply(
+        lambda row: "Capacity mismatch - verify" if row["capacity_mismatch"] else
+        ("Cross-project conflict" if row["overloaded_days"] > 0 else "Within shared capacity"),
+        axis=1,
+    )
+    return {"available": True, "daily_conflicts": conflicts, "summary": summary}
