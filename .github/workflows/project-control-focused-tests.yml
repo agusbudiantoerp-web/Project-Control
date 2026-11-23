@@ -42,5 +42,6 @@ jobs:
             tests/test_workspace_service.py \
             tests/test_evm_engine.py \
             tests/test_schedule_engine.py \
-            tests/test_schedule_forecast.py \\\n            tests/test_resource_optimization.py \\
+            tests/test_schedule_forecast.py \
+            tests/test_resource_optimization.py \\
             tests/test_resource_loading_summary.py
