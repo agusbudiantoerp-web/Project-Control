@@ -1,0 +1,193 @@
+"""Local SQLite persistence for validated project-control datasets.
+
+The store is workspace-local, uses explicit project scoping, parameterized SQL,
+transactions, and an append-only import event log. It is not a multi-user or
+server-grade database and must not be exposed directly to the public internet.
+"""
+from __future__ import annotations
+
+import json
+import sqlite3
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from .data_quality_validation import TABLE_KEYS, validate_project_control_data
+
+SCHEMA_VERSION = 1
+
+
+class ProjectStore:
+    """SQLite repository for one local project-control workspace."""
+
+    def __init__(self, database_path: str | Path):
+        self.database_path = str(database_path)
+        if self.database_path != ":memory:":
+            Path(self.database_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
+        self._initialise()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.database_path, timeout=15)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        return connection
+
+    def _initialise(self) -> None:
+        with self._connect() as db:
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS project_records (
+                    project_id TEXT NOT NULL,
+                    dataset TEXT NOT NULL,
+                    record_key TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (project_id, dataset, record_key)
+                )
+            """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS import_events (
+                    event_id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    dataset TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    row_count INTEGER NOT NULL,
+                    imported_at TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    details_json TEXT NOT NULL
+                )
+            """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS store_metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+            """)
+            db.execute(
+                "INSERT OR REPLACE INTO store_metadata(key, value) VALUES (?, ?)",
+                ("schema_version", str(SCHEMA_VERSION)),
+            )
+
+    @staticmethod
+    def _record_key(dataset: str, row: dict[str, Any]) -> str:
+        fields = TABLE_KEYS[dataset]
+        values = [str(row.get(field, "")).strip() for field in fields]
+        if any(not value for value in values):
+            raise ValueError(f"Missing key fields for {dataset}: {', '.join(fields)}")
+        return json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+
+    def save_dataset(
+        self,
+        project_id: str,
+        dataset: str,
+        rows: list[dict[str, Any]],
+        *,
+        mode: str = "upsert",
+    ) -> dict[str, Any]:
+        """Validate and atomically upsert records belonging to project_id."""
+        project_id = str(project_id).strip()
+        if not project_id:
+            raise ValueError("project_id is required")
+        if dataset not in TABLE_KEYS:
+            raise ValueError(f"Unsupported dataset: {dataset}")
+        if mode not in {"upsert", "replace"}:
+            raise ValueError("mode must be 'upsert' or 'replace'")
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise TypeError("rows must be a list of dictionaries")
+
+        normalized = [dict(row) for row in rows]
+        for index, row in enumerate(normalized):
+            row_project = str(row.get("project_id", "")).strip()
+            if row_project != project_id:
+                raise ValueError(
+                    f"Row {index} belongs to project '{row_project}', not '{project_id}'"
+                )
+
+        if dataset == "project_master":
+            validation = validate_project_control_data({"project_master": normalized})
+        else:
+            # Validate table shape and record-local constraints. Cross-table links
+            # are checked when a full workspace snapshot is requested.
+            validation = validate_project_control_data({dataset: normalized})
+        if validation["status"] == "INVALID":
+            raise ValueError("Dataset validation failed: " + json.dumps(validation["issues"]))
+
+        prepared = []
+        seen = set()
+        for row in normalized:
+            key = self._record_key(dataset, row)
+            if key in seen:
+                raise ValueError(f"Duplicate record key in import: {key}")
+            seen.add(key)
+            prepared.append((project_id, dataset, key,
+                             json.dumps(row, ensure_ascii=False, default=str),
+                             datetime.now(timezone.utc).isoformat()))
+
+        event_id = str(uuid.uuid4())
+        imported_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as db:
+            if dataset != "project_master":
+                exists = db.execute(
+                    "SELECT 1 FROM project_records WHERE project_id=? AND dataset='project_master' LIMIT 1",
+                    (project_id,),
+                ).fetchone()
+                if exists is None:
+                    raise ValueError(f"Project '{project_id}' must exist in project_master first")
+            if mode == "replace":
+                db.execute(
+                    "DELETE FROM project_records WHERE project_id=? AND dataset=?",
+                    (project_id, dataset),
+                )
+            db.executemany("""
+                INSERT INTO project_records(project_id, dataset, record_key, payload_json, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(project_id, dataset, record_key)
+                DO UPDATE SET payload_json=excluded.payload_json, updated_at=excluded.updated_at
+            """, prepared)
+            db.execute("""
+                INSERT INTO import_events(event_id, project_id, dataset, mode, row_count,
+                                          imported_at, status, details_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (event_id, project_id, dataset, mode, len(prepared), imported_at,
+                  "COMMITTED", json.dumps({"validation_status": validation["status"]})))
+        return {
+            "event_id": event_id,
+            "project_id": project_id,
+            "dataset": dataset,
+            "mode": mode,
+            "saved_count": len(prepared),
+            "status": "COMMITTED",
+            "validation_status": validation["status"],
+        }
+
+    def load_dataset(self, project_id: str, dataset: str) -> list[dict[str, Any]]:
+        if dataset not in TABLE_KEYS:
+            raise ValueError(f"Unsupported dataset: {dataset}")
+        with self._connect() as db:
+            records = db.execute(
+                "SELECT payload_json FROM project_records WHERE project_id=? AND dataset=? ORDER BY record_key",
+                (str(project_id).strip(), dataset),
+            ).fetchall()
+        return [json.loads(record["payload_json"]) for record in records]
+
+    def load_project_workspace(self, project_id: str) -> dict[str, list[dict[str, Any]]]:
+        workspace = {name: self.load_dataset(project_id, name) for name in TABLE_KEYS}
+        return workspace
+
+    def validate_workspace(self, project_id: str) -> dict[str, Any]:
+        return validate_project_control_data(self.load_project_workspace(project_id))
+
+    def import_history(self, project_id: str, limit: int = 100) -> list[dict[str, Any]]:
+        if limit < 1 or limit > 1000:
+            raise ValueError("limit must be between 1 and 1000")
+        with self._connect() as db:
+            rows = db.execute("""
+                SELECT event_id, project_id, dataset, mode, row_count, imported_at, status, details_json
+                FROM import_events WHERE project_id=? ORDER BY imported_at DESC LIMIT ?
+            """, (str(project_id).strip(), limit)).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["details"] = json.loads(item.pop("details_json"))
+            result.append(item)
+        return result
