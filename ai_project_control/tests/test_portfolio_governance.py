@@ -72,3 +72,29 @@ def test_currency_budget_and_required_fields_validated():
 def test_governance_summary_counts_each_status():
     register, request_id = _submitted()
     assert governance_summary(register)["Proposed"] == 1
+
+
+
+def test_rejection_authority_follows_current_approval_stage():
+    register, request_id = _submitted()
+    register = transition_recovery_action(register, request_id, "PM Approved", "PM", "Project Manager")
+    with pytest.raises(PermissionError):
+        transition_recovery_action(register, request_id, "Rejected", "PM", "Project Manager", "Not accepted")
+    register = transition_recovery_action(register, request_id, "Rejected", "Director", "Project Director", "Insufficient schedule evidence")
+    assert register.iloc[0]["status"] == "Rejected"
+
+
+def test_fully_approved_action_can_start_and_close_with_evidence():
+    register, request_id = _submitted()
+    register = transition_recovery_action(register, request_id, "PM Approved", "PM", "Project Manager")
+    register = transition_recovery_action(register, request_id, "Director Approved", "PD", "Project Director")
+    register = transition_recovery_action(register, request_id, "COO Approved", "COO", "COO")
+    register = transition_recovery_action(register, request_id, "In Progress", "PM", "Project Manager")
+    with pytest.raises(ValueError):
+        transition_recovery_action(register, request_id, "Closed", "PM", "Project Manager")
+    register = transition_recovery_action(register, request_id, "Closed", "PM", "Project Manager", "Field completion evidence attached")
+    assert register.iloc[0]["status"] == "Closed"
+    history = json.loads(register.iloc[0]["decision_history"])
+    assert [event["to"] for event in history] == [
+        "Proposed", "PM Approved", "Director Approved", "COO Approved", "In Progress", "Closed"
+    ]
