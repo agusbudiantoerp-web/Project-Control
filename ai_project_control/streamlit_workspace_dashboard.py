@@ -16,6 +16,7 @@ from .risk_cost_simulation import build_risk_cost_simulation
 from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_monitoring import PortfolioMonitoringStore
+from .project_recovery_intelligence import build_project_recovery_intelligence
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
 from .telegram_executive_reporting import (
@@ -98,6 +99,27 @@ def render_project_workspace_dashboard(
             st.info("No portfolio-wide executive actions recorded yet.")
     except (TypeError, ValueError, OSError) as exc:
         st.warning("Portfolio action register unavailable: " + str(exc))
+
+    st.subheader("Project Recovery Intelligence")
+    try:
+        recovery_projects = portfolio.get("projects", []) if isinstance(portfolio, dict) else []
+        recovery_result = build_project_recovery_intelligence(
+            recovery_projects,
+            actions=portfolio_actions.get("actions", []),
+        )
+        ri1, ri2, ri3 = st.columns(3)
+        ri1.metric("Projects assessed", recovery_result["project_count"])
+        ri2.metric("Critical review", recovery_result["critical_review_count"])
+        ri3.metric("Recovery review", recovery_result["recovery_review_count"])
+        if recovery_result["projects"]:
+            st.dataframe(recovery_result["projects"], use_container_width=True, hide_index=True)
+        else:
+            st.info("Belum ada proyek untuk dinilai.")
+        with st.expander("Recovery intelligence methodology and limitations"):
+            for limitation in recovery_result["limitations"]:
+                st.write("• " + limitation)
+    except (TypeError, ValueError) as recovery_error:
+        st.warning("Project recovery intelligence unavailable: " + str(recovery_error))
 
     st.subheader("Executive Report Export")
     try:
