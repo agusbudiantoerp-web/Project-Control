@@ -877,10 +877,12 @@ def render_project_workspace_dashboard(
             if combined_outlook["status"] == "ASSESSED":
                 summary = combined_outlook["executive_summary"]
                 co1, co2, co3, co4 = st.columns(4)
-                co1.metric("Cost P80", f"{summary['currency']} {summary['cost_p80']:,.2f}" if summary.get("currency") else f"{summary['cost_p80']:,.2f}")
-                co2.metric("P80 contingency", f"{summary['currency']} {summary['p80_contingency']:,.2f}" if summary.get("currency") else f"{summary['p80_contingency']:,.2f}")
+                cost_currency = combined_outlook["cost_outlook"].get("currency", project_currency)
+                schedule_duration = combined_outlook["schedule_outlook"]["duration_days"]["p80"]
+                co1.metric("Cost P80", f"{cost_currency} {summary['cost_p80']:,.2f}")
+                co2.metric("P80 contingency", f"{cost_currency} {summary['p80_contingency']:,.2f}")
                 co3.metric("Schedule P80 finish", summary["finish_p80"])
-                co4.metric("Schedule P80 duration", f"{summary['duration_p80_days']:,.1f} calendar days")
+                co4.metric("Schedule P80 duration", f"{schedule_duration:,.1f} calendar days")
             else:
                 st.info("Combined outlook is partial: " + combined_outlook["status"])
             with st.expander("Combined outlook governance and interpretation"):
