@@ -58,7 +58,7 @@ def split_telegram_message(message: str, limit: int = TELEGRAM_TEXT_LIMIT) -> li
         if split_at < limit // 2:
             split_at = limit
         chunks.append(remaining[:split_at])
-        remaining = remaining[split_at:].lstrip("\n")
+        remaining = remaining[split_at:]
     if remaining:
         chunks.append(remaining)
     return chunks
