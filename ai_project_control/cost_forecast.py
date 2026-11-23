@@ -1,0 +1,89 @@
+"""Transparent project cost forecast scenarios using Earned Value inputs."""
+from __future__ import annotations
+
+import math
+from typing import Any
+
+
+def _finite_nonnegative(value: Any, field: str) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or number < 0:
+        return None
+    return number
+
+
+def build_cost_forecast(evm: dict[str, Any], *, warning_threshold_pct: float = 5.0) -> dict[str, Any]:
+    """Compare three EAC methods; missing/invalid values remain unassessed.
+
+    CPI forecast: AC + (BAC-EV)/CPI.
+    Budget-performance forecast: AC + (BAC-EV).
+    CPI×SPI forecast: AC + (BAC-EV)/(CPI×SPI).
+    These are scenarios, not commitments or probabilistic forecasts.
+    """
+    threshold = _finite_nonnegative(warning_threshold_pct, "warning_threshold_pct")
+    if threshold is None:
+        raise ValueError("warning_threshold_pct must be finite and non-negative")
+    pv = _finite_nonnegative(evm.get("PV"), "PV")
+    ev = _finite_nonnegative(evm.get("EV"), "EV")
+    ac = _finite_nonnegative(evm.get("AC"), "AC")
+    bac = _finite_nonnegative(evm.get("BAC"), "BAC")
+    currency = str(evm.get("currency", "")).strip().upper()
+    gaps = [key for key, value in (("PV", pv), ("EV", ev), ("AC", ac), ("BAC", bac)) if value is None]
+    if not currency:
+        gaps.append("CURRENCY")
+    if gaps:
+        return {"status": "INSUFFICIENT_DATA", "currency": currency, "data_gaps": gaps,
+                "scenarios": [], "warning_threshold_pct": threshold}
+    if bac <= 0 or ac <= 0 or pv <= 0:
+        return {"status": "INSUFFICIENT_DATA", "currency": currency,
+                "data_gaps": ["BAC_PV_AND_AC_MUST_BE_POSITIVE"],
+                "scenarios": [], "warning_threshold_pct": threshold}
+    cpi = ev / ac
+    spi = ev / pv
+    remaining_budget = bac - ev
+    if remaining_budget < 0:
+        return {"status": "REVIEW_REQUIRED", "currency": currency,
+                "data_gaps": ["EV_EXCEEDS_BAC"], "scenarios": [],
+                "warning_threshold_pct": threshold}
+    candidates = [
+        ("CPI", ac + remaining_budget / cpi if cpi > 0 else None,
+         "AC + (BAC - EV) / CPI"),
+        ("BUDGET_RATE", ac + remaining_budget,
+         "AC + (BAC - EV); remaining work at original budget rate"),
+        ("CPI_X_SPI", ac + remaining_budget / (cpi * spi) if cpi > 0 and spi > 0 else None,
+         "AC + (BAC - EV) / (CPI × SPI)"),
+    ]
+    scenarios = []
+    for name, eac, formula in candidates:
+        if eac is None or not math.isfinite(eac):
+            scenarios.append({"scenario": name, "EAC": None, "ETC": None, "VAC": None,
+                              "variance_pct": None, "status": "UNASSESSED", "formula": formula})
+            continue
+        variance = eac - bac
+        variance_pct = variance / bac * 100
+        status = "OVER_BUDGET" if variance_pct > threshold else (
+            "UNDER_BUDGET" if variance_pct < -threshold else "WITHIN_THRESHOLD"
+        )
+        scenarios.append({
+            "scenario": name, "EAC": round(eac, 2), "ETC": round(eac - ac, 2),
+            "VAC": round(bac - eac, 2), "variance_pct": round(variance_pct, 2),
+            "status": status, "formula": formula,
+        })
+    assessed = [row for row in scenarios if row["EAC"] is not None]
+    return {
+        "status": "ASSESSED" if assessed else "INSUFFICIENT_DATA",
+        "currency": currency, "cpi": round(cpi, 4), "spi": round(spi, 4),
+        "remaining_budgeted_work": round(remaining_budget, 2),
+        "warning_threshold_pct": threshold, "scenarios": scenarios,
+        "limitations": [
+            "Forecasts depend on the reliability and consistent valuation basis of PV, EV, AC and BAC.",
+            "The CPI×SPI scenario assumes both cost and schedule performance affect remaining cost.",
+            "No commitments, accruals, risk contingency, escalation, tax, change orders or probabilistic uncertainty are included.",
+            "This is a decision-support scenario, not an approved revised budget.",
+        ],
+    }
