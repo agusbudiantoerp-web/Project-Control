@@ -13,6 +13,7 @@ from .manpower_equipment_planner import build_manpower_equipment_plan
 from .boq_schedule_resource_integration import build_boq_schedule_resource_integration
 from .cost_forecast import build_cost_forecast
 from .risk_cost_simulation import build_risk_cost_simulation
+from .risk_adjusted_project_outlook import build_risk_adjusted_project_outlook
 from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_monitoring import PortfolioMonitoringStore
@@ -716,6 +717,12 @@ def render_project_workspace_dashboard(
         st.warning("Integrated schedule and cost outlook unavailable: " + str(outlook_error))
 
     st.markdown("#### Monte Carlo Schedule Risk Forecast")
+    mc_result = None
+    mc_activities = []
+    mc_risks = []
+    mc_start = None
+    mc_iterations = 10000
+    mc_seed = 42
     with st.expander("Simulate P50 / P80 / P90 project finish dates", expanded=False):
         st.caption("Masukkan network aktivitas dan risk register dalam format JSON. Durasi dan dampak risiko menggunakan hari kalender; semua risiko diasumsikan independen.")
         default_activity_json = """[
@@ -852,6 +859,37 @@ def render_project_workspace_dashboard(
                         st.write("• " + limitation)
     except (TypeError, ValueError) as exc:
         st.error("Risk register data needs correction: " + str(exc))
+
+    st.markdown("#### Combined Risk-Adjusted Cost & Schedule Outlook")
+    if mc_result and mc_result.get("status") == "ASSESSED" and risk_result and risk_result.get("status") == "ASSESSED":
+        try:
+            combined_outlook = build_risk_adjusted_project_outlook(
+                base_cost=evm["BAC"],
+                currency=project_currency,
+                cost_risks=risk_rows,
+                activities=mc_activities,
+                schedule_risks=mc_risks,
+                project_start_date=mc_start,
+                iterations=int(mc_iterations),
+                seed=int(mc_seed),
+            )
+            st.caption("Combined executive view of two separate marginal simulations. This is not a correlated joint forecast.")
+            if combined_outlook["status"] == "ASSESSED":
+                summary = combined_outlook["executive_summary"]
+                co1, co2, co3, co4 = st.columns(4)
+                co1.metric("Cost P80", f"{summary['currency']} {summary['cost_p80']:,.2f}" if summary.get("currency") else f"{summary['cost_p80']:,.2f}")
+                co2.metric("P80 contingency", f"{summary['currency']} {summary['p80_contingency']:,.2f}" if summary.get("currency") else f"{summary['p80_contingency']:,.2f}")
+                co3.metric("Schedule P80 finish", summary["finish_p80"])
+                co4.metric("Schedule P80 duration", f"{summary['duration_p80_days']:,.1f} calendar days")
+            else:
+                st.info("Combined outlook is partial: " + combined_outlook["status"])
+            with st.expander("Combined outlook governance and interpretation"):
+                for note in combined_outlook["interpretation"] + combined_outlook.get("governance", []):
+                    st.write("• " + note)
+        except (TypeError, ValueError, KeyError) as combined_error:
+            st.warning("Combined risk-adjusted outlook unavailable: " + str(combined_error))
+    else:
+        st.info("Jalankan schedule Monte Carlo dan pastikan simulasi biaya serta jadwal berstatus ASSESSED untuk melihat ringkasan gabungan.")
 
     st.markdown("#### Risk Exposure Matrix & Mitigation Intelligence")
     try:
