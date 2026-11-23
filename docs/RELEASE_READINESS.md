@@ -6,7 +6,7 @@
 - Project workspace, import/data quality and workspace persistence modules
 - Portfolio command center, portfolio snapshot monitoring and recovery intelligence
 - EVM, schedule, cost, resource and risk analytics
-- Monte Carlo schedule/cost risk engines and risk exposure matrix
+- Monte Carlo schedule/cost risk engines, combined marginal executive outlook and risk exposure matrix
 - Recovery scenario planning, resource recovery estimate and executive decision brief
 - Executive action register, audit events and escalation
 - Executive reporting and Telegram reporting integration modules
