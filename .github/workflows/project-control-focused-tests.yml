@@ -39,4 +39,4 @@ jobs:
             tests/test_upload_reader.py \
             tests/test_project_store.py \
             tests/test_import_service.py \
-            tests/test_workspace_service.py \\\n            tests/test_evm_engine.py
+            tests/test_workspace_service.py \\\n            tests/test_evm_engine.py \\\n            tests/test_schedule_engine.py
