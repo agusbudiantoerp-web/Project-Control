@@ -27,6 +27,7 @@ from portfolio_risk_engine import rank_portfolio
 from portfolio_health_monitoring import build_health_monitoring
 from project_director_decision_matrix import build_decision_matrix
 from executive_action_register import create_action, transition_action, build_action_register, ALLOWED_TRANSITIONS
+from project_recovery_control import assess_recovery_control
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
@@ -998,6 +999,67 @@ with portfolio_tab:
             with st.expander("Action register governance limitations"):
                 for limitation in action_result["limitations"]:
                     st.write("• " + limitation)
+
+
+        st.markdown("### Project Recovery Control")
+        st.caption("Bandingkan baseline, forecast terkini, target pemulihan dan estimasi biaya. Masukkan nilai dari laporan proyek yang sudah divalidasi.")
+        with st.form("project_recovery_control_form"):
+            recovery_project_ids = portfolio["project_id"].astype(str).tolist()
+            recovery_project_id = st.selectbox("Project for recovery assessment", recovery_project_ids, key="recovery_control_project")
+            recovery_baseline = st.text_input("Approved baseline finish (YYYY-MM-DD)", key="recovery_baseline")
+            recovery_forecast = st.text_input("Current forecast finish (YYYY-MM-DD)", key="recovery_forecast")
+            recovery_target_finish = st.text_input("Recovery target finish (YYYY-MM-DD)", key="recovery_target_finish")
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                recovery_current_spi = st.text_input("Current SPI", key="recovery_current_spi")
+                recovery_budget = st.text_input("Approved recovery budget", key="recovery_budget")
+            with rc2:
+                recovery_target_spi = st.text_input("Target SPI", key="recovery_target_spi")
+                recovery_cost = st.text_input("Estimated recovery cost", key="recovery_cost")
+            run_recovery_assessment = st.form_submit_button("Assess recovery gap")
+        if run_recovery_assessment:
+            try:
+                recovery_assessment = assess_recovery_control(
+                    baseline_finish=recovery_baseline,
+                    current_forecast_finish=recovery_forecast,
+                    recovery_target_finish=recovery_target_finish,
+                    current_spi=recovery_current_spi,
+                    target_spi=recovery_target_spi,
+                    approved_recovery_budget=recovery_budget,
+                    estimated_recovery_cost=recovery_cost,
+                )
+                st.session_state["project_recovery_control_result"] = {
+                    "project_id": recovery_project_id,
+                    **recovery_assessment,
+                }
+            except Exception as recovery_error:
+                st.error(f"Recovery assessment could not be calculated: {recovery_error}")
+        recovery_assessment = st.session_state.get("project_recovery_control_result")
+        if recovery_assessment and recovery_assessment.get("project_id") == recovery_project_id:
+            recovery_status = recovery_assessment["status"]
+            if recovery_status == "RECOVERY_GAP":
+                st.warning("Recovery gaps detected — management review required.")
+            elif recovery_status == "TARGETS_MET":
+                st.success("Supplied recovery targets are met by the current inputs.")
+            else:
+                st.info("Assessment incomplete. Missing inputs: " + ", ".join(recovery_assessment["missing_inputs"]))
+            rcm1, rcm2, rcm3 = st.columns(3)
+            rcm1.metric("Baseline variance", "—" if recovery_assessment["baseline_variance_days"] is None else f'{recovery_assessment["baseline_variance_days"]:+.0f} days')
+            rcm2.metric("Recovery target gap", "—" if recovery_assessment["recovery_target_gap_days"] is None else f'{recovery_assessment["recovery_target_gap_days"]:+.0f} days')
+            rcm3.metric("Funding gap", "—" if recovery_assessment["funding_gap"] is None else f'{recovery_assessment["funding_gap"]:,.2f}')
+            st.write("**Evidence signals**")
+            for signal in recovery_assessment["signals"]:
+                st.write("• " + signal)
+            with st.expander("Recovery control methodology and limitations"):
+                for limitation in recovery_assessment["limitations"]:
+                    st.write("• " + limitation)
+            recovery_export = pd.DataFrame([recovery_assessment])
+            st.download_button(
+                "Download project recovery assessment",
+                recovery_export.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{recovery_project_id}_recovery_assessment.csv",
+                mime="text/csv",
+            )
 
 with overview:
     master=ds("project_master.csv")
