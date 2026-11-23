@@ -53,22 +53,30 @@ def build_project_director_review(
                         "evidence": f"CPI is {evm['CPI']}."})
 
     if schedule_forecast:
-        delayed = schedule_forecast.get("delayed_activity_ids") or []
-        unassessed = schedule_forecast.get("unassessed_activity_ids") or []
-        signals.append({
-            "area": "ACTIVITY_PROGRESS",
-            "status": "ATTENTION" if delayed else "UNASSESSED" if unassessed else "MONITOR",
-            "evidence": f"{len(delayed)} delayed activities; {len(unassessed)} unassessed activities.",
-        })
+        if schedule_forecast.get("status") == "NO_ACTIVITIES":
+            signals.append({"area": "ACTIVITY_PROGRESS", "status": "UNASSESSED",
+                            "evidence": "No activity records are available for schedule monitoring."})
+        else:
+            delayed = schedule_forecast.get("delayed_activity_ids") or []
+            unassessed = schedule_forecast.get("unassessed_activity_ids") or []
+            signals.append({
+                "area": "ACTIVITY_PROGRESS",
+                "status": "ATTENTION" if delayed else "UNASSESSED" if unassessed else "MONITOR",
+                "evidence": f"{len(delayed)} delayed activities; {len(unassessed)} unassessed activities.",
+            })
 
     if resource_summary:
-        overload = resource_summary.get("overloaded_count")
-        unassessed = resource_summary.get("unassessed_count")
-        signals.append({
-            "area": "RESOURCE_CAPACITY",
-            "status": "ATTENTION" if overload else "UNASSESSED" if unassessed else "MONITOR",
-            "evidence": f"{overload or 0} overloaded resource-period rows; {unassessed or 0} unassessed rows.",
-        })
+        if resource_summary.get("status") == "NO_DATA":
+            signals.append({"area": "RESOURCE_CAPACITY", "status": "UNASSESSED",
+                            "evidence": "No resource loading records are available."})
+        else:
+            overload = resource_summary.get("overloaded_count")
+            unassessed = resource_summary.get("unassessed_count")
+            signals.append({
+                "area": "RESOURCE_CAPACITY",
+                "status": "ATTENTION" if overload else "UNASSESSED" if unassessed else "MONITOR",
+                "evidence": f"{overload or 0} overloaded resource-period rows; {unassessed or 0} unassessed rows.",
+            })
 
     if risk_simulation:
         if risk_simulation.get("status") == "ASSESSED":
@@ -82,6 +90,9 @@ def build_project_director_review(
         else:
             signals.append({"area": "RISK_COST", "status": "UNASSESSED",
                             "evidence": "Risk simulation is not assessed; verify the risk register and currency."})
+    else:
+        signals.append({"area": "RISK_COST", "status": "UNASSESSED",
+                        "evidence": "No risk simulation result is available; confirm the risk register has been reviewed."})
 
     return {
         "status": decision["priority"],
