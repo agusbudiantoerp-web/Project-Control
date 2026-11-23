@@ -18,6 +18,7 @@ from portfolio_resource_intelligence import build_portfolio_resource_summary, de
 from portfolio_resource_allocation import build_resource_allocation_scenario
 from portfolio_resource_scenarios import compare_resource_allocation_scenarios
 from portfolio_resource_transfer import simulate_resource_transfer_impact
+from executive_command_center import build_executive_command_center
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -258,6 +259,38 @@ with portfolio_tab:
             mime="text/csv",
         )
         st.caption("Prioritas merupakan screening berbasis indikator yang tersedia. Rekomendasi adalah tindakan awal untuk ditinjau Project Manager; bukan keputusan otomatis atau pengganti validasi lapangan.")
+
+        st.markdown("### Executive Portfolio Command Center — Decision Queue")
+        command_center = build_executive_command_center(portfolio, risk_rows)
+        if not command_center["available"]:
+            st.info("Executive decision queue belum tersedia: " + "; ".join(command_center["assumptions"]))
+        else:
+            decision_queue = command_center["queue"]
+            tier_counts = decision_queue["decision_tier"].value_counts()
+            cc1, cc2, cc3, cc4 = st.columns(4)
+            cc1.metric("P1 Immediate", int(tier_counts.get("P1 - IMMEDIATE", 0)))
+            cc2.metric("P2 High", int(tier_counts.get("P2 - HIGH", 0)))
+            cc3.metric("P3 Monitor", int(tier_counts.get("P3 - MONITOR", 0)))
+            cc4.metric("Unscored", int(tier_counts.get("UNSCORED", 0)))
+            st.dataframe(command_center["summary"], use_container_width=True, hide_index=True)
+            st.markdown("**Ranked executive decision queue**")
+            queue_columns = [
+                "project_id", "project_name", "currency", "decision_tier",
+                "executive_priority_score", "risk_score", "SPI", "CPI",
+                "schedule_slip_days", "cost_variance_pct", "decision_evidence",
+                "recommended_executive_action",
+            ]
+            st.dataframe(decision_queue[[col for col in queue_columns if col in decision_queue]],
+                         use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download executive command center decision queue",
+                decision_queue.to_csv(index=False).encode("utf-8-sig"),
+                file_name="executive_portfolio_command_center.csv",
+                mime="text/csv",
+            )
+            with st.expander("Executive scoring methodology and limitations"):
+                for assumption in command_center["assumptions"]:
+                    st.write("• " + assumption)
 
         st.markdown("### Portfolio Resource Intelligence")
         st.caption("Resource loading is aggregated from projects saved in this computer's local database. Resource IDs remain project-specific unless a shared resource identity is explicitly configured.")
