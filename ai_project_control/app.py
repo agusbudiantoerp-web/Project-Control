@@ -14,10 +14,11 @@ from dashboard_metrics import forecast_completion_date
 from integrated_forecast import build_integrated_forecast
 from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix, build_predictive_warnings, diagnose_project_drivers, build_root_cause_action_plan
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
+from portfolio_resource_intelligence import build_portfolio_resource_summary
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
-                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio)
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
 
 st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
 init_db()
@@ -254,6 +255,51 @@ with portfolio_tab:
             mime="text/csv",
         )
         st.caption("Prioritas merupakan screening berbasis indikator yang tersedia. Rekomendasi adalah tindakan awal untuk ditinjau Project Manager; bukan keputusan otomatis atau pengganti validasi lapangan.")
+
+        st.markdown("### Portfolio Resource Intelligence")
+        st.caption("Resource loading is aggregated from projects saved in this computer's local database. Resource IDs remain project-specific unless a shared resource identity is explicitly configured.")
+        portfolio_resource_inputs = []
+        for resource_project_id in list_project_ids():
+            resource_master = load_dataset(resource_project_id, "project_master.csv")
+            resource_project_name = (
+                str(resource_master.iloc[0].get("project_name", resource_project_id))
+                if not resource_master.empty else resource_project_id
+            )
+            portfolio_resource_inputs.append({
+                "project_id": resource_project_id,
+                "project_name": resource_project_name,
+                "resources": load_dataset(resource_project_id, "resources.csv"),
+                "assignments": load_dataset(resource_project_id, "resource_assignments.csv"),
+            })
+        portfolio_resource = build_portfolio_resource_summary(portfolio_resource_inputs)
+        if not portfolio_resource["available"]:
+            st.info("Data resource portfolio belum tersedia. Impor resources.csv dan resource_assignments.csv untuk masing-masing proyek.")
+        else:
+            resource_summary = portfolio_resource["project_summary"]
+            resource_detail = portfolio_resource["resources"]
+            rm1, rm2, rm3 = st.columns(3)
+            rm1.metric("Projects with resource data", resource_summary["project_id"].nunique())
+            rm2.metric("Overloaded resources", int(resource_summary["overloaded_resources"].sum()))
+            rm3.metric("Overloaded resource-days", int(resource_summary["overloaded_resource_days"].sum()))
+            st.markdown("**Resource capacity by project**")
+            st.dataframe(resource_summary, use_container_width=True, hide_index=True)
+            st.markdown("**Resource utilization and overload register**")
+            st.dataframe(resource_detail, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download portfolio resource register",
+                resource_detail.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_resource_capacity_register.csv",
+                mime="text/csv",
+            )
+            st.markdown("**Daily resource loading**")
+            st.dataframe(portfolio_resource["daily_load"], use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download portfolio daily resource loading",
+                portfolio_resource["daily_load"].to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_daily_resource_loading.csv",
+                mime="text/csv",
+            )
+        st.caption("Overload dihitung per proyek dan resource ID. Sistem tidak menganggap dua ID yang sama pada proyek berbeda sebagai alat atau kru yang sama tanpa shared_resource_id yang disepakati.")
 
         st.markdown("### AI Portfolio Advisor — Groq / Gemini")
         st.caption("Analisis hanya dikirim ke provider setelah Anda menekan tombol. API key dibaca dari environment atau Streamlit secrets dan tidak disimpan ke database.")
