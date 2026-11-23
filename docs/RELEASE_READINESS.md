@@ -11,6 +11,7 @@
 - Executive action register, audit events and escalation
 - Executive reporting and Telegram reporting integration modules
 - Historical KPI snapshot storage and next-snapshot CSV dataset builder
+- Chronological Random Forest KPI baseline training/evaluation with persistence benchmark
 - Trend-based early warning using saved historical KPI snapshots
 - User guide, README, local-data ignore rules and focused CI workflow
 
