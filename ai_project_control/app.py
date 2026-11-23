@@ -30,6 +30,7 @@ from executive_action_register import create_action, transition_action, build_ac
 from project_recovery_control import assess_recovery_control
 from recovery_scenario_comparator import compare_recovery_scenarios as compare_recovery_scenarios_control
 from integrated_executive_report import build_integrated_executive_report
+from integrated_project_intelligence import build_integrated_project_intelligence
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
@@ -176,6 +177,34 @@ with portfolio_tab:
         with st.expander("Decision matrix scoring method and limitations"):
             st.write(director_matrix["method"])
             st.caption("Priority is a management-review aid only; it does not approve budgets, contracts or recovery plans.")
+
+        
+        st.markdown("### Integrated Project Intelligence")
+        st.caption("Satu tampilan yang menggabungkan performa EVM, indikator risiko, dan prioritas review direktur. Indikator yang tidak tersedia tetap ditandai.")
+        try:
+            intelligence_result = build_integrated_project_intelligence(portfolio.to_dict("records"))
+            intelligence_df = pd.DataFrame(intelligence_result["projects"])
+            ix1, ix2, ix3, ix4 = st.columns(4)
+            ix1.metric("Critical risk", intelligence_result["summary"]["critical_risk_count"])
+            ix2.metric("High risk", intelligence_result["summary"]["high_risk_count"])
+            ix3.metric("Performance assessed", intelligence_result["summary"]["assessed_performance_count"])
+            ix4.metric("Incomplete risk data", intelligence_result["summary"]["incomplete_risk_count"])
+            if not intelligence_df.empty:
+                st.dataframe(intelligence_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download integrated project intelligence",
+                    intelligence_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="integrated_project_intelligence.csv",
+                    mime="text/csv",
+                )
+            with st.expander("Integrated intelligence methods and limitations"):
+                for method_name, method_text in intelligence_result["methods"].items():
+                    st.write(f"**{method_name.title()}**")
+                    st.write(method_text)
+                for limitation in intelligence_result["limitations"]:
+                    st.write("• " + limitation)
+        except Exception as intelligence_error:
+            st.error(f"Integrated project intelligence could not be calculated: {intelligence_error}")
 
         st.markdown("### Portfolio Health Monitoring — dated snapshots")
         st.caption("Trend assessment uses only dated snapshots explicitly saved by the operator. This history is stored in the current local project workspace.")
