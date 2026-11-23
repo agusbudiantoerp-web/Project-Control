@@ -15,6 +15,11 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 - Historical KPI snapshot store, next-snapshot dataset export and trend-based early warning
 - Telegram executive reporting integration (requires explicit bot configuration)
 
+## Panduan
+
+- [Panduan pengguna Bahasa Indonesia](docs/PANDUAN_PENGGUNA.md)
+- [Release readiness dan rencana pengujian akhir](docs/RELEASE_READINESS.md)
+
 ## Requirements
 
 - Python 3.11
