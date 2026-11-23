@@ -24,6 +24,7 @@ from .schedule_cost_outlook import build_schedule_cost_outlook
 from .schedule_risk_simulation import simulate_schedule_risk
 from .risk_exposure_matrix import build_risk_exposure_matrix
 from .recovery_resource_planner import estimate_resource_recovery
+from .recovery_decision_engine import build_recovery_decision_brief
 import json
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
@@ -741,6 +742,37 @@ def render_project_workspace_dashboard(
                     st.write("• " + limitation)
     except (TypeError, ValueError, KeyError) as exposure_error:
         st.warning("Risk exposure matrix unavailable: " + str(exposure_error))
+
+    st.markdown("#### Executive Recovery Decision Brief")
+    try:
+        decision_risks = build_risk_exposure_matrix(
+            result["workspace"]["risk"],
+            activities=result["workspace"]["activities"],
+            wbs=result["workspace"]["wbs"],
+        )
+        decision_brief = build_recovery_decision_brief(
+            evm=evm,
+            risk_exposure=decision_risks,
+        )
+        st.caption("Ringkasan evidence dan review prompt untuk Project Manager / Project Director; bukan persetujuan otomatis.")
+        d1, d2, d3 = st.columns(3)
+        d1.metric("Decision brief status", decision_brief["status"])
+        d2.metric("Signals requiring review", decision_brief["signal_count"])
+        d3.metric("Missing inputs", len(decision_brief["missing_inputs"]))
+        if decision_brief["signals"]:
+            st.dataframe(decision_brief["signals"], use_container_width=True, hide_index=True)
+        st.markdown("**Recommended management reviews**")
+        for recommendation in decision_brief["recommendations"]:
+            st.write("• " + recommendation)
+        if decision_brief["missing_inputs"]:
+            st.warning("Additional evidence needed: " + ", ".join(decision_brief["missing_inputs"]))
+        with st.expander("Decision gates and limitations"):
+            for gate in decision_brief["decision_gates"]:
+                st.write("• " + gate)
+            for limitation in decision_brief["limitations"]:
+                st.caption("• " + limitation)
+    except (TypeError, ValueError, KeyError) as decision_error:
+        st.warning("Executive recovery decision brief unavailable: " + str(decision_error))
 
     st.markdown("#### Project Director Decision Review")
     try:
