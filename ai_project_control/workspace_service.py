@@ -8,6 +8,7 @@ from .data_quality_validation import TABLE_KEYS
 from .portfolio_performance import build_portfolio_scorecard
 from .project_store import ProjectStore
 from .evm_engine import calculate_evm
+from .schedule_engine import calculate_critical_path
 
 
 def build_workspace_overview(database_path: str | Path, project_id: str) -> dict[str, Any]:
@@ -32,6 +33,7 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
         "budget_at_completion": project.get("budget_at_completion", project.get("bac")),
     }])
     evm = calculate_evm(project, workspace["progress"], workspace["actual_cost"])
+    schedule = calculate_critical_path(workspace["activities"])
     return {
         "project": project,
         "evm": evm,
