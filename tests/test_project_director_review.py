@@ -10,7 +10,7 @@ def test_review_keeps_resource_and_risk_evidence_separate_from_matrix_inputs():
         resource_summary={"overloaded_count": 3, "unassessed_count": 1},
         schedule_forecast={"delayed_activity_ids": ["A1"], "unassessed_activity_ids": []},
     )
-    assert result["decision"]["priority"] == "DATA_REVIEW"
+    assert result["decision"]["priority"] == "P1"
     assert result["decision"]["risk_score"] is None
     assert result["decision"]["overloaded_resource_days"] is None
     assert result["summary"]["attention_count"] == 4
