@@ -142,6 +142,10 @@ with portfolio_tab:
                     if pd.notna(project_row.get("EAC")) and pd.notna(project_row.get("BAC"))
                     and float(project_row.get("BAC")) > 0 else None
                 ),
+                "total_float_days": project_row.get("total_float_days"),
+                "risk_exposure": project_row.get("risk_exposure"),
+                "risk_capacity": project_row.get("risk_capacity"),
+                "overloaded_resource_days": project_row.get("overloaded_resource_days"),
                 "currency": project_row.get("currency"),
             })
         risk_rows = pd.DataFrame(rank_portfolio(risk_inputs))
