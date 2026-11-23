@@ -43,3 +43,13 @@ def test_empty_portfolio_returns_zero_summary():
     assert result["projects"] == []
     assert result["summary"]["project_count"] == 0
     assert result["summary"]["critical_risk_count"] == 0
+
+
+def test_budget_totals_use_bac_and_remain_separated_by_currency():
+    result = build_integrated_project_intelligence([
+        {"project_id": "USD-1", "project_name": "Plant", "SPI": 0.95, "CPI": 0.92,
+         "BAC": 1000, "EAC": 1250, "currency": "USD"},
+        {"project_id": "IDR-1", "project_name": "Road", "SPI": 1.0, "CPI": 1.0,
+         "BAC": 2000, "EAC": 1800, "currency": "IDR"},
+    ])
+    assert result["summary"]["budget_by_currency"] == {"IDR": 2000.0, "USD": 1000.0}
