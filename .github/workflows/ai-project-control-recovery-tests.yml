@@ -34,3 +34,4 @@ jobs:
           tests/test_executive_recovery_strategies.py
           tests/test_executive_command_center.py
           tests/test_portfolio_resource_transfer.py
+          tests/test_portfolio_governance.py
