@@ -38,6 +38,20 @@ def render_project_workspace_dashboard(
     c.metric("Validation warnings", result["validation"]["warning_count"])
     d.metric("Performance", summary["assessed_count"] and result["scorecard"]["projects"][0]["performance_score"] or "Not assessed")
 
+    st.markdown("#### Earned Value Management")
+    evm = result["evm"]
+    evm_cols = st.columns(4)
+    for column, label, key in zip(evm_cols, ["PV", "EV", "AC", "BAC"], ["PV", "EV", "AC", "BAC"]):
+        value = evm[key]
+        column.metric(label, f"{value:,.2f}" if value is not None else "Not available")
+    ratio_cols = st.columns(4)
+    for column, label, key in zip(ratio_cols, ["SPI", "CPI", "EAC", "VAC"], ["SPI", "CPI", "EAC", "VAC"]):
+        value = evm[key]
+        column.metric(label, f"{value:,.2f}" if value is not None else "Not available")
+    if evm["status"] != "ASSESSED":
+        st.warning("EVM is incomplete: " + ", ".join(evm["data_gaps"]))
+    st.caption("EAC uses BAC/CPI and assumes current cost efficiency continues. Review method limitations before using forecasts.")
+
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
     st.dataframe(inventory, use_container_width=True, hide_index=True)
