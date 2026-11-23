@@ -7,6 +7,7 @@ from typing import Any
 from .data_quality_validation import TABLE_KEYS
 from .portfolio_performance import build_portfolio_scorecard
 from .project_store import ProjectStore
+from .evm_engine import calculate_evm
 
 
 def build_workspace_overview(database_path: str | Path, project_id: str) -> dict[str, Any]:
@@ -30,8 +31,10 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
         "currency": project.get("currency", ""),
         "budget_at_completion": project.get("budget_at_completion", project.get("bac")),
     }])
+    evm = calculate_evm(project, workspace["progress"], workspace["actual_cost"])
     return {
         "project": project,
+        "evm": evm,
         "dataset_counts": {name: len(workspace[name]) for name in TABLE_KEYS},
         "total_records": sum(len(rows) for rows in workspace.values()),
         "validation": store.validate_workspace(project_id),
