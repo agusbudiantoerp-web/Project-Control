@@ -20,6 +20,7 @@ from .project_recovery_intelligence import build_project_recovery_intelligence
 from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
 from .recovery_effectiveness import evaluate_recovery_effectiveness
 from .recovery_evm_bridge import evaluate_recovery_evm
+from .integrated_forecast import build_integrated_forecast
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
 from .telegram_executive_reporting import (
@@ -323,6 +324,61 @@ def render_project_workspace_dashboard(
                     st.caption("• " + limitation)
             except (TypeError, ValueError) as bridge_error:
                 st.error("EVM recovery evaluation failed: " + str(bridge_error))
+
+    st.subheader("Integrated Schedule & Cost Forecast")
+    with st.expander("Combine EVM cost scenarios with schedule finish-date forecast"):
+        st.caption("Input forecast dates explicitly. This panel does not calculate a new schedule from incomplete progress or dependency data.")
+        with st.form("pc_integrated_forecast_form"):
+            fc_project_id = st.text_input("Forecast project ID", key="pc_int_fc_project")
+            fc_currency = st.text_input("Forecast currency", value="IDR", key="pc_int_fc_currency")
+            fc_pv = st.text_input("PV", key="pc_int_fc_pv")
+            fc_ev = st.text_input("EV", key="pc_int_fc_ev")
+            fc_ac = st.text_input("AC", key="pc_int_fc_ac")
+            fc_bac = st.text_input("BAC", key="pc_int_fc_bac")
+            fc_asof = st.date_input("Schedule assessment date", key="pc_int_fc_asof")
+            fc_activity_count = st.number_input("Number of schedule activities", min_value=1, max_value=100, value=1, step=1, key="pc_int_fc_count")
+            fc_activities = []
+            for activity_index in range(int(fc_activity_count)):
+                st.markdown("**Activity " + str(activity_index + 1) + "**")
+                ac1, ac2, ac3 = st.columns(3)
+                with ac1:
+                    activity_id = st.text_input("Activity ID", key="pc_int_fc_aid_" + str(activity_index))
+                with ac2:
+                    baseline_finish = st.text_input("Baseline finish (YYYY-MM-DD)", key="pc_int_fc_base_" + str(activity_index))
+                with ac3:
+                    forecast_finish = st.text_input("Forecast finish (YYYY-MM-DD)", key="pc_int_fc_forecast_" + str(activity_index))
+                fc_activities.append({"activity_id": activity_id, "baseline_finish_date": baseline_finish or None, "forecast_finish_date": forecast_finish or None})
+            fc_warning_pct = st.number_input("Cost variance warning threshold (%)", min_value=0.0, value=5.0, step=1.0, key="pc_int_fc_threshold")
+            run_integrated_fc = st.form_submit_button("Build integrated forecast")
+        if run_integrated_fc:
+            try:
+                def _fc_number(raw, label):
+                    if not str(raw).strip():
+                        return None
+                    try:
+                        return float(raw)
+                    except (TypeError, ValueError):
+                        raise ValueError(label + " must be numeric or blank.")
+                evm_input = {
+                    "project_id": fc_project_id, "currency": fc_currency,
+                    "PV": _fc_number(fc_pv, "PV"), "EV": _fc_number(fc_ev, "EV"),
+                    "AC": _fc_number(fc_ac, "AC"), "BAC": _fc_number(fc_bac, "BAC"),
+                }
+                forecast_result = build_integrated_forecast(
+                    evm_snapshot=evm_input, schedule_activities=fc_activities,
+                    as_of_date=fc_asof.isoformat(), warning_threshold_pct=fc_warning_pct,
+                )
+                st.metric("Integrated forecast status", forecast_result["status"])
+                st.write("**Cost forecast scenarios**")
+                st.json(forecast_result["cost_forecast"])
+                st.write("**Schedule forecast**")
+                st.json(forecast_result["schedule_forecast"])
+                st.write("**Management attention**")
+                st.json(forecast_result["management_attention"])
+                for limitation in forecast_result["limitations"]:
+                    st.caption("• " + limitation)
+            except (TypeError, ValueError) as forecast_error:
+                st.error("Integrated forecast failed: " + str(forecast_error))
 
     st.subheader("Executive Report Export")
     try:
