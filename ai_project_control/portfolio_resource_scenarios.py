@@ -49,6 +49,7 @@ def compare_resource_allocation_scenarios(
                 "assumptions": ["Required resource demand or shared-resource metadata is missing."]}
 
     mapping = details[list(required_details)].copy()
+    mapping = mapping.rename(columns={"capacity_per_day": "shared_capacity_per_day"})
     mapping["shared_resource_id"] = mapping["shared_resource_id"].fillna("").astype(str).str.strip()
     mapping = mapping[mapping["shared_resource_id"] != ""].drop_duplicates(["project_id", "rsrc_id"])
     joined = daily.merge(mapping, on=["project_id", "rsrc_id"], how="inner", suffixes=("", "_meta"))
@@ -62,10 +63,10 @@ def compare_resource_allocation_scenarios(
         lambda project_id: max(0.0, float(priorities.get(project_id, 0.0)))
     )
     joined["demand_per_day"] = pd.to_numeric(joined["demand_per_day"], errors="coerce").fillna(0).clip(lower=0)
-    joined["capacity_per_day_meta"] = pd.to_numeric(joined["capacity_per_day_meta"], errors="coerce")
+    joined["shared_capacity_per_day"] = pd.to_numeric(joined["shared_capacity_per_day"], errors="coerce")
     rows = []
     for (shared_id, day), group in joined.groupby(["shared_resource_id", "date"], dropna=False):
-        caps = group["capacity_per_day_meta"].dropna().unique()
+        caps = group["shared_capacity_per_day"].dropna().unique()
         if len(caps) == 0:
             continue
         capacity = float(min(caps))
