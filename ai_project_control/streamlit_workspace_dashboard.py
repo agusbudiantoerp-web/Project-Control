@@ -194,6 +194,34 @@ def render_project_workspace_dashboard(
     st.subheader("Predictive Project Early Warning")
     with st.expander("Forecast KPI trend from dated project snapshots", expanded=False):
         st.caption("Masukkan minimal tiga snapshot bertanggal untuk setiap KPI yang ingin diproyeksikan. Data contoh di bawah hanya format input, bukan data proyek aktual.")
+        if st.button("Run forecast from saved historical KPI snapshots", key="pc_forecast_saved_history"):
+            try:
+                saved_rows = ProjectPerformanceHistoryStore(database_path).list_snapshots()
+                saved_snapshots = [
+                    {
+                        "date": row["reporting_date"],
+                        "project_id": row["project_id"],
+                        **{metric: row.get(metric) for metric in (
+                            "SPI", "CPI", "risk_score", "delayed_activity_count",
+                            "overdue_action_count",
+                        )},
+                    }
+                    for row in saved_rows
+                ]
+                saved_forecast = forecast_project_control_trends(saved_snapshots, horizon_days=30)
+                st.metric("Projects assessed from stored history", saved_forecast["project_count"])
+                for saved_project in saved_forecast["projects"]:
+                    st.markdown("**Project: " + saved_project["project_id"] + "**")
+                    st.metric("Signals requiring attention", saved_project["attention_metric_count"])
+                    st.dataframe(saved_project["metrics"], use_container_width=True, hide_index=True)
+                if saved_forecast["status"] == "NO_SNAPSHOTS":
+                    st.info("Belum ada histori KPI tersimpan.")
+                with st.expander("Saved-history forecast limitations"):
+                    for limitation in saved_forecast["limitations"]:
+                        st.write("• " + limitation)
+            except (TypeError, ValueError, KeyError, OSError) as saved_forecast_error:
+                st.error("Forecast from stored history unavailable: " + str(saved_forecast_error))
+
         default_trend_json = """[
   {"date":"2026-10-01","project_id":"PROJECT-001","SPI":1.02,"CPI":1.01,"risk_score":25,"delayed_activity_count":0,"overdue_action_count":0},
   {"date":"2026-10-15","project_id":"PROJECT-001","SPI":0.99,"CPI":0.98,"risk_score":35,"delayed_activity_count":1,"overdue_action_count":0},
