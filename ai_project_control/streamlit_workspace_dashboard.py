@@ -25,6 +25,7 @@ from .schedule_risk_simulation import simulate_schedule_risk
 from .risk_exposure_matrix import build_risk_exposure_matrix
 from .recovery_resource_planner import estimate_resource_recovery
 from .recovery_decision_engine import build_recovery_decision_brief
+from .predictive_early_warning import forecast_project_control_trends
 import json
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
@@ -129,6 +130,36 @@ def render_project_workspace_dashboard(
                 st.write("• " + limitation)
     except (TypeError, ValueError) as recovery_error:
         st.warning("Project recovery intelligence unavailable: " + str(recovery_error))
+
+    st.subheader("Predictive Project Early Warning")
+    with st.expander("Forecast KPI trend from dated project snapshots", expanded=False):
+        st.caption("Masukkan minimal tiga snapshot bertanggal untuk setiap KPI yang ingin diproyeksikan. Data contoh di bawah hanya format input, bukan data proyek aktual.")
+        default_trend_json = """[
+  {"date":"2026-10-01","project_id":"PROJECT-001","SPI":1.02,"CPI":1.01,"risk_score":25,"delayed_activity_count":0,"overdue_action_count":0},
+  {"date":"2026-10-15","project_id":"PROJECT-001","SPI":0.99,"CPI":0.98,"risk_score":35,"delayed_activity_count":1,"overdue_action_count":0},
+  {"date":"2026-11-01","project_id":"PROJECT-001","SPI":0.96,"CPI":0.95,"risk_score":55,"delayed_activity_count":2,"overdue_action_count":1}
+]"""
+        with st.form("pc_predictive_early_warning_form"):
+            trend_horizon = st.selectbox("Forecast horizon (calendar days)", [7, 14, 30, 60, 90], index=2, key="pc_trend_horizon")
+            trend_json = st.text_area("Dated KPI snapshots JSON", value=default_trend_json, height=190, key="pc_trend_snapshots")
+            run_trend_forecast = st.form_submit_button("Run predictive early warning")
+        if run_trend_forecast:
+            try:
+                trend_snapshots = json.loads(trend_json)
+                trend_result = forecast_project_control_trends(
+                    trend_snapshots, horizon_days=int(trend_horizon),
+                )
+                st.metric("Projects assessed", trend_result["project_count"])
+                for project_trend in trend_result["projects"]:
+                    st.markdown("**Project: " + project_trend["project_id"] + "**")
+                    st.metric("KPI signals requiring attention", project_trend["attention_metric_count"])
+                    st.dataframe(project_trend["metrics"], use_container_width=True, hide_index=True)
+                with st.expander("Forecast method and limitations"):
+                    st.caption(trend_result["method"])
+                    for limitation in trend_result["limitations"]:
+                        st.write("• " + limitation)
+            except (TypeError, ValueError, KeyError) as trend_error:
+                st.error("Predictive early warning input needs correction: " + str(trend_error))
 
     st.subheader("Resource-Based Recovery Estimator")
     with st.expander("Estimate additional manpower/equipment impact", expanded=False):
