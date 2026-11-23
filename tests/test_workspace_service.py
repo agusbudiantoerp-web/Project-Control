@@ -28,6 +28,8 @@ def test_workspace_overview_reads_inventory_validation_and_history(tmp_path):
     assert result["scorecard"]["projects"][0]["status"] == "ASSESSED"
     assert result["scorecard"]["projects"][0]["schedule_state"] == "RED"
     assert len(result["recent_imports"]) == 2
+    assert result["evm"]["status"] == "INSUFFICIENT_DATA"
+    assert result["evm"]["PV"] is None
 
 
 def test_missing_project_is_not_reported_as_empty_success(tmp_path):
