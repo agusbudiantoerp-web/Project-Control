@@ -57,6 +57,13 @@ ALIASES = {
         "probability": ("probability", "probabilitas"),
         "impact": ("impact", "dampak"),
         "exposure": ("exposure", "paparan risiko"),
+        "risk_type": ("risk type", "jenis risiko", "threat opportunity"),
+        "cost_impact_min": ("cost impact min", "minimum cost impact", "dampak biaya minimum"),
+        "cost_impact_most_likely": ("cost impact most likely", "most likely cost impact", "dampak biaya paling mungkin"),
+        "cost_impact_max": ("cost impact max", "maximum cost impact", "dampak biaya maksimum"),
+        "currency": ("currency", "mata uang", "curr"),
+        "activity_id": ("activity id", "kode aktivitas"),
+        "description": ("description", "uraian risiko", "deskripsi"),
     },
     "resources": {
         "resource_type": ("resource type", "jenis resource", "jenis sumber daya", "category"),
