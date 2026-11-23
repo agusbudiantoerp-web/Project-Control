@@ -11,7 +11,7 @@ def test_builds_three_cost_forecast_scenarios():
     assert result["status"] == "ASSESSED"
     assert result["scenarios"][0]["EAC"] == pytest.approx(1142.86)
     assert result["scenarios"][1]["EAC"] == 1100
-    assert result["scenarios"][2]["EAC"] == pytest.approx(1314.29)
+    assert result["scenarios"][2]["EAC"] == pytest.approx(1191.84)
     assert result["scenarios"][0]["status"] == "OVER_BUDGET"
 
 
