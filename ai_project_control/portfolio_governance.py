@@ -263,3 +263,103 @@ def build_portfolio_governance_overview(
         "decision_queue": decision_queue, "status_summary": status_summary,
         "budget_by_currency": budget_by_currency, "assumptions": assumptions,
     }
+
+
+def simulate_recovery_budget_allocation(
+    portfolio_overview: dict[str, Any],
+    available_budget_by_currency: dict[str, float],
+) -> dict[str, Any]:
+    """Allocate recovery funding by currency, risk and approval readiness.
+
+    Requests are funded whole or not at all. In-progress, rejected and closed
+    actions are excluded because they are already executing or no longer active
+    candidates. No currency conversion or partial funding is performed.
+    """
+    queue = portfolio_overview.get("decision_queue")
+    empty = pd.DataFrame()
+    if not isinstance(queue, pd.DataFrame) or queue.empty:
+        return {"available": False, "allocations": empty, "summary": empty,
+                "assumptions": ["No portfolio recovery requests are available for budget prioritization."]}
+    required = {"request_id", "project_id", "status", "proposed_budget", "currency"}
+    if required - set(queue.columns):
+        return {"available": False, "allocations": empty, "summary": empty,
+                "assumptions": ["Recovery request data is missing required budget or status fields."]}
+
+    candidates = queue.copy(deep=True)
+    candidates["proposed_budget"] = pd.to_numeric(candidates["proposed_budget"], errors="coerce")
+    candidates["currency"] = candidates["currency"].fillna("").astype(str).str.strip().str.upper()
+    candidates["risk_score"] = pd.to_numeric(
+        candidates.get("risk_score", pd.Series(index=candidates.index, dtype=float)), errors="coerce"
+    )
+    candidates = candidates[
+        candidates["status"].isin(["Proposed", "PM Approved", "Director Approved", "COO Approved"])
+        & candidates["proposed_budget"].notna()
+        & (candidates["proposed_budget"] >= 0)
+        & (candidates["currency"] != "")
+    ].copy()
+    if candidates.empty:
+        return {"available": False, "allocations": empty, "summary": empty,
+                "assumptions": ["No eligible Proposed or approved requests have valid non-negative budgets and currencies."]}
+
+    readiness = {"COO Approved": 3, "Director Approved": 2, "PM Approved": 1, "Proposed": 0}
+    candidates["_readiness"] = candidates["status"].map(readiness).fillna(0)
+    candidates["_risk_sort"] = candidates["risk_score"].fillna(-1)
+    candidates["_age_sort"] = pd.to_numeric(
+        candidates.get("request_age_days", pd.Series(index=candidates.index, dtype=float)), errors="coerce"
+    ).fillna(-1)
+    candidates = candidates.sort_values(
+        ["currency", "_risk_sort", "_readiness", "_age_sort", "project_id", "request_id"],
+        ascending=[True, False, False, False, True, True],
+        kind="mergesort",
+    )
+
+    budget_map = {}
+    for currency, amount in (available_budget_by_currency or {}).items():
+        code = str(currency).strip().upper()
+        try:
+            value = float(amount)
+        except (TypeError, ValueError):
+            raise ValueError(f"Available budget for {code or 'unknown currency'} must be numeric.")
+        if not code or not pd.notna(value) or value < 0 or value == float("inf"):
+            raise ValueError(f"Available budget for {code or 'unknown currency'} must be finite and non-negative.")
+        budget_map[code] = value
+
+    rows = []
+    for currency, group in candidates.groupby("currency", sort=True):
+        remaining = budget_map.get(currency, 0.0)
+        for _, request in group.iterrows():
+            amount = float(request["proposed_budget"])
+            funded = amount <= remaining + 1e-9
+            allocated = amount if funded else 0.0
+            if funded:
+                remaining = max(0.0, remaining - amount)
+            row = request.drop(labels=["_readiness", "_risk_sort", "_age_sort"]).to_dict()
+            row.update({
+                "available_budget_for_currency": budget_map.get(currency, 0.0),
+                "allocated_budget": allocated,
+                "funding_gap": 0.0 if funded else amount,
+                "funding_decision": "Fully funded" if funded else "Not funded - budget cap",
+                "remaining_budget_after_decision": remaining,
+            })
+            rows.append(row)
+    allocations = pd.DataFrame(rows)
+    summary = allocations.groupby("currency", dropna=False).agg(
+        requests=("request_id", "count"),
+        fully_funded=("funding_decision", lambda values: int((values == "Fully funded").sum())),
+        not_funded=("funding_decision", lambda values: int((values != "Fully funded").sum())),
+        requested_budget=("proposed_budget", "sum"),
+        allocated_budget=("allocated_budget", "sum"),
+        funding_gap=("funding_gap", "sum"),
+        available_budget=("available_budget_for_currency", "first"),
+    ).reset_index()
+    return {
+        "available": True, "allocations": allocations, "summary": summary,
+        "assumptions": [
+            "Each currency is budgeted independently; no exchange-rate conversion is applied.",
+            "Priority order is higher available project risk score, then approval readiness, then request age and project ID.",
+            "Requests are funded in full or not funded; partial funding is not assumed operationally feasible.",
+            "Only Proposed, PM Approved, Director Approved and COO Approved requests are candidates; In Progress, Rejected and Closed are excluded.",
+            "This is a decision-support simulation only; it does not reserve funds, amend budgets or approve a request.",
+            "Missing risk scores are ranked below requests with an available risk score; this is not evidence of low risk.",
+        ],
+    }
