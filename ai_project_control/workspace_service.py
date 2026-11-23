@@ -37,6 +37,7 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
     return {
         "project": project,
         "evm": evm,
+        "schedule": schedule,
         "dataset_counts": {name: len(workspace[name]) for name in TABLE_KEYS},
         "total_records": sum(len(rows) for rows in workspace.values()),
         "validation": store.validate_workspace(project_id),
