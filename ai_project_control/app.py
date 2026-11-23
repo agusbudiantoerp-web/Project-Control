@@ -15,6 +15,7 @@ from integrated_forecast import build_integrated_forecast
 from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix, build_predictive_warnings, diagnose_project_drivers, build_root_cause_action_plan
 from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
 from portfolio_resource_intelligence import build_portfolio_resource_summary, detect_shared_resource_conflicts
+from portfolio_resource_allocation import build_resource_allocation_scenario
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -317,6 +318,40 @@ with portfolio_tab:
                     file_name="cross_project_resource_conflicts.csv",
                     mime="text/csv",
                 )
+
+            st.markdown("**Resource Allocation Scenario Simulator**")
+            st.caption("Simulasi pembagian kapasitas resource fisik bersama berdasarkan prioritas proyek. Hasil simulasi tidak mengubah data alokasi aktual.")
+            scenario_priority = {}
+            if not risk_rows.empty:
+                scenario_priority = {
+                    str(row["project_id"]): float(row["risk_score"])
+                    for _, row in risk_rows.iterrows()
+                    if pd.notna(row.get("risk_score"))
+                }
+            scenario_result = build_resource_allocation_scenario(
+                portfolio_resource, project_priorities=scenario_priority
+            )
+            if not scenario_result["available"]:
+                st.info("Simulasi belum tersedia. Pastikan resource memiliki shared_resource_id yang sama dan demand harian valid.")
+            else:
+                scenario_summary = scenario_result["summary"]
+                scenario_allocations = scenario_result["allocations"]
+                sa1, sa2, sa3 = st.columns(3)
+                sa1.metric("Shared resource pools", len(scenario_summary))
+                sa2.metric("Total unmet demand", f'{scenario_allocations["unmet_demand_per_day"].sum():,.2f}')
+                sa3.metric("Project-days with shortfall", int((scenario_allocations["unmet_demand_per_day"] > 0).sum()))
+                st.dataframe(scenario_summary, use_container_width=True, hide_index=True)
+                st.markdown("**Recommended daily allocation by project**")
+                st.dataframe(scenario_allocations, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download resource allocation scenario",
+                    scenario_allocations.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="resource_allocation_scenario.csv",
+                    mime="text/csv",
+                )
+                st.markdown("**Scenario assumptions**")
+                for assumption in scenario_result["assumptions"]:
+                    st.caption("• " + assumption)
         st.caption("Overload dihitung per proyek dan resource ID. Sistem tidak menganggap dua ID yang sama pada proyek berbeda sebagai alat atau kru yang sama tanpa shared_resource_id yang disepakati.")
 
         st.markdown("### AI Portfolio Advisor — Groq / Gemini")
