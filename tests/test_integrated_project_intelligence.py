@@ -14,6 +14,7 @@ def test_integrates_performance_risk_and_director_priority():
     assert by_id["P1"]["priority"] == "P1"
     assert by_id["P1"]["performance_status"] == "ASSESSED"
     assert by_id["P1"]["risk_status"] in {"HIGH", "CRITICAL"}
+    assert "forecast" in by_id["P1"]["risk_indicators"]
     assert by_id["P2"]["performance_status"] == "ASSESSED"
     assert result["summary"]["project_count"] == 2
 
