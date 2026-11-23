@@ -22,6 +22,7 @@ from executive_command_center import build_executive_command_center
 from executive_recovery_strategies import build_executive_recovery_strategies
 from recovery_scenario_optimizer import optimize_recovery_scenarios
 from integrated_recovery_impact import build_integrated_recovery_impact
+from portfolio_governance import submit_recovery_action, transition_recovery_action, governance_summary, TRANSITIONS
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -638,6 +639,78 @@ with portfolio_tab:
                                st.session_state["portfolio_pdf_report"],
                                file_name="AI_Project_Control_Portfolio_Report.pdf",
                                mime="application/pdf")
+
+
+        st.markdown("### Recovery Governance & Approval Workflow")
+        st.caption("Register keputusan pemulihan untuk workspace proyek aktif. Data tersimpan pada database lokal proyek ini.")
+        governance_register = ds("recovery_governance.csv")
+        governance_counts = governance_summary(governance_register)
+        gcols = st.columns(6)
+        for col, status_name in zip(gcols, ["Proposed", "PM Approved", "Director Approved", "COO Approved", "In Progress", "Closed"]):
+            col.metric(status_name, governance_counts.get(status_name, 0))
+        with st.expander("Submit a recovery action for approval", expanded=governance_register.empty):
+            with st.form("recovery_governance_submit_form"):
+                gov_scenario = st.text_input("Recovery scenario / reference")
+                gov_action = st.text_area("Proposed recovery action")
+                gov_owner = st.text_input("Accountable action owner")
+                gov_requester = st.text_input("Requested by")
+                gov_currency = st.text_input("Project currency (e.g. IDR, USD)", value=str(portfolio.iloc[0].get("currency", "IDR") if not portfolio.empty else "IDR"))
+                gov_budget = st.number_input("Proposed incremental budget", min_value=0.0, value=0.0, step=100000.0)
+                submit_gov = st.form_submit_button("Submit recovery action")
+            if submit_gov:
+                try:
+                    created = submit_recovery_action(
+                        governance_register, project_id=project_id, scenario=gov_scenario,
+                        recovery_action=gov_action, owner=gov_owner, requested_by=gov_requester,
+                        proposed_budget=gov_budget, currency=gov_currency,
+                    )
+                    save_dataset(project_id, "recovery_governance.csv", created["register"])
+                    st.success("Recovery request submitted: " + created["request_id"])
+                    st.rerun()
+                except Exception as gov_error:
+                    st.error(f"Cannot submit recovery action: {gov_error}")
+        governance_register = ds("recovery_governance.csv")
+        if not governance_register.empty:
+            st.markdown("**Recovery action register**")
+            gov_view_cols = [col for col in ["request_id", "project_id", "scenario", "recovery_action", "owner", "proposed_budget", "currency", "status", "requested_by", "created_at"] if col in governance_register]
+            st.dataframe(governance_register[gov_view_cols], use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download recovery governance register",
+                governance_register.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_recovery_governance_register.csv",
+                mime="text/csv",
+            )
+            request_ids = governance_register["request_id"].astype(str).tolist()
+            selected_request = st.selectbox("Select recovery request for decision", request_ids, key="governance_selected_request")
+            selected_row = governance_register.loc[governance_register["request_id"].astype(str) == selected_request].iloc[0]
+            current_gov_status = str(selected_row["status"])
+            allowed_transitions = sorted(TRANSITIONS.get(current_gov_status, set()))
+            if allowed_transitions:
+                st.markdown("**Record approval, rejection or execution status**")
+                gov_target = st.selectbox("Decision / next status", allowed_transitions, key="governance_target_status")
+                gov_role = st.selectbox("Acting role", ["Project Manager", "Project Director", "COO"], key="governance_actor_role")
+                gov_actor = st.text_input("Decision maker name", key="governance_actor_name")
+                gov_note = st.text_area("Decision note / rejection reason / closure evidence", key="governance_actor_note")
+                if st.button("Record governance decision", type="primary", key="governance_record_decision"):
+                    try:
+                        updated_governance = transition_recovery_action(
+                            governance_register, selected_request, gov_target, gov_actor, gov_role, gov_note
+                        )
+                        save_dataset(project_id, "recovery_governance.csv", updated_governance)
+                        st.success(f"Request {selected_request} updated to {gov_target}.")
+                        st.rerun()
+                    except Exception as gov_error:
+                        st.error(f"Decision not recorded: {gov_error}")
+            else:
+                st.info(f"Request is {current_gov_status}; no further transitions are allowed.")
+            with st.expander("Selected request audit history"):
+                try:
+                    history_value = selected_row.get("decision_history", "[]")
+                    history_items = json.loads(history_value) if isinstance(history_value, str) else history_value
+                    st.dataframe(pd.DataFrame(history_items), use_container_width=True, hide_index=True)
+                except Exception:
+                    st.warning("Audit history could not be parsed.")
+        st.warning("Governance limitation: role is selected by the operator and is not authenticated against individual user accounts. This is an operational register, not a tamper-proof or legally binding e-signature system. Deploy with authenticated role-based access, database audit controls and approval policy before production use.")
 
 with overview:
     master=ds("project_master.csv")
