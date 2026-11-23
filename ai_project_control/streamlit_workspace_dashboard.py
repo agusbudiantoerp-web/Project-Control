@@ -52,6 +52,17 @@ def render_project_workspace_dashboard(
         st.warning("EVM is incomplete: " + ", ".join(evm["data_gaps"]))
     st.caption("EAC uses BAC/CPI and assumes current cost efficiency continues. Review method limitations before using forecasts.")
 
+    st.markdown("#### Schedule & Critical Path")
+    schedule = result["schedule"]
+    if schedule["status"] == "ASSESSED":
+        st.metric("Calculated network duration (working days)", schedule["project_duration_days"])
+        st.caption("Critical activities: " + ", ".join(schedule["critical_path"]))
+        st.dataframe(schedule["activities"], use_container_width=True, hide_index=True)
+    elif schedule["status"] == "NO_ACTIVITIES":
+        st.info("No activity network is stored. Critical Path cannot yet be assessed.")
+    else:
+        st.error("Schedule network requires correction: " + "; ".join(schedule["issues"]))
+
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
     st.dataframe(inventory, use_container_width=True, hide_index=True)
