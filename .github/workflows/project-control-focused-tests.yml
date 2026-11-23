@@ -34,4 +34,5 @@ jobs:
             tests/test_integrated_executive_report.py \
             tests/test_integrated_project_intelligence.py \
             tests/test_telegram_executive_reporting.py \
-            tests/test_data_quality_validation.py \\\n            tests/test_import_mapping.py
+            tests/test_data_quality_validation.py \
+            tests/test_import_mapping.py
