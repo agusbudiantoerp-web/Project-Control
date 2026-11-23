@@ -28,3 +28,15 @@ def test_empty_database_returns_no_projects(tmp_path):
     result = build_portfolio_command_center(tmp_path / "empty.sqlite3")
     assert result["status"] == "NO_PROJECTS"
     assert result["project_count"] == 0
+
+def test_missing_evm_indicators_mark_portfolio_insufficient(tmp_path):
+    db = tmp_path / "incomplete.sqlite3"
+    store = ProjectStore(db)
+    store.save_dataset("P3", "project_master", [{
+        "project_id": "P3", "project_name": "Incomplete Project",
+        "currency": "IDR", "budget_at_completion": 500,
+    }])
+    result = build_portfolio_command_center(db)
+    assert result["status"] == "INSUFFICIENT_DATA"
+    assert result["projects"][0]["priority"] == "UNASSESSED"
+    assert result["projects"][0]["SPI"] is None
