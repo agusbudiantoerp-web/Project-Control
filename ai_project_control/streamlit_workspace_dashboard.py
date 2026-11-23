@@ -17,6 +17,10 @@ from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
+from .telegram_executive_reporting import (
+    build_telegram_executive_message,
+    send_telegram_executive_message,
+)
 
 
 def render_project_workspace_dashboard(
@@ -83,6 +87,32 @@ def render_project_workspace_dashboard(
         with st.expander("Escalation rules and limitations"):
             for limitation in escalation_result["limitations"]:
                 st.write("• " + limitation)
+
+        with st.expander("Telegram Executive Notification", expanded=False):
+            st.caption("Pengiriman hanya dilakukan setelah tombol ditekan. Simpan TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID di environment secrets aplikasi; jangan tulis token di source code.")
+            try:
+                import os
+                bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+                chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+                if not bot_token or not chat_id:
+                    st.info("Telegram belum dikonfigurasi. Tambahkan TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID pada environment secrets untuk mengaktifkan pengiriman.")
+                else:
+                    report_message = build_telegram_executive_message(
+                        project_name="Project Portfolio",
+                        status_date=escalation_result["as_of"],
+                        action_register=portfolio_actions,
+                    )
+                    st.text_area("Preview pesan Telegram", report_message, height=180, disabled=True)
+                    if st.button("Kirim ringkasan Telegram sekarang", key="pc_send_telegram_exec"):
+                        try:
+                            send_telegram_executive_message(
+                                bot_token=bot_token, chat_id=chat_id, message=report_message
+                            )
+                            st.success("Pesan Telegram berhasil dikirim.")
+                        except (ValueError, RuntimeError, OSError) as send_error:
+                            st.error("Pengiriman Telegram gagal: " + str(send_error))
+            except (TypeError, ValueError) as config_error:
+                st.warning("Telegram notification belum tersedia: " + str(config_error))
     except (TypeError, ValueError) as exc:
         st.warning("Governance escalation review unavailable: " + str(exc))
 
