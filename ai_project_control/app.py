@@ -17,6 +17,7 @@ from resource_optimization import simulate_resource_smoothing, compare_shift_cap
 from portfolio_resource_intelligence import build_portfolio_resource_summary, detect_shared_resource_conflicts
 from portfolio_resource_allocation import build_resource_allocation_scenario
 from portfolio_resource_scenarios import compare_resource_allocation_scenarios
+from portfolio_resource_transfer import simulate_resource_transfer_impact
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -388,6 +389,43 @@ with portfolio_tab:
                     mime="text/csv",
                 )
                 for assumption in optimization_result["assumptions"]:
+                    st.caption("• " + assumption)
+
+            st.markdown("**Project Recovery & Resource Transfer Impact Simulator**")
+            donor_release_pct = st.slider(
+                "Maximum donor release (% of baseline allocation)",
+                min_value=0, max_value=50, value=10, step=5,
+                key="portfolio_resource_donor_release_pct",
+            )
+            transfer_result = simulate_resource_transfer_impact(
+                portfolio_resource,
+                project_priorities=scenario_priority,
+                donor_release_pct=float(donor_release_pct),
+            )
+            if not transfer_result["available"]:
+                st.info("Simulasi transfer belum tersedia. Pastikan data resource bersama dan demand harian sudah lengkap.")
+            else:
+                impact_metrics = transfer_result["metrics"]
+                ti1, ti2, ti3, ti4 = st.columns(4)
+                ti1.metric("Baseline unmet demand", f'{impact_metrics["baseline_unmet"]:,.2f}')
+                ti2.metric("Scenario unmet demand", f'{impact_metrics["scenario_unmet"]:,.2f}',
+                           delta=f'{-impact_metrics["unmet_reduction"]:,.2f}')
+                ti3.metric("Transferred resource units", f'{impact_metrics["transferred_units"]:,.2f}')
+                ti4.metric("Capacity conserved", "Yes" if impact_metrics["capacity_conserved"] else "Check")
+                st.markdown("**Impact by project**")
+                st.dataframe(transfer_result["summary"], use_container_width=True, hide_index=True)
+                st.markdown("**Proposed resource transfers**")
+                if transfer_result["transfers"].empty:
+                    st.info("Tidak ada transfer yang memenuhi aturan prioritas dan batas donor pada skenario ini.")
+                else:
+                    st.dataframe(transfer_result["transfers"], use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download transfer impact register",
+                    transfer_result["impact"].to_csv(index=False).encode("utf-8-sig"),
+                    file_name="project_recovery_resource_transfer_impact.csv",
+                    mime="text/csv",
+                )
+                for assumption in transfer_result["assumptions"]:
                     st.caption("• " + assumption)
         st.caption("Overload dihitung per proyek dan resource ID. Sistem tidak menganggap dua ID yang sama pada proyek berbeda sebagai alat atau kru yang sama tanpa shared_resource_id yang disepakati.")
 
