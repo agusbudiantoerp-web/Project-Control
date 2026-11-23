@@ -31,6 +31,7 @@ def simulate_resource_transfer_impact(
                 "assumptions": ["Required daily demand or shared-resource metadata is missing."]}
 
     mapping = details[list(required_details)].copy()
+    mapping = mapping.rename(columns={"capacity_per_day": "shared_capacity_per_day"})
     mapping["shared_resource_id"] = mapping["shared_resource_id"].fillna("").astype(str).str.strip()
     mapping = mapping[mapping["shared_resource_id"] != ""].drop_duplicates(["project_id", "rsrc_id"])
     joined = daily.merge(mapping, on=["project_id", "rsrc_id"], how="inner", suffixes=("", "_meta"))
@@ -42,11 +43,11 @@ def simulate_resource_transfer_impact(
     joined["project_id"] = joined["project_id"].astype(str)
     joined["priority_score"] = joined["project_id"].map(lambda p: float(priorities.get(p, 0.0)))
     joined["demand_per_day"] = pd.to_numeric(joined["demand_per_day"], errors="coerce").fillna(0).clip(lower=0)
-    joined["capacity_per_day_meta"] = pd.to_numeric(joined["capacity_per_day_meta"], errors="coerce")
+    joined["shared_capacity_per_day"] = pd.to_numeric(joined["shared_capacity_per_day"], errors="coerce")
     impact_rows, transfer_rows = [], []
 
     for (shared_id, day), group in joined.groupby(["shared_resource_id", "date"], dropna=False):
-        capacities = group["capacity_per_day_meta"].dropna().unique()
+        capacities = group["shared_capacity_per_day"].dropna().unique()
         if len(capacities) == 0:
             continue
         capacity = float(min(capacities))
