@@ -53,4 +53,5 @@ jobs:
             tests/test_cost_forecast.py \
             tests/test_risk_cost_simulation.py \
             tests/test_action_register_store.py \
-            tests/test_action_escalation.py
+            tests/test_action_escalation.py \
+            tests/test_portfolio_monitoring.py
