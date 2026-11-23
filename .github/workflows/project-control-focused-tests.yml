@@ -67,4 +67,5 @@ jobs:
             tests/test_recovery_resource_planner.py \
             tests/test_recovery_decision_engine.py \
             tests/test_predictive_early_warning.py \\
-            tests/test_project_performance_history.py
+            tests/test_project_performance_history.py \\
+            tests/test_historical_ml_training.py
