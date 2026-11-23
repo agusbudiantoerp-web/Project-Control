@@ -56,12 +56,13 @@ def simulate_resource_transfer_impact(
             resource_name=("resource_name", "first") if "resource_name" in group else ("rsrc_id", "first"),
         )
         projects = projects.sort_values(["priority", "project_id"], ascending=[False, True]).reset_index(drop=True)
-        remaining = capacity
-        projects["baseline_allocated"] = 0.0
-        for idx, row in projects.iterrows():
-            allocated = min(float(row["demand"]), max(0.0, remaining))
-            projects.loc[idx, "baseline_allocated"] = allocated
-            remaining -= allocated
+        total_demand = float(projects["demand"].sum())
+        # Neutral baseline distributes the shared pool proportionally to demand.
+        # This exposes both donor capacity and recipient shortfall for the what-if.
+        projects["baseline_allocated"] = projects["demand"].apply(
+            lambda demand: min(float(demand), capacity * float(demand) / total_demand)
+            if total_demand > 0 else 0.0
+        )
         projects["scenario_allocated"] = projects["baseline_allocated"]
         recipients = projects.index[projects["demand"] > projects["baseline_allocated"]].tolist()
         donors = projects.index[projects["baseline_allocated"] > 0].tolist()
