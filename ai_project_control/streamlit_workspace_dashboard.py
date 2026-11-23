@@ -10,6 +10,7 @@ from .workspace_service import build_workspace_overview
 from .streamlit_recovery_scenario_planner import render_recovery_scenario_planner
 from .resource_loading_summary import build_resource_loading_summary
 from .manpower_equipment_planner import build_manpower_equipment_plan
+from .boq_schedule_resource_integration import build_boq_schedule_resource_integration
 
 
 def render_project_workspace_dashboard(
@@ -121,6 +122,31 @@ def render_project_workspace_dashboard(
                 st.info("Some records are not assessable because demand or positive capacity data is incomplete.")
     except (TypeError, ValueError) as exc:
         st.error("Manpower/equipment data needs correction: " + str(exc))
+
+    st.markdown("#### BOQ – Schedule – Resource Integration")
+    try:
+        integration = build_boq_schedule_resource_integration(
+            result["workspace"]["boq"],
+            result["workspace"]["activities"],
+            result["workspace"]["resources"],
+        )
+        if integration["status"] == "NO_LINKED_ACTIVITIES":
+            st.info("Belum ada aktivitas yang dapat dihubungkan. Isi activity_id yang sama pada BOQ, Activities, dan Resources untuk membangun keterkaitan.")
+        elif integration["status"] == "INVALID_SCHEDULE":
+            st.error("Integrasi dihentikan karena jaringan jadwal tidak valid: " + "; ".join(integration["issues"]))
+        else:
+            i1, i2, i3 = st.columns(3)
+            i1.metric("Linked activity rows", len(integration["rows"]))
+            i2.metric("Unlinked BOQ items", len(integration["unlinked_boq"]))
+            i3.metric("Unlinked resource records", len(integration["unlinked_resources"]))
+            st.dataframe(integration["rows"], use_container_width=True, hide_index=True)
+            if integration["unlinked_boq"]:
+                st.warning("BOQ items without a valid activity_id: " + ", ".join(integration["unlinked_boq"]))
+            if integration["unlinked_resources"]:
+                st.warning("Resource records without a valid activity_id: " + ", ".join(integration["unlinked_resources"]))
+            st.caption("BOQ units and resource units are not added across unlike measures. CPM dates are relative working-day offsets, not calendar dates. No productivity or resource demand is inferred.")
+    except (TypeError, ValueError) as exc:
+        st.error("BOQ/schedule/resource integration data needs correction: " + str(exc))
 
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
