@@ -73,3 +73,14 @@ def test_wrong_table_shape_is_reported():
 def test_non_dictionary_input_rejected():
     with pytest.raises(TypeError):
         validate_project_control_data([])
+
+
+def test_risk_probability_must_be_fraction_between_zero_and_one():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "risk": [{"project_id": "P1", "risk_id": "R1", "probability": 75,
+                 "cost_impact_min": 100, "cost_impact_most_likely": 200,
+                 "cost_impact_max": 300}],
+    })
+    codes = {issue["code"] for issue in result["issues"]}
+    assert "PROBABILITY_OUT_OF_RANGE" in codes
