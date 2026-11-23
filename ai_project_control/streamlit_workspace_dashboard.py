@@ -13,6 +13,7 @@ from .manpower_equipment_planner import build_manpower_equipment_plan
 from .boq_schedule_resource_integration import build_boq_schedule_resource_integration
 from .cost_forecast import build_cost_forecast
 from .risk_cost_simulation import build_risk_cost_simulation
+from .project_director_review import build_project_director_review
 
 
 def render_project_workspace_dashboard(
@@ -103,6 +104,7 @@ def render_project_workspace_dashboard(
         st.caption("Progress variance is percentage points, not a duration forecast. Finish-date delay requires explicit baseline and forecast dates.")
 
     st.markdown("#### Resource Loading & Capacity")
+    resource_result = None
     try:
         resource_result = build_resource_loading_summary(result["workspace"]["resources"])
         if resource_result["status"] == "NO_DATA":
@@ -167,6 +169,7 @@ def render_project_workspace_dashboard(
         st.error("BOQ/schedule/resource integration data needs correction: " + str(exc))
 
     st.markdown("#### Risk Register & Monte Carlo Cost Contingency")
+    risk_result = None
     try:
         risk_rows = result["workspace"]["risk"]
         base_cost = evm.get("BAC")
@@ -195,6 +198,31 @@ def render_project_workspace_dashboard(
                         st.write("• " + limitation)
     except (TypeError, ValueError) as exc:
         st.error("Risk register data needs correction: " + str(exc))
+
+    st.markdown("#### Project Director Decision Review")
+    try:
+        director_review = build_project_director_review(
+            project,
+            evm,
+            risk_simulation=risk_result,
+            resource_summary=resource_result,
+            schedule_forecast=result["schedule_forecast"],
+        )
+        st.caption("Review priority: " + director_review["status"] + " | This is a decision-support screen, not an approval.")
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Attention signals", director_review["summary"]["attention_count"])
+        s2.metric("Unassessed signals", director_review["summary"]["unassessed_count"])
+        s3.metric("Monitor signals", director_review["summary"]["monitor_count"])
+        st.dataframe(director_review["signals"], use_container_width=True, hide_index=True)
+        st.markdown("**Recommended management action**")
+        st.write(director_review["decision"]["recommended_action"])
+        if director_review["decision"]["data_gaps"]:
+            st.warning("Decision matrix data gaps: " + ", ".join(director_review["decision"]["data_gaps"]))
+        with st.expander("Governance and decision limitations"):
+            for limitation in director_review["governance"]:
+                st.write("• " + limitation)
+    except (TypeError, ValueError, KeyError) as exc:
+        st.error("Project Director review could not be prepared: " + str(exc))
 
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
