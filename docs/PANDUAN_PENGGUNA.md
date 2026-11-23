@@ -47,7 +47,8 @@ Database lokal dibuat pada `.project_control/project_control.sqlite3`. Jangan me
 8. Catat executive actions beserta owner, due date, status dan bukti.
 9. Gunakan Portfolio Command Center untuk melihat ringkasan lintas proyek.
 10. Simpan snapshot KPI historis secara berkala. Setelah tersedia minimal tiga tanggal untuk suatu indikator, jalankan early warning dari histori tersimpan.
-11. Ekspor laporan untuk review dan persetujuan manajemen.
+11. Jika histori mencukupi, jalankan evaluasi baseline ML KPI dan bandingkan MAE dengan persistence baseline. Model hanya dievaluasi dalam memori; belum disimpan atau dipakai otomatis untuk keputusan.
+12. Ekspor laporan untuk review dan persetujuan manajemen.
 
 ## D. Data historis
 
