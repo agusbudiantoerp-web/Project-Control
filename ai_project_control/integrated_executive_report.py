@@ -89,6 +89,8 @@ def build_integrated_executive_report(
 
     lines.extend(["", "## " + ("Recovery assessment" if en else "Penilaian pemulihan")])
     if recovery_assessment:
+        if recovery_assessment.get("project_id"):
+            lines.append("- project_id: " + _safe(recovery_assessment.get("project_id")))
         for key in ("status", "baseline_variance_days", "recovery_target_gap_days", "spi_gap", "funding_gap"):
             if key in recovery_assessment:
                 lines.append(f"- {key}: {_safe(recovery_assessment.get(key))}")
@@ -100,6 +102,8 @@ def build_integrated_executive_report(
     lines.extend(["", "## " + ("Recovery scenario comparison" if en else "Perbandingan skenario pemulihan")])
     scenario_rows = (scenario_comparison or {}).get("scenarios", [])
     if scenario_rows:
+        if (scenario_comparison or {}).get("project_id"):
+            lines.append("- project_id: " + _safe(scenario_comparison.get("project_id")))
         lines.extend(["| Scenario | Days saved | Remaining days | Incremental cost | Risk score | Assessment |", "|---|---:|---:|---:|---:|---|"])
         for row in scenario_rows:
             lines.append("| " + " | ".join(_safe(row.get(k)) for k in
