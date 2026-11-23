@@ -28,7 +28,7 @@ from portfolio_health_monitoring import build_health_monitoring
 from project_director_decision_matrix import build_decision_matrix
 from executive_action_register import create_action, transition_action, build_action_register, ALLOWED_TRANSITIONS
 from project_recovery_control import assess_recovery_control
-from recovery_scenario_comparator import compare_recovery_scenarios
+from recovery_scenario_comparator import compare_recovery_scenarios as compare_recovery_scenarios_control
 from integrated_executive_report import build_integrated_executive_report
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -1114,7 +1114,7 @@ with portfolio_tab:
             run_scenario_comparison = st.form_submit_button("Compare recovery scenarios")
         if run_scenario_comparison:
             try:
-                scenario_result = compare_recovery_scenarios(
+                scenario_result = compare_recovery_scenarios_control(
                     scenario_inputs,
                     current_forecast_duration_days=scenario_current_duration,
                     target_duration_days=scenario_target_duration,
