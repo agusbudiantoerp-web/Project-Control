@@ -17,6 +17,7 @@ from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_monitoring import PortfolioMonitoringStore
 from .project_recovery_intelligence import build_project_recovery_intelligence
+from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
 from .telegram_executive_reporting import (
@@ -120,6 +121,64 @@ def render_project_workspace_dashboard(
                 st.write("• " + limitation)
     except (TypeError, ValueError) as recovery_error:
         st.warning("Project recovery intelligence unavailable: " + str(recovery_error))
+
+    st.subheader("Recovery Execution Tracker")
+    try:
+        recovery_store = RecoveryPlanStore(database_path)
+        available_recovery_projects = portfolio.get("projects", []) if isinstance(portfolio, dict) else []
+        project_options = {
+            str(row.get("project_id")): str(row.get("project_name") or row.get("project_id"))
+            for row in available_recovery_projects if row.get("project_id")
+        }
+        if project_options:
+            selected_recovery_project = st.selectbox(
+                "Project for recovery tracking", list(project_options.keys()),
+                format_func=lambda key: project_options[key], key="pc_recovery_project_select",
+            )
+            existing_plans = recovery_store.list_project(selected_recovery_project)
+            if existing_plans:
+                plan_labels = {row["plan_id"]: row["title"] for row in existing_plans}
+                selected_plan_id = st.selectbox(
+                    "Recovery plan", list(plan_labels.keys()),
+                    format_func=lambda key: plan_labels[key], key="pc_recovery_plan_select",
+                )
+                selected_plan = recovery_store.get(selected_plan_id)
+                plan = selected_plan["plan"]
+                evaluation = evaluate_recovery_plan(plan)
+                r1, r2, r3 = st.columns(3)
+                r1.metric("Milestones", evaluation["milestone_count"])
+                r2.metric("Completed", evaluation["completed_count"])
+                r3.metric("Overdue", evaluation["overdue_count"])
+                st.metric("Average progress gap (percentage points)", evaluation["progress_gap_percentage_points"])
+                st.dataframe(plan["milestones"], use_container_width=True, hide_index=True)
+                with st.expander("Record milestone progress"):
+                    milestone_labels = {m["milestone_id"]: m["name"] for m in plan["milestones"]}
+                    milestone_id = st.selectbox("Milestone", list(milestone_labels.keys()),
+                                                format_func=lambda key: milestone_labels[key], key="pc_recovery_milestone")
+                    actual_percent = st.number_input("Actual progress (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, key="pc_recovery_actual")
+                    milestone_status = st.selectbox("Milestone status", ["NOT_STARTED", "IN_PROGRESS", "BLOCKED", "COMPLETED"], key="pc_recovery_status")
+                    changed_by = st.text_input("Recorded by", key="pc_recovery_actor")
+                    progress_note = st.text_area("Evidence / progress note", key="pc_recovery_note")
+                    if st.button("Save recovery progress", key="pc_save_recovery_progress"):
+                        try:
+                            recovery_store.update_milestone(
+                                selected_plan_id, milestone_id, actual_percent=actual_percent,
+                                status=milestone_status, changed_by=changed_by, note=progress_note,
+                            )
+                            st.success("Progress and audit event saved. Refresh the dashboard to view the updated plan.")
+                        except (KeyError, TypeError, ValueError, OSError) as update_error:
+                            st.error("Progress not saved: " + str(update_error))
+                with st.expander("Recovery progress audit history"):
+                    st.dataframe(selected_plan["events"], use_container_width=True, hide_index=True)
+                with st.expander("Tracker limitations"):
+                    for limitation in evaluation["limitations"]:
+                        st.write("• " + limitation)
+            else:
+                st.info("Belum ada recovery plan untuk proyek ini. Buat rencana dengan milestones yang disetujui melalui modul recovery plan.")
+        else:
+            st.info("Tambahkan proyek ke workspace sebelum menggunakan recovery tracker.")
+    except (TypeError, ValueError, OSError) as tracker_error:
+        st.warning("Recovery execution tracker unavailable: " + str(tracker_error))
 
     st.subheader("Executive Report Export")
     try:
