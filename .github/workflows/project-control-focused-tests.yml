@@ -58,4 +58,5 @@ jobs:
             tests/test_project_recovery_intelligence.py \
             tests/test_recovery_execution.py \
             tests/test_recovery_effectiveness.py \
-            tests/test_recovery_evm_bridge.py
+            tests/test_recovery_evm_bridge.py \
+            tests/test_integrated_forecast.py
