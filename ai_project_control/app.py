@@ -24,6 +24,8 @@ from recovery_scenario_optimizer import optimize_recovery_scenarios
 from integrated_recovery_impact import build_integrated_recovery_impact
 from portfolio_governance import submit_recovery_action, transition_recovery_action, governance_summary, build_portfolio_governance_overview, simulate_recovery_budget_allocation, TRANSITIONS
 from portfolio_risk_engine import rank_portfolio
+from portfolio_health_monitoring import build_health_monitoring
+from project_director_decision_matrix import build_decision_matrix
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
@@ -137,6 +139,86 @@ with portfolio_tab:
                 "currency": project_row.get("currency"),
             })
         risk_rows = pd.DataFrame(rank_portfolio(risk_inputs))
+
+        st.markdown("### Project Director Decision Matrix")
+        director_records = []
+        for _, director_row in portfolio.iterrows():
+            matched_risk = risk_rows.loc[
+                risk_rows["project_id"].astype(str) == str(director_row.get("project_id", ""))
+            ] if not risk_rows.empty and "project_id" in risk_rows else pd.DataFrame()
+            risk_value = matched_risk.iloc[0].get("risk_score") if not matched_risk.empty else None
+            director_records.append({
+                "project_id": director_row.get("project_id"),
+                "project_name": director_row.get("project_name"),
+                "SPI": director_row.get("SPI"),
+                "CPI": director_row.get("CPI"),
+                "risk_score": risk_value,
+            })
+        director_matrix = build_decision_matrix(director_records)
+        dm1, dm2, dm3, dm4 = st.columns(4)
+        dm1.metric("P1 Immediate Review", director_matrix["summary"]["p1_count"])
+        dm2.metric("P2 Recovery Review", director_matrix["summary"]["p2_count"])
+        dm3.metric("Data Review", director_matrix["summary"]["data_review_count"])
+        dm4.metric("Unassessed", director_matrix["summary"]["unassessed_count"])
+        director_df = pd.DataFrame(director_matrix["decisions"])
+        if not director_df.empty:
+            st.dataframe(director_df, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download Project Director decision matrix",
+                director_df.to_csv(index=False).encode("utf-8-sig"),
+                file_name="project_director_decision_matrix.csv",
+                mime="text/csv",
+            )
+        with st.expander("Decision matrix scoring method and limitations"):
+            st.write(director_matrix["method"])
+            st.caption("Priority is a management-review aid only; it does not approve budgets, contracts or recovery plans.")
+
+        st.markdown("### Portfolio Health Monitoring — dated snapshots")
+        st.caption("Trend assessment uses only dated snapshots explicitly saved by the operator. This history is stored in the current local project workspace.")
+        health_store = ds("portfolio_health_snapshots.csv")
+        health_date = status_date.isoformat()
+        if st.button("Capture / replace portfolio snapshot for status date", key="capture_portfolio_health_snapshot"):
+            current_snapshot_rows = []
+            for item in director_records:
+                current_snapshot_rows.append({
+                    "project_id": str(item.get("project_id", "")),
+                    "project_name": str(item.get("project_name", "")),
+                    "snapshot_date": health_date,
+                    "SPI": item.get("SPI"),
+                    "CPI": item.get("CPI"),
+                    "risk_score": item.get("risk_score"),
+                })
+            new_snapshot = pd.DataFrame(current_snapshot_rows)
+            if not health_store.empty:
+                keep = ~(
+                    health_store["project_id"].astype(str).isin(new_snapshot["project_id"].astype(str))
+                    & health_store["snapshot_date"].astype(str).eq(health_date)
+                )
+                health_store = health_store.loc[keep].copy()
+            health_store = pd.concat([health_store, new_snapshot], ignore_index=True)
+            save_dataset(project_id, "portfolio_health_snapshots.csv", health_store)
+            st.success(f"Portfolio snapshot saved for {health_date}.")
+            st.rerun()
+        if health_store.empty:
+            st.info("Belum ada snapshot tersimpan. Simpan snapshot pertama; trend baru tersedia setelah ada minimal dua tanggal berbeda per proyek.")
+        else:
+            health_result = build_health_monitoring(health_store.to_dict("records"))
+            health_df = pd.DataFrame(health_result["projects"])
+            hs1, hs2, hs3 = st.columns(3)
+            hs1.metric("Trend assessed", health_result["summary"]["trend_assessed_count"])
+            hs2.metric("No baseline", health_result["summary"]["no_baseline_count"])
+            hs3.metric("Data conflicts", health_result["summary"]["data_conflict_count"])
+            if not health_df.empty:
+                st.dataframe(health_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download portfolio health trend register",
+                    health_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="portfolio_health_trend_register.csv",
+                    mime="text/csv",
+                )
+            with st.expander("Snapshot history and trend methodology"):
+                st.dataframe(health_store.sort_values(["project_id", "snapshot_date"]), use_container_width=True, hide_index=True)
+                st.write(health_result["method"])
         if not risk_rows.empty:
             st.dataframe(
                 risk_rows[["project_id","project_name","risk_score","risk_status",
