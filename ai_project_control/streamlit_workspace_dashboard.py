@@ -21,6 +21,8 @@ from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
 from .recovery_effectiveness import evaluate_recovery_effectiveness
 from .recovery_evm_bridge import evaluate_recovery_evm
 from .schedule_cost_outlook import build_schedule_cost_outlook
+from .schedule_risk_simulation import simulate_schedule_risk
+import json
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
 from .telegram_executive_reporting import (
@@ -525,6 +527,48 @@ def render_project_workspace_dashboard(
                 st.write("• " + limitation)
     except (TypeError, ValueError) as outlook_error:
         st.warning("Integrated schedule and cost outlook unavailable: " + str(outlook_error))
+
+    st.markdown("#### Monte Carlo Schedule Risk Forecast")
+    with st.expander("Simulate P50 / P80 / P90 project finish dates", expanded=False):
+        st.caption("Masukkan network aktivitas dan risk register dalam format JSON. Durasi dan dampak risiko menggunakan hari kalender; semua risiko diasumsikan independen.")
+        default_activity_json = """[
+  {"activity_id":"A1","predecessors":[],"duration_min_days":8,"duration_most_likely_days":10,"duration_max_days":12},
+  {"activity_id":"A2","predecessors":["A1"],"duration_min_days":4,"duration_most_likely_days":5,"duration_max_days":7},
+  {"activity_id":"A3","predecessors":[],"duration_min_days":6,"duration_most_likely_days":7,"duration_max_days":9}
+]"""
+        default_risk_json = """[
+  {"risk_id":"R1","activity_id":"A2","probability":0.3,"delay_min_days":2,"delay_most_likely_days":4,"delay_max_days":8}
+]"""
+        with st.form("pc_schedule_risk_monte_carlo_form"):
+            mc_start = st.date_input("Project start date", key="pc_mc_schedule_start")
+            mc_iterations = st.selectbox("Simulation iterations", [1000, 5000, 10000, 25000, 50000], index=2, key="pc_mc_schedule_iterations")
+            mc_seed = st.number_input("Random seed (for reproducibility)", min_value=0, max_value=2147483647, value=42, step=1, key="pc_mc_schedule_seed")
+            mc_activities_json = st.text_area("Activity network JSON", value=default_activity_json, height=180, key="pc_mc_schedule_activities")
+            mc_risks_json = st.text_area("Activity-linked risk JSON", value=default_risk_json, height=140, key="pc_mc_schedule_risks")
+            run_schedule_mc = st.form_submit_button("Run schedule Monte Carlo")
+        if run_schedule_mc:
+            try:
+                mc_activities = json.loads(mc_activities_json)
+                mc_risks = json.loads(mc_risks_json)
+                mc_result = simulate_schedule_risk(
+                    mc_activities, mc_risks, mc_start,
+                    iterations=int(mc_iterations), seed=int(mc_seed),
+                )
+                st.metric("Simulation status", mc_result["status"])
+                if mc_result["status"] == "ASSESSED":
+                    q1, q2, q3 = st.columns(3)
+                    q1.metric("P50 finish", mc_result["finish_date"]["p50"])
+                    q2.metric("P80 finish", mc_result["finish_date"]["p80"])
+                    q3.metric("P90 finish", mc_result["finish_date"]["p90"])
+                    st.write("**Duration percentiles (calendar days)**")
+                    st.json(mc_result["duration_days"])
+                    st.write("**Probability by selected percentile dates**")
+                    st.json(mc_result["probability_finish_by"])
+                    st.caption(f"Activities: {mc_result['activity_count']} | Linked risks: {mc_result['risk_count']} | Iterations: {mc_result['iterations']} | Seed: {mc_result['seed']}")
+                for limitation in mc_result.get("limitations", []):
+                    st.caption("• " + limitation)
+            except (json.JSONDecodeError, TypeError, ValueError) as mc_error:
+                st.error("Schedule Monte Carlo input invalid: " + str(mc_error))
 
     st.markdown("#### Resource Loading & Capacity")
     resource_result = None
