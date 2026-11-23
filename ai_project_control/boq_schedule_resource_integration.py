@@ -59,15 +59,18 @@ def build_boq_schedule_resource_integration(
             amount = quantity * rate
         bucket = boq_by_activity.setdefault(activity_id, {
             "boq_item_count": 0, "boq_quantity": 0.0, "boq_amount": 0.0,
-            "boq_amount_complete": True, "boq_units": set(),
+            "boq_amount_complete": True, "boq_units": set(), "quantity_by_unit": {}, "amount_by_currency": {}, "currencies": set(),
         })
         bucket["boq_item_count"] += 1
-        bucket["boq_quantity"] += quantity
-        bucket["boq_units"].add(str(row.get("unit", row.get("uom", "UNSPECIFIED"))).strip() or "UNSPECIFIED")
-        if amount is None:
+        unit = str(row.get("unit", row.get("uom", "UNSPECIFIED"))).strip() or "UNSPECIFIED"
+        bucket["boq_units"].add(unit)
+        bucket["quantity_by_unit"][unit] = bucket["quantity_by_unit"].get(unit, 0.0) + quantity
+        currency = str(row.get("currency", "")).strip().upper()
+        if amount is None or not currency:
             bucket["boq_amount_complete"] = False
         else:
-            bucket["boq_amount"] += amount
+            bucket["currencies"].add(currency)
+            bucket["amount_by_currency"][currency] = bucket["amount_by_currency"].get(currency, 0.0) + amount
 
     resource_by_activity: dict[str, dict[str, Any]] = {}
     unlinked_resources = []
@@ -82,15 +85,16 @@ def build_boq_schedule_resource_integration(
         bucket = resource_by_activity.setdefault(activity_id, {
             "resource_count": 0, "planned_resource_units": 0.0,
             "capacity_complete": True, "capacity_by_resource": [],
-            "resource_types": set(), "resource_units": set(),
+            "resource_types": set(), "resource_units": set(), "demand_by_unit": {},
         })
         bucket["resource_count"] += 1
-        bucket["planned_resource_units"] += demand
+        unit = str(row.get("unit", "UNSPECIFIED")).strip() or "UNSPECIFIED"
+        bucket["demand_by_unit"][unit] = bucket["demand_by_unit"].get(unit, 0.0) + demand
         bucket["capacity_by_resource"].append(capacity)
         if capacity is None:
             bucket["capacity_complete"] = False
         bucket["resource_types"].add(str(row.get("resource_type", "OTHER")).upper())
-        bucket["resource_units"].add(str(row.get("unit", "UNSPECIFIED")))
+        bucket["resource_units"].add(unit)
 
     cpm_by_id = {row["activity_id"]: row for row in cpm.get("activities", [])}
     result_rows = []
@@ -106,11 +110,14 @@ def build_boq_schedule_resource_integration(
             "early_finish_day": schedule.get("early_finish") if schedule else None,
             "is_critical": schedule.get("is_critical") if schedule else None,
             "boq_item_count": boq["boq_item_count"] if boq else 0,
-            "boq_quantity": round(boq["boq_quantity"], 3) if boq else None,
+            "boq_quantity": round(next(iter(boq["quantity_by_unit"].values())), 3) if boq and len(boq["quantity_by_unit"]) == 1 else None,
+            "boq_quantity_by_unit": "; ".join(f"{unit}: {value:g}" for unit, value in sorted(boq["quantity_by_unit"].items())) if boq else None,
             "boq_units": ", ".join(sorted(boq["boq_units"])) if boq else None,
-            "boq_amount": round(boq["boq_amount"], 2) if boq and boq["boq_amount_complete"] else None,
+            "boq_amount": round(next(iter(boq["amount_by_currency"].values())), 2) if boq and boq["boq_amount_complete"] and len(boq["currencies"]) == 1 else None,
+            "boq_amount_by_currency": "; ".join(f"{currency}: {value:.2f}" for currency, value in sorted(boq["amount_by_currency"].items())) if boq else None,
             "resource_count": resources["resource_count"] if resources else 0,
-            "planned_resource_units": round(resources["planned_resource_units"], 3) if resources else None,
+            "planned_resource_units": round(next(iter(resources["demand_by_unit"].values())), 3) if resources and len(resources["demand_by_unit"]) == 1 else None,
+            "planned_resource_units_by_unit": "; ".join(f"{unit}: {value:g}" for unit, value in sorted(resources["demand_by_unit"].items())) if resources else None,
             "resource_types": ", ".join(sorted(resources["resource_types"])) if resources else None,
             "resource_units": ", ".join(sorted(resources["resource_units"])) if resources else None,
             "status": "LINKED" if boq and resources and schedule else "PARTIAL_LINK",
@@ -123,8 +130,8 @@ def build_boq_schedule_resource_integration(
         "unlinked_resources": unlinked_resources,
         "limitations": [
             "BOQ items and resource assignments link to activities only through explicit activity_id.",
-            "BOQ quantity totals are not combined across incompatible units; unit labels are shown.",
-            "Resource demand and capacity are displayed as supplied and are not added across unlike units.",
+            "BOQ quantities and resource demand are never summed across unlike units; per-unit breakdowns are shown.",
+            "BOQ amounts are shown only when currency is declared consistently; per-currency breakdowns are shown otherwise.",
             "CPM start/finish values are relative working-day offsets, not calendar dates.",
             "No productivity, resource requirement, unit rate, currency, shift pattern or approved schedule change is inferred.",
         ],
