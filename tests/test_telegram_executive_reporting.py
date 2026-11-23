@@ -30,7 +30,7 @@ def test_message_chunking_preserves_content_and_limit():
     chunks = split_telegram_message(source, limit=500)
     assert len(chunks) > 1
     assert all(len(chunk) <= 500 for chunk in chunks)
-    assert "".join(chunks).replace("\n", "") == source.replace("\n", "")
+    assert "".join(chunks) == source
 
 
 def test_chunk_limit_must_be_reasonable():
