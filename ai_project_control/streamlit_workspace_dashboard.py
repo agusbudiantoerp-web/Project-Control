@@ -7,6 +7,7 @@ from typing import Any
 from .data_quality_validation import TABLE_KEYS
 from .portfolio_executive_report import build_portfolio_executive_report
 from .workspace_service import build_workspace_overview
+from .streamlit_recovery_scenario_planner import render_recovery_scenario_planner
 
 
 def render_project_workspace_dashboard(
@@ -103,6 +104,9 @@ def render_project_workspace_dashboard(
     with st.expander("View stored dataset records"):
         selected = st.selectbox("Dataset", list(TABLE_KEYS), key="pc_workspace_dataset")
         st.dataframe(result["workspace"][selected], use_container_width=True, hide_index=True)
+
+    with st.expander("Recovery Scenario Planner", expanded=False):
+        render_recovery_scenario_planner()
 
     report = build_portfolio_executive_report(
         [result["scorecard"]["projects"][0]],
