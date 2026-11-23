@@ -26,6 +26,7 @@ from .risk_exposure_matrix import build_risk_exposure_matrix
 from .recovery_resource_planner import estimate_resource_recovery
 from .recovery_decision_engine import build_recovery_decision_brief
 from .predictive_early_warning import forecast_project_control_trends
+from .project_performance_history import ProjectPerformanceHistoryStore
 import json
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
@@ -130,6 +131,62 @@ def render_project_workspace_dashboard(
                 st.write("• " + limitation)
     except (TypeError, ValueError) as recovery_error:
         st.warning("Project recovery intelligence unavailable: " + str(recovery_error))
+
+    st.subheader("Historical Project Performance & Dataset Builder")
+    try:
+        history_store = ProjectPerformanceHistoryStore(database_path)
+        with st.expander("Record a dated KPI snapshot", expanded=False):
+            st.caption("Simpan data aktual per tanggal pelaporan. Satu proyek hanya boleh memiliki satu snapshot per tanggal. Jangan masukkan data perkiraan sebagai realisasi.")
+            default_history_json = """{
+  "project_id": "PROJECT-001",
+  "reporting_date": "2026-11-24",
+  "currency": "IDR",
+  "SPI": 0.98,
+  "CPI": 0.96,
+  "risk_score": 45,
+  "delayed_activity_count": 2,
+  "overdue_action_count": 1,
+  "planned_value": 1000000000,
+  "earned_value": 980000000,
+  "actual_cost": 1020000000,
+  "remaining_work_units": 2500,
+  "daily_productivity": 125
+}"""
+            with st.form("pc_history_snapshot_form"):
+                history_json = st.text_area("Actual project snapshot JSON", value=default_history_json, height=220, key="pc_history_snapshot_json")
+                save_history = st.form_submit_button("Save historical snapshot")
+            if save_history:
+                try:
+                    saved_history = history_store.save(json.loads(history_json))
+                    st.success("Snapshot saved: " + saved_history["project_id"] + " / " + saved_history["reporting_date"])
+                except (TypeError, ValueError, KeyError) as history_error:
+                    st.error("Snapshot was not saved: " + str(history_error))
+        history_rows = history_store.list_snapshots()
+        h1, h2 = st.columns(2)
+        h1.metric("Stored KPI snapshots", len(history_rows))
+        h2.metric("Projects with history", len({row["project_id"] for row in history_rows}))
+        if history_rows:
+            st.dataframe(history_rows, use_container_width=True, hide_index=True)
+        if st.button("Build next-snapshot learning dataset", key="pc_build_history_dataset"):
+            dataset_result = history_store.build_next_snapshot_dataset()
+            st.metric("Usable next-snapshot rows", dataset_result["row_count"])
+            st.caption(dataset_result["target_definition"])
+            if dataset_result["rows"]:
+                st.dataframe(dataset_result["rows"], use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download learning dataset CSV",
+                    data=history_store.export_dataset_csv(),
+                    file_name="project_performance_learning_dataset.csv",
+                    mime="text/csv",
+                    key="pc_download_history_dataset",
+                )
+            else:
+                st.info("Belum ada dua snapshot berurutan dengan mata uang yang sama untuk membentuk satu baris dataset.")
+            with st.expander("Dataset governance and limitations"):
+                for limitation in dataset_result["limitations"]:
+                    st.write("• " + limitation)
+    except (TypeError, ValueError, OSError) as history_error:
+        st.warning("Project performance history unavailable: " + str(history_error))
 
     st.subheader("Predictive Project Early Warning")
     with st.expander("Forecast KPI trend from dated project snapshots", expanded=False):
