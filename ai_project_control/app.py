@@ -31,6 +31,7 @@ from project_recovery_control import assess_recovery_control
 from recovery_scenario_comparator import compare_recovery_scenarios as compare_recovery_scenarios_control
 from integrated_executive_report import build_integrated_executive_report
 from integrated_project_intelligence import build_integrated_project_intelligence
+from telegram_executive_reporting import build_telegram_executive_message, send_telegram_executive_message
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
@@ -203,6 +204,41 @@ with portfolio_tab:
                     st.write(method_text)
                 for limitation in intelligence_result["limitations"]:
                     st.write("• " + limitation)
+
+            st.markdown("#### Telegram Executive Briefing")
+            st.caption("Token hanya digunakan saat tombol kirim ditekan dan tidak disimpan ke dataset proyek. Anda juga dapat mengatur TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID pada environment atau Streamlit secrets.")
+            telegram_token_input = st.text_input(
+                "Telegram bot token (optional if configured in secrets)",
+                type="password", key="portfolio_telegram_bot_token",
+            )
+            telegram_chat_input = st.text_input(
+                "Telegram chat ID (optional if configured in secrets)",
+                key="portfolio_telegram_chat_id",
+            )
+            if st.button("Send executive briefing to Telegram", key="send_portfolio_telegram_briefing"):
+                try:
+                    active_token = telegram_token_input.strip() or configured_secret("TELEGRAM_BOT_TOKEN")
+                    active_chat = telegram_chat_input.strip() or configured_secret("TELEGRAM_CHAT_ID")
+                    action_rows_for_message = ds("executive_action_register.csv")
+                    event_rows_for_message = ds("executive_action_events.csv")
+                    action_summary_for_message = build_action_register(
+                        action_rows_for_message.to_dict("records") if not action_rows_for_message.empty else [],
+                        event_rows_for_message.to_dict("records") if not event_rows_for_message.empty else [],
+                    )
+                    telegram_message = build_telegram_executive_message(
+                        project_name="Portfolio Command Center",
+                        status_date=status_date.isoformat(),
+                        intelligence=intelligence_result,
+                        action_register=action_summary_for_message,
+                    )
+                    sent_messages = send_telegram_executive_message(
+                        bot_token=active_token,
+                        chat_id=active_chat,
+                        message=telegram_message,
+                    )
+                    st.success(f"Executive briefing sent to Telegram ({len(sent_messages)} message part(s)).")
+                except Exception as telegram_error:
+                    st.error(f"Telegram briefing was not sent: {telegram_error}")
         except Exception as intelligence_error:
             st.error(f"Integrated project intelligence could not be calculated: {intelligence_error}")
 
