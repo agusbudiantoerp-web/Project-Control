@@ -19,7 +19,7 @@ def _input():
 
 
 def test_transfer_conserves_capacity_and_reduces_recipient_shortfall():
-    result = simulate_resource_transfer_impact(_input(), {"A": 90, "B": 10}, 50)
+    result = simulate_resource_transfer_impact(_input(), {"A": 10, "B": 90}, 50)
     assert result["available"]
     assert result["metrics"]["capacity_conserved"]
     rows = result["impact"].set_index("project_id")
@@ -34,7 +34,7 @@ def test_no_transfer_when_donor_release_is_zero():
 
 
 def test_no_transfer_from_equal_or_higher_priority_project():
-    result = simulate_resource_transfer_impact(_input(), {"A": 10, "B": 90}, 50)
+    result = simulate_resource_transfer_impact(_input(), {"A": 90, "B": 10}, 50)
     assert result["transfers"].empty
 
 
