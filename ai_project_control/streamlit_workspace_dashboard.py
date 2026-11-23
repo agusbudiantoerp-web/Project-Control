@@ -20,6 +20,7 @@ from .project_recovery_intelligence import build_project_recovery_intelligence
 from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
 from .recovery_effectiveness import evaluate_recovery_effectiveness
 from .recovery_evm_bridge import evaluate_recovery_evm
+from .schedule_cost_outlook import build_schedule_cost_outlook
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
 from .telegram_executive_reporting import (
@@ -498,6 +499,32 @@ def render_project_workspace_dashboard(
             st.warning("Delayed / behind-progress activities: " + ", ".join(forecast["delayed_activity_ids"]))
         st.dataframe(forecast["activities"], use_container_width=True, hide_index=True)
         st.caption("Progress variance is percentage points, not a duration forecast. Finish-date delay requires explicit baseline and forecast dates.")
+
+    st.markdown("#### Integrated Schedule & Cost Outlook")
+    try:
+        integrated_outlook = build_schedule_cost_outlook(
+            evm, result["workspace"]["activities"],
+            as_of_date=__import__("datetime").date.today(),
+        )
+        st.caption("Combined decision-support view from current EVM and activity records; it does not change the approved baseline.")
+        o1, o2, o3 = st.columns(3)
+        o1.metric("Outlook status", integrated_outlook["status"])
+        delay_days = integrated_outlook["management_attention"]["project_delay_days"]
+        o2.metric("Project finish variance (calendar days)", delay_days if delay_days is not None else "Not assessed")
+        o3.metric("Over-budget cost scenarios", len(integrated_outlook["management_attention"]["cost_scenarios_over_budget"]))
+        if integrated_outlook["cost_forecast"]["scenarios"]:
+            st.dataframe(integrated_outlook["cost_forecast"]["scenarios"], use_container_width=True, hide_index=True)
+        else:
+            st.info("Cost outlook is not assessed. Data gaps: " + ", ".join(integrated_outlook["cost_forecast"].get("data_gaps", [])))
+        if integrated_outlook["management_attention"]["delayed_activity_ids"]:
+            st.warning("Activities requiring schedule review: " + ", ".join(integrated_outlook["management_attention"]["delayed_activity_ids"]))
+        if integrated_outlook["management_attention"]["unassessed_activity_ids"]:
+            st.info("Activities without enough schedule evidence: " + ", ".join(integrated_outlook["management_attention"]["unassessed_activity_ids"]))
+        with st.expander("Integrated outlook assumptions and limitations"):
+            for limitation in integrated_outlook["limitations"]:
+                st.write("• " + limitation)
+    except (TypeError, ValueError) as outlook_error:
+        st.warning("Integrated schedule and cost outlook unavailable: " + str(outlook_error))
 
     st.markdown("#### Resource Loading & Capacity")
     resource_result = None
