@@ -125,9 +125,18 @@ def transition_recovery_action(
     current = str(row["status"])
     if target_status not in TRANSITIONS.get(current, set()):
         raise ValueError(f"Transition {current} -> {target_status} is not permitted.")
-    expected_role = ROLE_FOR_STATUS[target_status]
+    if target_status == "Rejected":
+        expected_role = {
+            "Proposed": "Project Manager",
+            "PM Approved": "Project Director",
+            "Director Approved": "COO",
+            "COO Approved": "COO",
+            "In Progress": "Project Manager",
+        }.get(current)
+    else:
+        expected_role = ROLE_FOR_STATUS[target_status]
     if str(role).strip() != expected_role:
-        raise PermissionError(f"{target_status} requires role: {expected_role}.")
+        raise PermissionError(f"{target_status} from {current} requires role: {expected_role}.")
     if target_status == "Rejected" and not str(note).strip():
         raise ValueError("A rejection reason is required.")
     if target_status == "Closed" and not str(note).strip():
