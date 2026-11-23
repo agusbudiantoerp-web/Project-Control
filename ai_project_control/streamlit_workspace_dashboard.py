@@ -18,6 +18,7 @@ from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_monitoring import PortfolioMonitoringStore
 from .project_recovery_intelligence import build_project_recovery_intelligence
 from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
+from .recovery_effectiveness import evaluate_recovery_effectiveness
 from .action_register_store import ActionRegisterStore
 from .action_escalation import build_action_escalations
 from .telegram_executive_reporting import (
@@ -207,6 +208,57 @@ def render_project_workspace_dashboard(
             st.info("Tambahkan proyek ke workspace sebelum menggunakan recovery tracker.")
     except (TypeError, ValueError, OSError) as tracker_error:
         st.warning("Recovery execution tracker unavailable: " + str(tracker_error))
+
+    st.subheader("Recovery Effectiveness Scorecard")
+    with st.expander("Compare project indicators before and after recovery"):
+        with st.form("pc_recovery_effectiveness_form"):
+            st.caption("Masukkan indikator dari dua periode pelaporan yang sebanding. Biarkan kosong bila data tidak tersedia.")
+            before_col, after_col = st.columns(2)
+            with before_col:
+                st.markdown("**Before recovery**")
+                before_spi = st.number_input("SPI before", min_value=0.0, value=0.0, step=0.01, key="pc_eff_b_spi")
+                before_cpi = st.number_input("CPI before", min_value=0.0, value=0.0, step=0.01, key="pc_eff_b_cpi")
+                before_risk = st.number_input("Risk score before", min_value=0.0, value=0.0, step=1.0, key="pc_eff_b_risk")
+                before_delay = st.number_input("Delayed activities before", min_value=0, value=0, step=1, key="pc_eff_b_delay")
+                before_overdue = st.number_input("Overdue actions before", min_value=0, value=0, step=1, key="pc_eff_b_overdue")
+            with after_col:
+                st.markdown("**After recovery**")
+                after_spi = st.number_input("SPI after", min_value=0.0, value=0.0, step=0.01, key="pc_eff_a_spi")
+                after_cpi = st.number_input("CPI after", min_value=0.0, value=0.0, step=0.01, key="pc_eff_a_cpi")
+                after_risk = st.number_input("Risk score after", min_value=0.0, value=0.0, step=1.0, key="pc_eff_a_risk")
+                after_delay = st.number_input("Delayed activities after", min_value=0, value=0, step=1, key="pc_eff_a_delay")
+                after_overdue = st.number_input("Overdue actions after", min_value=0, value=0, step=1, key="pc_eff_a_overdue")
+            approved_budget = st.number_input("Approved recovery budget", min_value=0.0, value=0.0, step=1000000.0, key="pc_eff_budget")
+            actual_recovery_cost = st.number_input("Actual recovery cost", min_value=0.0, value=0.0, step=1000000.0, key="pc_eff_cost")
+            recovery_currency = st.text_input("Currency (e.g. IDR)", value="IDR", key="pc_eff_currency")
+            assess_effectiveness = st.form_submit_button("Evaluate recovery effectiveness")
+        if assess_effectiveness:
+            before_values = {"SPI": before_spi or None, "CPI": before_cpi or None,
+                             "risk_score": before_risk or None,
+                             "delayed_activity_count": before_delay or None,
+                             "overdue_action_count": before_overdue or None}
+            after_values = {"SPI": after_spi or None, "CPI": after_cpi or None,
+                            "risk_score": after_risk or None,
+                            "delayed_activity_count": after_delay or None,
+                            "overdue_action_count": after_overdue or None}
+            try:
+                effectiveness = evaluate_recovery_effectiveness(
+                    before_values, after_values,
+                    approved_recovery_budget=approved_budget or None,
+                    actual_recovery_cost=actual_recovery_cost or None,
+                    currency=recovery_currency,
+                )
+                st.metric("Recovery indicator outcome", effectiveness["status"])
+                st.json(effectiveness["indicator_summary"])
+                st.dataframe(
+                    [{"Indicator": key, **value} for key, value in effectiveness["comparisons"].items()],
+                    use_container_width=True, hide_index=True,
+                )
+                st.json(effectiveness["recovery_cost"])
+                for limitation in effectiveness["limitations"]:
+                    st.caption("• " + limitation)
+            except (TypeError, ValueError) as effectiveness_error:
+                st.error("Effectiveness assessment failed: " + str(effectiveness_error))
 
     st.subheader("Executive Report Export")
     try:
