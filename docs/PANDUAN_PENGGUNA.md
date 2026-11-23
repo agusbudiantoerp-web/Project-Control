@@ -42,7 +42,7 @@ Database lokal dibuat pada `.project_control/project_control.sqlite3`. Jangan me
 3. Periksa validasi data, peringatan, satuan, tanggal pelaporan, dan mata uang.
 4. Lengkapi baseline biaya, jadwal, aktivitas, predecessor, resource, WBS dan risk register.
 5. Periksa EVM, resource loading, cost forecast, schedule forecast dan Monte Carlo.
-6. Periksa Risk Exposure Matrix dan rekomendasi mitigasi.
+6. Periksa ringkasan gabungan risk-adjusted cost dan schedule, lalu Risk Exposure Matrix dan rekomendasi mitigasi. P80 biaya dan P80 jadwal adalah distribusi marginal terpisah, bukan satu skenario gabungan berkorelasi.
 7. Bandingkan recovery scenario dan validasi asumsi produktivitas tambahan.
 8. Catat executive actions beserta owner, due date, status dan bukti.
 9. Gunakan Portfolio Command Center untuk melihat ringkasan lintas proyek.
