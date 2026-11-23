@@ -80,11 +80,13 @@ def build_risk_cost_simulation(
         risk_type = str(row.get("risk_type", "THREAT")).strip().upper()
         if risk_type not in {"THREAT", "OPPORTUNITY"}:
             raise ValueError(f"{risk_id}: risk_type must be THREAT or OPPORTUNITY")
-        row_currency = str(row.get("currency", currency)).strip().upper()
+        row_currency = str(row.get("currency") or currency).strip().upper()
         if row_currency != currency:
             raise ValueError(f"{risk_id}: currency {row_currency} differs from project currency {currency}")
         parsed.append({
             "risk_id": risk_id,
+            "activity_id": str(row.get("activity_id", "")).strip(),
+            "wbs_id": str(row.get("wbs_id", "")).strip(),
             "description": str(row.get("description", "")).strip(),
             "risk_type": risk_type,
             "probability": probability,
