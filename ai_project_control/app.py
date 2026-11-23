@@ -19,6 +19,7 @@ from portfolio_resource_allocation import build_resource_allocation_scenario
 from portfolio_resource_scenarios import compare_resource_allocation_scenarios
 from portfolio_resource_transfer import simulate_resource_transfer_impact
 from executive_command_center import build_executive_command_center
+from executive_recovery_strategies import build_executive_recovery_strategies
 from portfolio_risk_engine import rank_portfolio
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
@@ -290,6 +291,50 @@ with portfolio_tab:
             )
             with st.expander("Executive scoring methodology and limitations"):
                 for assumption in command_center["assumptions"]:
+                    st.write("• " + assumption)
+
+        st.markdown("### Executive Recovery Strategy Engine")
+        recovery_result = build_executive_recovery_strategies(portfolio, risk_rows)
+        if not recovery_result["available"]:
+            st.info("Recovery strategy belum tersedia: " + "; ".join(recovery_result["assumptions"]))
+        elif recovery_result["strategies"].empty:
+            st.success("Tidak ada trigger pemulihan pada indikator portofolio yang tersedia. Tetap lengkapi data dan lakukan review berkala.")
+        else:
+            recovery_summary = recovery_result["project_summary"]
+            recovery_strategies = recovery_result["strategies"]
+            rs1, rs2, rs3 = st.columns(3)
+            rs1.metric("Projects requiring strategy review", recovery_summary["project_id"].nunique())
+            rs2.metric("Strategy alternatives", len(recovery_strategies))
+            rs3.metric("Integrated recovery plans", int((recovery_strategies["category"] == "Integrated").sum()))
+            st.markdown("**Recovery review by project**")
+            st.dataframe(recovery_summary, use_container_width=True, hide_index=True)
+            st.markdown("**Strategy alternatives and evidence**")
+            st.dataframe(recovery_strategies, use_container_width=True, hide_index=True)
+            strategy_projects = recovery_strategies["project_id"].astype(str).unique().tolist()
+            selected_recovery_project = st.selectbox(
+                "Select project for recovery action review",
+                strategy_projects,
+                key="executive_recovery_project_choice",
+            )
+            selected_recovery = recovery_strategies.loc[
+                recovery_strategies["project_id"].astype(str) == selected_recovery_project
+            ]
+            st.markdown("**Selected project's recovery playbook**")
+            for _, strategy_row in selected_recovery.iterrows():
+                with st.expander(f'{strategy_row["strategy"]} — {strategy_row["readiness"]}'):
+                    st.write("**Evidence:** " + str(strategy_row["trigger_evidence"]))
+                    st.write("**Recommended action:** " + str(strategy_row["recommended_action"]))
+                    st.write("**Data required:** " + str(strategy_row["required_data_to_validate"]))
+                    st.write("**Potential benefit:** " + str(strategy_row["potential_benefit_not_quantified"]))
+                    st.warning(str(strategy_row["trade_off_and_control"]))
+            st.download_button(
+                "Download executive recovery strategy register",
+                recovery_strategies.to_csv(index=False).encode("utf-8-sig"),
+                file_name="executive_recovery_strategy_register.csv",
+                mime="text/csv",
+            )
+            with st.expander("Recovery strategy assumptions and governance"):
+                for assumption in recovery_result["assumptions"]:
                     st.write("• " + assumption)
 
         st.markdown("### Portfolio Resource Intelligence")
