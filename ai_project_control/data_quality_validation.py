@@ -26,7 +26,7 @@ NUMERIC_FIELDS = {
     "activities": ("duration_days", "planned_duration_days", "actual_duration_days"),
     "progress": ("planned_value", "earned_value", "physical_progress_pct"),
     "actual_cost": ("actual_cost",),
-    "risk": ("probability", "impact", "exposure"),
+    "risk": ("probability", "impact", "exposure", "cost_impact_min", "cost_impact_most_likely", "cost_impact_max"),
     "resources": ("planned_units", "actual_units", "capacity_units"),
 }
 
@@ -89,13 +89,17 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                     issues.append({"severity": "ERROR", "code": "INVALID_NUMBER",
                                    "table": table, "record": str(index), "field": field,
                                    "message": f"{field} must be a finite number"})
+                elif field == "probability" and not 0 <= number <= 1:
+                    issues.append({"severity": "ERROR", "code": "PROBABILITY_OUT_OF_RANGE",
+                                   "table": table, "record": str(index), "field": field,
+                                   "message": "probability must be between 0 and 1"})
                 elif field == "physical_progress_pct" and not 0 <= number <= 100:
                     issues.append({"severity": "ERROR", "code": "PERCENT_OUT_OF_RANGE",
                                    "table": table, "record": str(index), "field": field,
                                    "message": "physical_progress_pct must be between 0 and 100"})
                 elif field in {"quantity", "unit_rate", "amount", "duration_days",
                                "planned_duration_days", "actual_duration_days",
-                               "planned_units", "actual_units", "capacity_units"} and number < 0:
+                               "planned_units", "actual_units", "capacity_units", "impact", "exposure", "cost_impact_min", "cost_impact_most_likely", "cost_impact_max"} and number < 0:
                     issues.append({"severity": "ERROR", "code": "NEGATIVE_VALUE",
                                    "table": table, "record": str(index), "field": field,
                                    "message": f"{field} cannot be negative"})
