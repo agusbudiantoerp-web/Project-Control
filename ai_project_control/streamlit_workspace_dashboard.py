@@ -15,6 +15,7 @@ from .cost_forecast import build_cost_forecast
 from .risk_cost_simulation import build_risk_cost_simulation
 from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
+from .action_register_store import ActionRegisterStore
 
 
 def render_project_workspace_dashboard(
@@ -249,6 +250,79 @@ def render_project_workspace_dashboard(
                 st.write("• " + limitation)
     except (TypeError, ValueError, KeyError) as exc:
         st.error("Project Director review could not be prepared: " + str(exc))
+
+    st.markdown("#### Executive Action Register & Governance")
+    try:
+        action_store = ActionRegisterStore(database_path)
+        action_register = action_store.list_project(project_id)
+        action_summary = action_register["summary"]
+        ac1, ac2, ac3, ac4 = st.columns(4)
+        ac1.metric("Open actions", action_summary["open_count"])
+        ac2.metric("In progress", action_summary["in_progress_count"])
+        ac3.metric("Blocked", action_summary["blocked_count"])
+        ac4.metric("Overdue", action_summary["overdue_count"])
+
+        with st.expander("Create executive action", expanded=False):
+            with st.form("pc_create_executive_action"):
+                action_title = st.text_input("Action title")
+                action_owner = st.text_input("Responsible owner")
+                action_due = st.date_input("Due date")
+                action_priority = st.selectbox("Priority", ["P1", "P2", "P3"], index=1)
+                action_description = st.text_area("Description / expected evidence")
+                action_actor = st.text_input("Created by (attribution)")
+                create_submitted = st.form_submit_button("Save action")
+            if create_submitted:
+                try:
+                    action_store.create(
+                        title=action_title, owner=action_owner, due_date=action_due,
+                        project_id=project_id, priority=action_priority,
+                        description=action_description, created_by=action_actor,
+                    )
+                    st.success("Action saved to the local SQLite register.")
+                    st.rerun()
+                except (TypeError, ValueError) as exc:
+                    st.error("Action not saved: " + str(exc))
+
+        if action_register["actions"]:
+            st.dataframe(action_register["actions"], use_container_width=True, hide_index=True)
+            with st.expander("Update action status and append audit event"):
+                action_options = {
+                    f"{row['action_id']} — {row['title']} ({row['status']})": row
+                    for row in action_register["actions"]
+                    if row["status"] not in {"COMPLETED", "CANCELLED"}
+                }
+                if action_options:
+                    selected_label = st.selectbox("Action", list(action_options), key="pc_action_transition_select")
+                    selected_action = action_options[selected_label]
+                    allowed = {
+                        "OPEN": ["IN_PROGRESS", "BLOCKED", "CANCELLED"],
+                        "IN_PROGRESS": ["BLOCKED", "COMPLETED", "CANCELLED"],
+                        "BLOCKED": ["IN_PROGRESS", "CANCELLED"],
+                    }.get(selected_action["status"], [])
+                    with st.form("pc_transition_executive_action"):
+                        target_status = st.selectbox("New status", allowed)
+                        changed_by = st.text_input("Changed by (attribution)")
+                        transition_note = st.text_area("Decision / progress note")
+                        transition_submitted = st.form_submit_button("Record status change")
+                    if transition_submitted:
+                        try:
+                            action_store.transition(
+                                selected_action["action_id"], new_status=target_status,
+                                changed_by=changed_by, note=transition_note,
+                            )
+                            st.success("Status updated and audit event appended.")
+                            st.rerun()
+                        except (KeyError, TypeError, ValueError) as exc:
+                            st.error("Status change not saved: " + str(exc))
+                else:
+                    st.info("No actions remain eligible for status transition.")
+            with st.expander("Action audit history"):
+                st.dataframe(action_register["events"], use_container_width=True, hide_index=True)
+        else:
+            st.info("No executive actions recorded for this project yet.")
+        st.caption("Workspace-local SQLite persistence. Actor names are attribution only, not authenticated identities; protect the workspace file and apply access control before multi-user deployment.")
+    except (TypeError, ValueError, OSError) as exc:
+        st.warning("Executive Action Register unavailable: " + str(exc))
 
     st.markdown("#### Dataset inventory")
     inventory = [{"Dataset": name, "Records": count} for name, count in result["dataset_counts"].items()]
