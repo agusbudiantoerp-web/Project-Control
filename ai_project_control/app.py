@@ -28,6 +28,7 @@ from portfolio_health_monitoring import build_health_monitoring
 from project_director_decision_matrix import build_decision_matrix
 from executive_action_register import create_action, transition_action, build_action_register, ALLOWED_TRANSITIONS
 from project_recovery_control import assess_recovery_control
+from recovery_scenario_comparator import compare_recovery_scenarios
 from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
                   parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
                   calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
@@ -1060,6 +1061,87 @@ with portfolio_tab:
                 file_name=f"{recovery_project_id}_recovery_assessment.csv",
                 mime="text/csv",
             )
+
+
+        st.markdown("### Recovery Scenario Comparator")
+        st.caption("Bandingkan alternatif percepatan berdasarkan penghematan durasi, biaya tambahan, dan skor risiko yang Anda masukkan. Semua angka adalah estimasi pengguna, bukan prediksi otomatis.")
+        with st.form("recovery_scenario_comparison_form"):
+            scenario_project_id = st.selectbox(
+                "Project for scenario comparison",
+                portfolio["project_id"].astype(str).tolist(),
+                key="scenario_compare_project",
+            )
+            scenario_current_duration = st.number_input(
+                "Current forecast duration (days)", min_value=1.0, value=100.0, step=1.0,
+                key="scenario_current_duration",
+            )
+            scenario_target_duration = st.number_input(
+                "Target duration (days)", min_value=1.0, value=90.0, step=1.0,
+                key="scenario_target_duration",
+            )
+            scenario_inputs = []
+            for scenario_number in range(1, 4):
+                st.markdown(f"**Scenario {scenario_number}**")
+                sc1, sc2, sc3 = st.columns(3)
+                with sc1:
+                    scenario_name = st.text_input(
+                        "Scenario name", key=f"scenario_name_{scenario_number}",
+                        value=f"Option {scenario_number}",
+                    )
+                    scenario_saving = st.number_input(
+                        "Days saved", min_value=0.0, value=0.0, step=1.0,
+                        key=f"scenario_saving_{scenario_number}",
+                    )
+                with sc2:
+                    scenario_cost = st.number_input(
+                        "Incremental cost", min_value=0.0, value=0.0, step=1000.0,
+                        key=f"scenario_cost_{scenario_number}",
+                    )
+                with sc3:
+                    scenario_risk = st.number_input(
+                        "Risk score (0–100)", min_value=0.0, max_value=100.0,
+                        value=25.0, step=1.0, key=f"scenario_risk_{scenario_number}",
+                    )
+                if scenario_name.strip():
+                    scenario_inputs.append({
+                        "scenario_id": f"OPTION-{scenario_number}",
+                        "name": scenario_name.strip(),
+                        "duration_saving_days": scenario_saving,
+                        "incremental_cost": scenario_cost,
+                        "risk_score": scenario_risk,
+                    })
+            run_scenario_comparison = st.form_submit_button("Compare recovery scenarios")
+        if run_scenario_comparison:
+            try:
+                scenario_result = compare_recovery_scenarios(
+                    scenario_inputs,
+                    current_forecast_duration_days=scenario_current_duration,
+                    target_duration_days=scenario_target_duration,
+                )
+                st.session_state["recovery_scenario_comparison_result"] = {
+                    "project_id": scenario_project_id,
+                    **scenario_result,
+                }
+            except Exception as scenario_error:
+                st.error(f"Scenario comparison could not be calculated: {scenario_error}")
+        scenario_result = st.session_state.get("recovery_scenario_comparison_result")
+        if scenario_result and scenario_result.get("project_id") == scenario_project_id:
+            summary = scenario_result["summary"]
+            sm1, sm2, sm3 = st.columns(3)
+            sm1.metric("Options compared", summary["scenario_count"])
+            sm2.metric("Target met", summary["target_met_count"])
+            sm3.metric("No schedule benefit", summary["no_schedule_benefit_count"])
+            scenario_df = pd.DataFrame(scenario_result["scenarios"])
+            if not scenario_df.empty:
+                st.dataframe(scenario_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download recovery scenario comparison",
+                    scenario_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"{scenario_project_id}_recovery_scenarios.csv",
+                    mime="text/csv",
+                )
+            with st.expander("Scenario ranking methodology and limitations"):
+                st.write(scenario_result["method"])
 
 with overview:
     master=ds("project_master.csv")
