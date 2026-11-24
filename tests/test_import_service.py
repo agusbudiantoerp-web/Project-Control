@@ -29,6 +29,14 @@ def test_import_csv_maps_validates_and_persists(store):
     assert store.load_dataset("P1", "boq")[0]["boq_id"] == "B1"
 
 
+def test_import_rewinds_upload_stream_before_parsing(store):
+    upload = Upload("boq.csv", b"Project ID,BOQ ID,Quantity\nP1,B1,12\n")
+    upload.seek(10)
+    result = import_uploaded_dataset(store, "P1", "boq", upload)
+    assert result["status"] == "COMMITTED"
+    assert store.load_dataset("P1", "boq")[0]["boq_id"] == "B1"
+
+
 def test_missing_or_ambiguous_mapping_stops_without_saving(store):
     upload = Upload("boq.csv", b"Project ID,Project Code,Quantity\nP1,P1,12\n")
     result = import_uploaded_dataset(store, "P1", "boq", upload)
