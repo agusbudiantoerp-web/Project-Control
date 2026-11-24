@@ -125,3 +125,23 @@ def test_saved_portfolio_does_not_invent_health_baseline(tmp_path):
     }])
     result = build_saved_portfolio_report(db)
     assert result["health_monitoring"]["projects"][0]["status"] == "NO_BASELINE"
+
+
+def test_saved_portfolio_reports_cross_project_shared_resource_overload(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500, "IDR")
+    add_project(store, "P2", "Project Two", 500, 450, 450, "IDR")
+    store.save_dataset("P1", "resources", [{
+        "project_id": "P1", "resource_id": "EX-01", "period": "2026-12",
+        "unit": "hours", "planned_units": 70, "capacity_units": 100,
+    }])
+    store.save_dataset("P2", "resources", [{
+        "project_id": "P2", "resource_id": "EX-01", "period": "2026-12",
+        "unit": "hours", "planned_units": 50, "capacity_units": 100,
+    }])
+    result = build_saved_portfolio_report(db)
+    shared = result["portfolio_resource_intelligence"]
+    assert shared["project_count"] == 2
+    assert shared["shared_resource_conflict_count"] == 1
+    assert shared["shared_resource_conflicts"][0]["overload_units"] == 20
