@@ -47,8 +47,8 @@ def build_portfolio_command_center(database_path: str | Path) -> dict[str, Any]:
         record = {
             "project_id": project_id,
             "project_name": project.get("project_name", ""),
-            "SPI": evm.get("SPI"),
-            "CPI": evm.get("CPI"),
+            "SPI": evm.get("SPI") if evm.get("SPI") is not None else project.get("SPI"),
+            "CPI": evm.get("CPI") if evm.get("CPI") is not None else project.get("CPI"),
             "risk_score": project.get("risk_score"),
             "overloaded_resource_days": project.get("overloaded_resource_days"),
             "currency": currency,
