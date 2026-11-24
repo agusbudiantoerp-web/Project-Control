@@ -170,3 +170,30 @@ def test_saved_portfolio_schedule_cost_outlook_requires_as_of_date(tmp_path):
     add_project(store, "P1", "Project One", 500, 400, 500)
     result = build_saved_portfolio_report(db)
     assert result["schedule_cost_outlooks"][0]["status"] == "NOT_RUN"
+
+
+def test_saved_portfolio_integrates_project_resource_loading(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "resources", [{
+        "project_id": "P1", "resource_id": "EX-01", "period": "2026-12",
+        "planned_units": 120, "capacity_units": 100, "unit": "hours",
+    }])
+    result = build_saved_portfolio_report(db)
+    loading = result["resource_loading"][0]
+    assert loading["overloaded_count"] == 1
+    assert loading["rows"][0]["status"] == "OVERLOADED"
+    assert "Resource loading" in result["executive_report"]
+
+
+def test_saved_portfolio_resource_missing_capacity_is_unassessed(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "resources", [{
+        "project_id": "P1", "resource_id": "TEAM-01", "period": "2026-12",
+        "planned_units": 20, "capacity_units": None, "unit": "hours",
+    }])
+    result = build_saved_portfolio_report(db)
+    assert result["resource_loading"][0]["unassessed_count"] == 1
