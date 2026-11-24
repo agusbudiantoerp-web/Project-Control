@@ -108,7 +108,7 @@ class ProjectStore:
         keys_seen = set()
         for row in normalized:
             key = self._record_key(dataset, row)
-            if key in keys_seen:
+            if key in keys_seen and dataset != "portfolio_snapshots":
                 raise ValueError(f"Duplicate record key in import: {key}")
             keys_seen.add(key)
 
@@ -123,10 +123,12 @@ class ProjectStore:
 
         prepared = []
         seen = set()
-        for row in normalized:
+        for index, row in enumerate(normalized):
             key = self._record_key(dataset, row)
             if key in seen:
-                raise ValueError(f"Duplicate record key in import: {key}")
+                if dataset != "portfolio_snapshots":
+                    raise ValueError(f"Duplicate record key in import: {key}")
+                key = f"{key}#duplicate:{index}"
             seen.add(key)
             prepared.append((project_id, dataset, key,
                              json.dumps(row, ensure_ascii=False, default=str),
