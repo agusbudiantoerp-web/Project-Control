@@ -36,3 +36,22 @@ def test_zero_bac_does_not_publish_percent_complete_or_forecast():
     assert math.isnan(result["percent_complete"])
     assert math.isnan(result["eac"])
     assert math.isnan(result["vac"])
+
+
+def test_invalid_bac_type_does_not_crash_dashboard_summary():
+    result = project_summary(_period(ev=10.0, ac=10.0), bac="not-a-number")
+    assert math.isnan(result["bac"])
+    assert math.isnan(result["eac"])
+    assert math.isnan(result["percent_complete"])
+
+
+def test_overflowing_spi_cpi_and_percentages_become_unavailable():
+    result = project_summary(
+        _period(pv=1e-308, ev=1e308, ac=1e-308),
+        bac=1e308,
+    )
+    assert math.isnan(result["spi"])
+    assert math.isnan(result["cpi"])
+    assert math.isnan(result["eac"])
+    assert math.isnan(result["sv_pct"])
+    assert math.isnan(result["cv_pct"])
