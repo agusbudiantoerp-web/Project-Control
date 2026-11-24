@@ -59,3 +59,10 @@ The system is not production-ready until the final test phase passes, critical d
 - Missing/invalid source values remain unassessed; project currency is shown explicitly.
 - Verify period semantics (delta versus cumulative snapshot), reference cases, zero/negative edge cases and Streamlit UI behavior in final test phase.
 - Forecast scenarios are not approved budgets, cash-flow forecasts or commitments.
+
+
+## Telegram report page addition
+
+- Streamlit page composes a report from supplied JSON and requires explicit confirmation before external send.
+- Bot token/chat ID are read from secrets or environment variables; UI errors avoid displaying exception text that could contain credential-bearing URLs.
+- Live bot credential setup, private-chat delivery, group permissions, rate limits and retry behavior must be verified during the integration test phase.
