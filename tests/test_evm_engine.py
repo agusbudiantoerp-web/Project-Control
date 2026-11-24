@@ -94,3 +94,13 @@ def test_nonpositive_bac_blocks_evm_forecast(bac):
     assert result["VAC"] is None
     assert result["status"] == "INSUFFICIENT_DATA"
     assert "BAC_MUST_BE_POSITIVE_FOR_FORECAST" in result["data_gaps"]
+
+
+def test_boolean_financial_values_are_not_treated_as_numeric():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": True},
+        [{"project_id": "P1", "period": "2026-01", "planned_value": 100, "earned_value": 80}],
+        [{"project_id": "P1", "period": "2026-01", "actual_cost": 90}],
+    )
+    assert result["BAC"] is None
+    assert result["EAC"] is None
