@@ -118,3 +118,8 @@ A successful API response confirms Telegram accepted the message, not that the i
 6. Tinjau validasi workspace, PV/EV/AC/BAC, SPI/CPI dan skenario EAC. Unduh JSON untuk review.
 
 Halaman ini membaca database lokal dan tidak mengubah dataset. Mesin EVM menjumlahkan semua baris sampai periode batas; data harus berupa delta periode. Jika sumber berupa snapshot kumulatif, siapkan data menjadi delta atau pilih snapshot terbaru per aktivitas sebelum impor. Jangan gabungkan mata uang atau basis valuasi berbeda.
+
+
+## K. Ekspor laporan Financial Control
+
+Setelah Saved Project Financial Control berhasil menghitung data tersimpan, gunakan tombol PDF, Excel atau JSON untuk mengunduh ringkasan yang sama. Periksa nama proyek, periode, mata uang, status validasi, dan keterbatasan sebelum membagikan laporan. File yang diunduh merupakan output analisis, bukan dokumen yang ditandatangani atau persetujuan perubahan anggaran.
