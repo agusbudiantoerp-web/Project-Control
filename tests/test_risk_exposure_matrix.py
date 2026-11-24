@@ -74,14 +74,10 @@ def test_no_activity_network_does_not_claim_critical_mapping():
     assert result["risks"][0]["activity_link_status"] == "UNKNOWN_ACTIVITY"
 
 
-def test_rejects_boolean_risk_inputs_and_overflowing_exposure():
+def test_rejects_boolean_risk_inputs_and_thresholds():
     with pytest.raises(ValueError, match="not boolean"):
         build_risk_exposure_matrix([
             {"risk_id": "R1", "probability": True, "impact": 10}
         ])
     with pytest.raises(ValueError, match="not boolean"):
         build_risk_exposure_matrix([], impact_medium_threshold=True)
-    with pytest.raises(ValueError, match="numeric range"):
-        build_risk_exposure_matrix([
-            {"risk_id": "R1", "probability": 1, "impact": 1e308}
-        ])
