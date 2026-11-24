@@ -84,3 +84,35 @@ def test_risk_probability_must_be_fraction_between_zero_and_one():
     })
     codes = {issue["code"] for issue in result["issues"]}
     assert "PROBABILITY_OUT_OF_RANGE" in codes
+
+
+def test_boolean_numeric_fields_are_rejected():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1", "BAC": True}],
+        "progress": [{
+            "project_id": "P1", "activity_id": "A1", "period": "2026-11",
+            "planned_value": 100, "earned_value": 80,
+        }],
+        "actual_cost": [{
+            "project_id": "P1", "period": "2026-11", "cost_code": "C1",
+            "actual_cost": False,
+        }],
+    })
+    assert result["status"] == "INVALID"
+    assert sum(issue["code"] == "INVALID_NUMBER" for issue in result["issues"]) == 2
+
+
+def test_negative_evm_financial_amounts_are_rejected():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1", "BAC": -100}],
+        "progress": [{
+            "project_id": "P1", "activity_id": "A1", "period": "2026-11",
+            "planned_value": 100, "earned_value": -10,
+        }],
+        "actual_cost": [{
+            "project_id": "P1", "period": "2026-11", "cost_code": "C1",
+            "actual_cost": -5,
+        }],
+    })
+    assert result["status"] == "INVALID"
+    assert sum(issue["code"] == "NEGATIVE_VALUE" for issue in result["issues"]) == 3
