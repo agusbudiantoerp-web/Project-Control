@@ -77,3 +77,8 @@ def test_english_report_uses_english_labels_without_indonesian_duplicates():
     assert "Eksposur biaya risiko P80" not in report
     assert "Eksposur keterlambatan risiko P80" not in report
     assert "Hari-resource mengalami overload" not in report
+
+def test_indonesian_missing_cpi_message_is_fully_localized():
+    report = build_executive_summary("P-5", "Jembatan", "2026-11-24", {"SPI": 1.0}, language="id")
+    assert "- Kinerja biaya: CPI belum tersedia (data biaya aktual belum lengkap)." in report
+    assert "CPI unavailable" not in report
