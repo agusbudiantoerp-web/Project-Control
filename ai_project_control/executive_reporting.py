@@ -28,8 +28,8 @@ def build_executive_summary(
     lines = [
         f"# {title}",
         "",
-        f"**Project:** {project_name} ({project_id})",
-        f"**Status date:** {status_date}",
+        (f"**Project:** {project_name} ({project_id})" if en else f"**Proyek:** {project_name} ({project_id})"),
+        (f"**Status date:** {status_date}" if en else f"**Tanggal pelaporan:** {status_date}"),
         "",
         "## Executive overview" if en else "## Ringkasan eksekutif",
     ]
