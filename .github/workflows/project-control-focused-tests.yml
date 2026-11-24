@@ -72,4 +72,5 @@ jobs:
             tests/test_risk_mitigation_store.py \
             tests/test_risk_governance_bridge.py \
             tests/test_portfolio_risk_resource_intelligence.py \
-            tests/test_portfolio_workspace_intelligence.py
+            tests/test_portfolio_workspace_intelligence.py \
+            tests/test_coo_portfolio_decision_brief.py
