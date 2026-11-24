@@ -21,7 +21,9 @@ def test_evm_bridge_compares_spi_cpi_before_and_after_recovery():
     assert result["before_evm"]["SPI"] == .7
     assert result["after_evm"]["SPI"] == .95
     assert result["recovery_effectiveness"]["comparisons"]["SPI"]["status"] == "IMPROVED"
-    assert result["recovery_effectiveness"]["comparisons"]["CPI"]["status"] == "UNCHANGED"
+    # CPI = EV / AC; EV improves from 70 to 95 while AC remains 100,
+    # therefore CPI improves as well.
+    assert result["recovery_effectiveness"]["comparisons"]["CPI"]["status"] == "IMPROVED"
     assert result["recovery_effectiveness"]["recovery_cost"]["status"] == "WITHIN_BUDGET"
 
 
