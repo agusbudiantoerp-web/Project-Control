@@ -129,6 +129,8 @@ def test_in_memory_store_can_release_keeper_connection():
     assert memory_store._memory_keeper is None
     with pytest.raises(sqlite3.ProgrammingError):
         keeper.execute("SELECT 1")
+    with pytest.raises(RuntimeError, match="ProjectStore is closed"):
+        memory_store.list_project_ids()
 
 
 def test_project_store_context_manager_closes_in_memory_database():
