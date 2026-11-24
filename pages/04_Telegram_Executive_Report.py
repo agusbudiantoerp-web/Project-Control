@@ -48,11 +48,15 @@ if message:
     confirmed = st.checkbox("I have reviewed this message and authorize sending it to the configured Telegram chat.")
     if st.button("Send Telegram report", type="primary", disabled=not confirmed):
         try:
-            token = st.secrets.get("TELEGRAM_BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", ""))
-            chat_id = st.secrets.get("TELEGRAM_CHAT_ID", os.getenv("TELEGRAM_CHAT_ID", ""))
+            try:
+                secrets = st.secrets
+            except Exception:
+                secrets = {}
+            token = secrets.get("TELEGRAM_BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", ""))
+            chat_id = secrets.get("TELEGRAM_CHAT_ID", os.getenv("TELEGRAM_CHAT_ID", ""))
             result = send_telegram_executive_message(
                 bot_token=token, chat_id=chat_id, message=message,
             )
             st.success(f"Telegram accepted {len(result)} message part(s).")
-        except Exception as exc:
-            st.error("Telegram delivery failed: " + str(exc))
+        except Exception:
+            st.error("Telegram delivery failed. Check the configured credentials, chat permissions, network connectivity and server logs. Credentials are intentionally not displayed.")
