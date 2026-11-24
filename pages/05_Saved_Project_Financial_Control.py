@@ -67,7 +67,7 @@ if submitted:
             *[f"- {item}" for item in result["limitations"]],
             "- This report is decision support and does not authorize budget or baseline changes.",
         ]
-        report_text = "\\n".join(report_lines) + "\\n"
+        report_text = "\n".join(report_lines) + "\n"
         export_col1, export_col2 = st.columns(2)
         export_col1.download_button(
             "Download executive report (PDF)",
