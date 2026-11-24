@@ -66,3 +66,10 @@ The system is not production-ready until the final test phase passes, critical d
 - Streamlit page composes a report from supplied JSON and requires explicit confirmation before external send.
 - Bot token/chat ID are read from secrets or environment variables; UI errors avoid displaying exception text that could contain credential-bearing URLs.
 - Live bot credential setup, private-chat delivery, group permissions, rate limits and retry behavior must be verified during the integration test phase.
+
+
+## Local operator guide
+
+- Added Windows local installation instructions for Python 3.11, venv, requirements and Streamlit startup.
+- Added optional Telegram environment-variable guidance and local SQLite data-handling cautions.
+- Local startup instructions do not establish successful execution, deployment readiness or multi-user security. Those require the final acceptance test phase.
