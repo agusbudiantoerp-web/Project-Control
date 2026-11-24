@@ -187,3 +187,8 @@ COO Cockpit menampilkan ringkasan utilisasi resource per proyek, resource ID, da
 ## S. Portfolio Financial Position
 
 COO Cockpit menampilkan anggaran (BAC atau jumlah BOQ jika BAC tidak tersedia), actual cost dari dataset `actual_cost`, sisa anggaran, dan status over-budget. Setiap proyek harus memiliki mata uang yang benar. Jika actual-cost record belum tersedia atau nilai biaya tidak lengkap, proyek ditandai belum dapat dinilai—tidak diasumsikan memiliki actual cost nol. Ringkasan lintas proyek dipisahkan menurut mata uang; tidak ada konversi kurs. Angka ini adalah posisi anggaran versus actual cost, bukan saldo kas atau proyeksi pembayaran.
+
+
+## T. COO Decision Brief dan Project Director Priorities
+
+Pada Saved Portfolio COO Cockpit, bagian COO Decision Brief merangkum proyek yang perlu ditinjau berdasarkan SPI, CPI, risk score yang tersedia, keterlambatan aktivitas bertanggal, dan overload resource. Daftar rekomendasi adalah agenda review, bukan instruksi otomatis. Periksa nilai sumber, periode cut-off, baseline yang disetujui, risk owner, resource, HSE, kontrak dan kewenangan biaya sebelum menetapkan tindakan. Jika SPI/CPI/risk score tidak tersedia, proyek ditandai UNASSESSED atau DATA_REVIEW; sistem tidak menganggapnya hijau.
