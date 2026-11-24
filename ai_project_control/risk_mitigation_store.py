@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import math
 import sqlite3
+from datetime import datetime, timezone
+from uuid import uuid4
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -48,6 +50,16 @@ class RiskMitigationStore:
                 )
             """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_risk_mitigations_project ON risk_mitigations(project_id)")
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS risk_mitigation_events (
+                    event_id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    risk_id TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                )
+            """)
+            db.execute("CREATE INDEX IF NOT EXISTS idx_risk_mitigation_events_project ON risk_mitigation_events(project_id, risk_id)")
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.database_path, timeout=15)
@@ -86,13 +98,28 @@ class RiskMitigationStore:
             "evidence": str(evidence or "").strip(),
             "updated_by": actor,
         }
+        occurred_at = datetime.now(timezone.utc).isoformat()
+        event = {
+            "event_id": str(uuid4()), "project_id": project, "risk_id": risk,
+            "event_type": "MITIGATION_UPSERTED", "occurred_at": occurred_at,
+            "updated_by": actor, "status": state,
+            "residual_probability": probability, "residual_impact": impact,
+            "residual_exposure": row["residual_exposure"],
+            "evidence": row["evidence"],
+        }
         with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
             db.execute("""
                 INSERT INTO risk_mitigations(project_id, risk_id, payload_json)
                 VALUES (?, ?, ?)
                 ON CONFLICT(project_id, risk_id)
                 DO UPDATE SET payload_json=excluded.payload_json
             """, (project, risk, json.dumps(row, ensure_ascii=False)))
+            db.execute("""
+                INSERT INTO risk_mitigation_events(event_id, project_id, risk_id, occurred_at, payload_json)
+                VALUES (?, ?, ?, ?, ?)
+            """, (event["event_id"], project, risk, occurred_at, json.dumps(event, ensure_ascii=False)))
+            db.commit()
         return row
 
     def list_project(self, project_id: str) -> list[dict[str, Any]]:
@@ -101,4 +128,18 @@ class RiskMitigationStore:
                 "SELECT payload_json FROM risk_mitigations WHERE project_id=? ORDER BY risk_id",
                 (str(project_id).strip(),),
             ).fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
+
+    def list_events(self, project_id: str, risk_id: str | None = None) -> list[dict[str, Any]]:
+        with self._connect() as db:
+            if risk_id:
+                rows = db.execute(
+                    "SELECT payload_json FROM risk_mitigation_events WHERE project_id=? AND risk_id=? ORDER BY occurred_at, rowid",
+                    (str(project_id).strip(), str(risk_id).strip()),
+                ).fetchall()
+            else:
+                rows = db.execute(
+                    "SELECT payload_json FROM risk_mitigation_events WHERE project_id=? ORDER BY occurred_at, rowid",
+                    (str(project_id).strip(),),
+                ).fetchall()
         return [json.loads(row["payload_json"]) for row in rows]
