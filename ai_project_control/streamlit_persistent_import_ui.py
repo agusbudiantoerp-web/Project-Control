@@ -66,6 +66,8 @@ def render_persistent_import_ui(database_path: str | Path = ".project_control/pr
         return {"status": "READY_FOR_REVIEW", "suggestion": suggestion}
 
     try:
+        # The preview parser may consume the upload stream; rewind before import.
+        uploaded.seek(0)
         store = ProjectStore(database_path)
         result = import_uploaded_dataset(
             store, project_id, dataset, uploaded,
