@@ -143,6 +143,28 @@ if submitted:
                 else:
                     st.info("No risk records supplied.")
                 st.json({"priority_summary": item["priority_summary"], "critical_activity_risk_count": item["critical_activity_risk_count"], "unlinked_activity_count": item["unlinked_activity_count"], "unlinked_wbs_count": item["unlinked_wbs_count"]})
+        st.subheader("Predictive early warning and recovery decision review")
+        warning = result["predictive_early_warning"]
+        if warning["status"] == "REVIEW_REQUIRED":
+            st.warning(warning["reason"])
+        elif warning["status"] == "NO_SNAPSHOTS":
+            st.info("Belum ada snapshot historis yang cukup untuk menjalankan trend forecast.")
+        else:
+            st.caption(warning["method"] + " Horizon: " + str(warning["horizon_days"]) + " hari; minimal tiga observasi per metrik.")
+            for item in warning["projects"]:
+                with st.expander(f"Trend warning — {item['project_id']} | attention metrics: {item['attention_metric_count']}"):
+                    st.dataframe(item["metrics"], use_container_width=True, hide_index=True)
+        for item in result["recovery_decisions"]:
+            with st.expander(f"Recovery review — {item['project_name']} ({item['status']})"):
+                if item["signals"]:
+                    st.dataframe(item["signals"], use_container_width=True, hide_index=True)
+                st.write("Rekomendasi review:")
+                for recommendation in item["recommendations"]:
+                    st.write("- " + recommendation)
+                if item["missing_inputs"]:
+                    st.warning("Input yang belum tersedia: " + ", ".join(item["missing_inputs"]))
+                st.caption("Recovery brief tidak menyetujui skenario atau biaya; validasi CPM, resource, HSE, kontrak, dan kewenangan tetap diperlukan.")
+
         st.subheader("COO decision brief and Project Director priorities")
         decision = result["coo_decision_brief"]
         dcols = st.columns(3)
