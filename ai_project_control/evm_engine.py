@@ -61,7 +61,7 @@ def calculate_evm(
     cpi = ev / ac if ev is not None and ac is not None and ac > 0 else None
     sv = ev - pv if ev is not None and pv is not None else None
     cv = ev - ac if ev is not None and ac is not None else None
-    eac = bac / cpi if bac is not None and cpi is not None and cpi > 0 else None
+    eac = bac / cpi if bac is not None and bac > 0 and cpi is not None and cpi > 0 else None
     etc = eac - ac if eac is not None and ac is not None else None
     vac = bac - eac if bac is not None and eac is not None else None
     tcpi = ((bac - ev) / (bac - ac)
@@ -72,6 +72,8 @@ def calculate_evm(
     for name, value in (("PV", pv), ("EV", ev), ("AC", ac), ("BAC", bac)):
         if value is None:
             gaps.append(name)
+    if bac is not None and bac <= 0:
+        gaps.append("BAC_MUST_BE_POSITIVE_FOR_FORECAST")
     if pv is not None and pv <= 0:
         gaps.append("PV_MUST_BE_POSITIVE_FOR_SPI")
     if ac is not None and ac <= 0:
