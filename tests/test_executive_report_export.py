@@ -30,6 +30,22 @@ def test_xlsx_export_contains_report_text():
     assert any("A-01" in str(value) for value in values)
 
 
+@pytest.mark.parametrize("untrusted_line", [
+    "=HYPERLINK(\"https://example.invalid\",\"open\")",
+    "+SUM(1,1)",
+    "-1+2",
+    "@SUM(1,1)",
+])
+def test_xlsx_export_keeps_formula_like_report_lines_as_text(untrusted_line):
+    from openpyxl import load_workbook
+
+    payload = build_executive_report_xlsx("Executive report\n" + untrusted_line)
+    workbook = load_workbook(BytesIO(payload), data_only=False)
+    cell = workbook["Executive Report"]["A4"]
+    assert cell.value == untrusted_line
+    assert cell.data_type == "s"
+
+
 def test_pdf_export_returns_valid_pdf_bytes():
     payload = build_executive_report_pdf(SAMPLE)
     assert payload.startswith(b"%PDF")
