@@ -17,5 +17,6 @@ st.caption(
 database_path = os.getenv("PROJECT_CONTROL_DB", ".project_control/project_control.sqlite3")
 
 render_persistent_import_ui(database_path)
+project_id = st.session_state.get("pc_persist_project_id", "").strip()
 st.divider()
-render_project_workspace_dashboard(database_path)
+render_project_workspace_dashboard(database_path, project_id=project_id)
