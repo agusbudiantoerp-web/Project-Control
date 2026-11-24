@@ -42,3 +42,12 @@
 ## Release gate
 
 The system is not production-ready until the final test phase passes, critical defects are resolved, deployment security is reviewed, and project owners accept the outputs against known reference cases.
+
+
+## Dated cash flow forecast addition
+
+- Dated actual and forecast transaction input with unique transaction IDs.
+- Opening cash balance required per currency; currencies are never combined or converted implicitly.
+- Daily running balance, monthly flow summary and projected negative-balance date flags.
+- This remains a user-supplied transaction forecast, not a bank-confirmed balance or an inferred payment prediction.
+- Add clean-environment UI smoke testing and source-data reconciliation to the final release test evidence.
