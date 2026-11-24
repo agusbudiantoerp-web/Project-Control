@@ -106,3 +106,15 @@ CPI-based EAC assumes current cost efficiency continues. CPI×SPI is a scenario,
 5. To deliver, check the explicit authorization checkbox and press **Send Telegram report**. The page will report whether Telegram accepted the message.
 
 A successful API response confirms Telegram accepted the message, not that the intended recipient read or acted on it. Test with a private chat before any operational group. Never place bot credentials in the form or source repository.
+
+
+## J. Saved Project Financial Control
+
+1. Impor `project_master` terlebih dahulu melalui Project Workspace, termasuk Project ID, BAC dan currency.
+2. Impor dataset `progress` dengan Project ID, Activity ID, period, planned_value dan earned_value.
+3. Impor dataset `actual_cost` dengan Project ID, period, cost_code dan actual_cost.
+4. Pastikan semua nilai menggunakan basis valuasi yang konsisten. Bila currency dicantumkan pada baris, currency harus sama dengan Project Master. Baris tanpa currency menggunakan asumsi mata uang proyek dan harus diverifikasi terhadap dokumen sumber.
+5. Buka **Saved Project Financial Control**, masukkan Project ID dan periode bila diperlukan.
+6. Tinjau validasi workspace, PV/EV/AC/BAC, SPI/CPI dan skenario EAC. Unduh JSON untuk review.
+
+Halaman ini membaca database lokal dan tidak mengubah dataset. Mesin EVM menjumlahkan semua baris sampai periode batas; data harus berupa delta periode. Jika sumber berupa snapshot kumulatif, siapkan data menjadi delta atau pilih snapshot terbaru per aktivitas sebelum impor. Jangan gabungkan mata uang atau basis valuasi berbeda.
