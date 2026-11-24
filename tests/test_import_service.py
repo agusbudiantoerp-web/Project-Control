@@ -15,7 +15,7 @@ class Upload(BytesIO):
 @pytest.fixture
 def store(tmp_path):
     repository = ProjectStore(tmp_path / "pc.sqlite3")
-    repository.save_dataset("workspace", "project_master", [
+    repository.save_dataset("P1", "project_master", [
         {"project_id": "P1", "project_name": "Project One"}
     ])
     return repository
