@@ -81,6 +81,19 @@ class ProjectStore:
 
     def _initialise(self) -> None:
         with self._connect() as db:
+            metadata_exists = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='store_metadata'"
+            ).fetchone()
+            if metadata_exists is not None:
+                current = db.execute(
+                    "SELECT value FROM store_metadata WHERE key=?",
+                    ("schema_version",),
+                ).fetchone()
+                if current is not None and int(current["value"]) > SCHEMA_VERSION:
+                    raise RuntimeError(
+                        "Workspace database schema is newer than this application; "
+                        "upgrade the application before opening this database."
+                    )
             db.execute("""
                 CREATE TABLE IF NOT EXISTS project_records (
                     project_id TEXT NOT NULL,
@@ -109,15 +122,6 @@ class ProjectStore:
                     value TEXT NOT NULL
                 )
             """)
-            current = db.execute(
-                "SELECT value FROM store_metadata WHERE key=?",
-                ("schema_version",),
-            ).fetchone()
-            if current is not None and int(current["value"]) > SCHEMA_VERSION:
-                raise RuntimeError(
-                    "Workspace database schema is newer than this application; "
-                    "upgrade the application before opening this database."
-                )
             db.execute(
                 "INSERT OR IGNORE INTO store_metadata(key, value) VALUES (?, ?)",
                 ("schema_version", str(SCHEMA_VERSION)),
