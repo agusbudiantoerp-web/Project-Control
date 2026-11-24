@@ -143,6 +143,22 @@ if submitted:
                 else:
                     st.info("No risk records supplied.")
                 st.json({"priority_summary": item["priority_summary"], "critical_activity_risk_count": item["critical_activity_risk_count"], "unlinked_activity_count": item["unlinked_activity_count"], "unlinked_wbs_count": item["unlinked_wbs_count"]})
+        st.subheader("COO decision brief and Project Director priorities")
+        decision = result["coo_decision_brief"]
+        dcols = st.columns(3)
+        dcols[0].metric("Projects for management review", decision["projects_requiring_review"])
+        dcols[1].metric("P1 projects", result["decision_matrix"]["summary"]["p1_count"])
+        dcols[2].metric("Unassessed projects", result["decision_matrix"]["summary"]["unassessed_count"])
+        for item in decision["projects_for_review"]:
+            with st.expander(f"{item['priority']} — {item['project_name']} ({item['project_id']})"):
+                st.write("Signals: " + ", ".join(item["flags"]))
+                st.write(f"SPI: {item.get('SPI')} | CPI: {item.get('CPI')} | Currency: {item.get('currency') or 'unreported'}")
+                st.caption("Management review required; this priority is a screening signal, not an automated approval.")
+        st.markdown("**Recommended management reviews**")
+        for recommendation in decision["recommended_management_reviews"]:
+            st.write("- " + recommendation)
+        st.caption("Decision support only. Verify approved baseline, data cut-off, risk ownership, resource feasibility, HSE, contract and financial authority before action.")
+
         report = result["executive_report"]
         st.subheader("Executive report preview")
         st.markdown(report)
