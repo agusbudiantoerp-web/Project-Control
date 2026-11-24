@@ -141,7 +141,8 @@ def build_risk_exposure_matrix(
             "activity_id": activity_id or None,
             "activity_link_status": "UNLINKED" if not activity_id else "MATCHED" if activity_known else "UNKNOWN_ACTIVITY",
             "is_critical_activity": (
-                is_critical if critical_mapping_available
+                None if activity_id and not activity_known
+                else is_critical if critical_mapping_available
                 else False if not activities
                 else None
             ),
