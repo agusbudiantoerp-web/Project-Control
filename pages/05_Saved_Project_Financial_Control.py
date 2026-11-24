@@ -4,6 +4,7 @@ import os
 import streamlit as st
 
 from ai_project_control.financial_workspace_service import build_stored_project_financial_control
+from ai_project_control.executive_report_export import build_executive_report_pdf, build_executive_report_xlsx
 
 st.set_page_config(page_title="Saved Project Financial Control", page_icon="📊", layout="wide")
 st.title("Saved Project Financial Control")
@@ -46,6 +47,40 @@ if submitted:
         with st.expander("Source counts, validation and limitations"):
             st.json({"source_counts": result["source_counts"], "validation": result["data_validation"],
                      "limitations": result["limitations"]})
+        report_lines = [
+            "# Saved Project Financial Control",
+            "",
+            f"Project: {result['project_name']} ({result['project_id']})",
+            f"Reporting period: {period.strip() or 'All available periods'}",
+            f"Currency: {result['currency'] or 'Not defined'}",
+            "",
+            "## Earned Value Management",
+            *[f"- {key}: {evm.get(key) if evm.get(key) is not None else 'Not assessed'}"
+              for key in ("PV", "EV", "AC", "BAC", "SPI", "CPI", "EAC", "ETC", "VAC")],
+            "",
+            "## Cost forecast scenarios",
+            *[f"- {row.get('scenario', 'Scenario')}: EAC={row.get('EAC')}, variance={row.get('variance_pct')}%"
+              for row in result["cost_forecast"].get("scenarios", [])],
+            "",
+            "## Data quality and limitations",
+            f"- Workspace validation: {result['data_validation']['status']}",
+            *[f"- {item}" for item in result["limitations"]],
+            "- This report is decision support and does not authorize budget or baseline changes.",
+        ]
+        report_text = "\\n".join(report_lines) + "\\n"
+        export_col1, export_col2 = st.columns(2)
+        export_col1.download_button(
+            "Download executive report (PDF)",
+            data=build_executive_report_pdf(report_text),
+            file_name=f"{result['project_id']}_financial_control.pdf",
+            mime="application/pdf",
+        )
+        export_col2.download_button(
+            "Download executive report (Excel)",
+            data=build_executive_report_xlsx(report_text),
+            file_name=f"{result['project_id']}_financial_control.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
         st.download_button("Download saved financial control JSON",
             data=json.dumps(result, indent=2, ensure_ascii=False, default=str),
             file_name=f"{result['project_id']}_financial_control.json", mime="application/json")
