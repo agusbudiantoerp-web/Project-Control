@@ -82,3 +82,8 @@ Open the Streamlit page **Dated Cash Flow Forecast** from the sidebar. Supply re
 ## Dated cash flow forecasting
 
 The multipage Streamlit application includes **Dated Cash Flow Forecast**. Enter reconciled opening cash by currency and dated actual/forecast transactions to calculate daily running balances, monthly flow summaries and projected negative-balance dates. The engine keeps currencies separate and does not infer invoice payment dates, collections, financing or FX conversion. Its output is a scenario based on supplied inputs, not a bank-confirmed cash position.
+
+
+## EVM and cost forecast control
+
+Open the **EVM & Cost Forecast Control** page. Provide project BAC and currency, progress records with PV/EV, and actual cost records. The page calculates EVM indicators and three transparent EAC scenarios (CPI, budget-rate, and CPI×SPI). Missing inputs remain unassessed; scenarios are not approved budget revisions. Period records must use a consistent delta or snapshot convention as described by the EVM engine.
