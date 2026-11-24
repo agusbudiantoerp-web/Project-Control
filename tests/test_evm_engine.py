@@ -81,3 +81,16 @@ def test_invalid_numeric_values_remain_data_gaps():
 def test_missing_project_id_rejected():
     with pytest.raises(ValueError):
         calculate_evm({}, [], [])
+
+
+@pytest.mark.parametrize("bac", [0, -100])
+def test_nonpositive_bac_blocks_evm_forecast(bac):
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": bac},
+        [{"project_id": "P1", "period": "2026-01", "planned_value": 100, "earned_value": 80}],
+        [{"project_id": "P1", "period": "2026-01", "actual_cost": 90}],
+    )
+    assert result["EAC"] is None
+    assert result["VAC"] is None
+    assert result["status"] == "INSUFFICIENT_DATA"
+    assert "BAC_MUST_BE_POSITIVE_FOR_FORECAST" in result["data_gaps"]
