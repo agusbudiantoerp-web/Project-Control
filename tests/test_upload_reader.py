@@ -64,3 +64,15 @@ def test_rejects_wrong_extension_and_oversized_upload():
         read_tabular_upload(Upload("boq.txt", b"a,b\n1,2"))
     with pytest.raises(ValueError, match="exceeds"):
         read_tabular_upload(Upload("large.csv", b"x" * (15 * 1024 * 1024 + 1)))
+
+
+def test_rejects_header_count_over_limit_before_reading_rows():
+    headers = [f"column_{index}" for index in range(201)]
+    upload = Upload("wide.csv", (",".join(headers) + "\n").encode("utf-8"))
+    with pytest.raises(ValueError, match="200 column limit"):
+        read_tabular_upload(upload)
+
+
+def test_rejects_blank_header_row():
+    with pytest.raises(ValueError, match="No usable header row"):
+        read_tabular_upload(Upload("blank.csv", b",,\n1,2,3\n"))
