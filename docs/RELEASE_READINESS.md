@@ -184,3 +184,16 @@ The system is not production-ready until the final test phase passes, critical d
 - Found one nonexistent path (`tests/test_integrated_forecast.py`) and removed that reference so pytest is not asked to collect a missing file.
 - The associated `ai_project_control/integrated_forecast.py` module imports `core`, which was not found at the repository root during this audit; this module remains an isolated dependency issue to resolve before claiming full repository readiness.
 - The remaining workflow test paths were checked and found in the branch. This is a file-existence audit only; no test execution is implied.
+
+## CI evidence update — 2026-11-24
+
+Latest verified integration-branch evidence:
+
+- Focused tests on commit `900b22a9de41ef5cb8543791e63492671d59c073`: **326 passed, 10 warnings**. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45388268910
+- Recovery tests on the same commit: **40 passed**. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45388269115
+- Automated tests on code commit `b94103fd`: passed. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45386542598
+- AI Project Control CI on code commit `b94103fd`: passed. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45386542636
+
+The only change between `b94103fd` and `900b22a` was a correction to the recovery CPI test expectation (CPI increases from 0.70 to 0.95 when EV rises from 70 to 95 with AC fixed at 100). Therefore the application code covered by the two broader successful workflows is unchanged at `900b22a`; nevertheless, all four workflow families have not yet been executed successfully on one identical commit SHA.
+
+This evidence is **not** a production release sign-off. No clean Windows installation, representative owner-data acceptance, live Telegram delivery, authenticated multi-user deployment, or disaster-recovery drill has been verified. Branch comparison remains divergent: integration branch is 729 commits ahead of and 13 commits behind `main`. Do not merge automatically; review the 13 main-only commits and the resulting file-level differences first.
