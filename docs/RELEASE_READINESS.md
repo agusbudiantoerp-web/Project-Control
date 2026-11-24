@@ -113,3 +113,11 @@ The system is not production-ready until the final test phase passes, critical d
 - COO page shows risk governance counts, risk-by-risk action/mitigation status, risk exposure ranking and activity/WBS traceability.
 - Integration tests added for a linked schedule risk, overdue action and mitigation; execution remains pending.
 - Risk matrix assumes consistent impact units within a project. Identity/authentication, authorization, cross-project risk acceptance and formal approval workflows remain outstanding.
+
+
+## Dated portfolio health monitoring
+
+- Added `portfolio_snapshots` as a persisted, project/date-keyed dataset.
+- Saved COO report and page compare the latest two distinct snapshots, expose missing baselines and data conflicts, and include trend summaries in executive output.
+- Tests cover dated trend integration and missing baseline handling; execution remains pending.
+- Trend output depends on users capturing dated snapshots over time. It does not reconstruct historical EVM or infer missing values.
