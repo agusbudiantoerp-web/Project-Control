@@ -49,6 +49,7 @@ from .executive_report_export import (
 
 def render_project_workspace_dashboard(
     database_path: str | Path = ".project_control/project_control.sqlite3",
+    project_id: str | None = None,
 ) -> dict[str, Any] | None:
     try:
         import streamlit as st
@@ -694,7 +695,12 @@ def render_project_workspace_dashboard(
         st.warning("Governance escalation review unavailable: " + str(exc))
 
     st.subheader("Project Workspace")
-    project_id = st.text_input("Project ID to open", key="pc_workspace_project_id").strip()
+    if project_id is None:
+        project_id = st.text_input("Project ID to open", key="pc_workspace_project_id").strip()
+    else:
+        project_id = str(project_id).strip()
+        if project_id:
+            st.caption("Project ID: " + project_id)
     if not project_id:
         st.info("Enter a Project ID to inspect its stored workspace.")
         return None
