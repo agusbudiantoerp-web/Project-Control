@@ -23,6 +23,13 @@ def _finite(value: Any, field: str) -> float:
     return number
 
 
+def _triangular(rng: random.Random, low: float, mode: float, high: float) -> float:
+    """Sample a triangular distribution, including a valid zero-width point mass."""
+    if low == high:
+        return low
+    return rng.triangular(low, high, mode)
+
+
 def _percentile(values: list[float], p: float) -> float:
     ordered = sorted(values)
     pos = (len(ordered) - 1) * p
@@ -140,12 +147,12 @@ def simulate_schedule_risk(
     finishes = []
     for _ in range(iterations):
         sampled = {
-            aid: duration_rng.triangular(low, high, mode)
+            aid: _triangular(duration_rng, low, mode, high)
             for aid, (low, mode, high) in durations.items()
         }
         for aid, probability, low, mode, high in parsed_risks:
             if risk_rng.random() < probability:
-                sampled[aid] += risk_rng.triangular(low, high, mode)
+                sampled[aid] += _triangular(risk_rng, low, mode, high)
                 if not math.isfinite(sampled[aid]):
                     raise ValueError("Sampled activity duration exceeds the supported numeric range")
         earliest_finish = {}
