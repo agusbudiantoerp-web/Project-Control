@@ -134,3 +134,11 @@ The system is not production-ready until the final test phase passes, critical d
 - A conflict is asserted only for exact resource ID, period, unit and capacity agreement across at least two projects.
 - Added service-level integration test for a 20-unit shared-resource overload; test execution remains pending.
 - Resource IDs must be confirmed as the same physical pool by the project organization before action.
+
+
+## Integrated schedule and cost outlook
+
+- Saved portfolio service now computes the existing EVM cost scenarios and activity finish-date assessment for each project when an explicit `as_of_date` is supplied.
+- COO cockpit exposes cost scenarios, delayed activities, schedule finish dates and missing evidence.
+- Without an as-of date, the outlook is explicitly `NOT_RUN`; missing inputs are not inferred.
+- Added tests for an assessed schedule/cost case and the required as-of date. Execution remains pending.
