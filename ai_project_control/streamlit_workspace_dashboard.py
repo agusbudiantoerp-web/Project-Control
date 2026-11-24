@@ -1062,6 +1062,12 @@ def render_project_workspace_dashboard(
                 action_owner = st.text_input("Responsible owner")
                 action_due = st.date_input("Due date")
                 action_priority = st.selectbox("Priority", ["P1", "P2", "P3"], index=1)
+                action_risk_ids = sorted({
+                    str(row.get("risk_id", "")).strip()
+                    for row in result["workspace"]["risk"]
+                    if str(row.get("risk_id", "")).strip()
+                })
+                action_risk_id = st.selectbox("Linked risk (optional)", [""] + action_risk_ids)
                 action_description = st.text_area("Description / expected evidence")
                 action_actor = st.text_input("Created by (attribution)")
                 create_submitted = st.form_submit_button("Save action")
@@ -1071,6 +1077,7 @@ def render_project_workspace_dashboard(
                         title=action_title, owner=action_owner, due_date=action_due,
                         project_id=project_id, priority=action_priority,
                         description=action_description, created_by=action_actor,
+                        risk_id=action_risk_id or None,
                     )
                     st.success("Action saved to the local SQLite register.")
                     st.rerun()
