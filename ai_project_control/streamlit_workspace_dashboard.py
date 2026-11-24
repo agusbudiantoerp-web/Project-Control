@@ -24,6 +24,7 @@ from .recovery_evm_bridge import evaluate_recovery_evm
 from .schedule_cost_outlook import build_schedule_cost_outlook
 from .schedule_risk_simulation import simulate_schedule_risk
 from .risk_exposure_matrix import build_risk_exposure_matrix
+from .risk_mitigation_store import RiskMitigationStore
 from .recovery_resource_planner import estimate_resource_recovery
 from .recovery_decision_engine import build_recovery_decision_brief
 from .predictive_early_warning import forecast_project_control_trends
@@ -916,6 +917,74 @@ def render_project_workspace_dashboard(
                     st.write("• " + limitation)
     except (TypeError, ValueError, KeyError) as exposure_error:
         st.warning("Risk exposure matrix unavailable: " + str(exposure_error))
+
+    st.markdown("#### Risk Mitigation Execution Tracker")
+    try:
+        mitigation_store = RiskMitigationStore(database_path)
+        saved_mitigations = mitigation_store.list_project(project_id)
+        known_risks = result["workspace"]["risk"]
+        risk_ids = sorted({
+            str(row.get("risk_id", "")).strip()
+            for row in known_risks
+            if str(row.get("risk_id", "")).strip()
+        })
+        if not risk_ids:
+            st.info("Tambahkan risk_id pada risk register sebelum mencatat mitigasi.")
+        else:
+            with st.expander("Create or update mitigation for a registered risk", expanded=False):
+                with st.form("pc_risk_mitigation_form"):
+                    mitigation_risk_id = st.selectbox("Linked risk ID", risk_ids)
+                    mitigation_action = st.text_area("Mitigation action / deliverable")
+                    mitigation_owner = st.text_input("Mitigation owner")
+                    mitigation_due = st.date_input("Mitigation due date")
+                    mitigation_status = st.selectbox(
+                        "Execution status",
+                        ["PLANNED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED", "CANCELLED"],
+                    )
+                    residual_probability = st.number_input(
+                        "Residual probability (0–1)", min_value=0.0, max_value=1.0,
+                        value=0.2, step=0.05, format="%.2f",
+                    )
+                    residual_impact = st.number_input(
+                        "Residual impact (same unit as the risk register)",
+                        min_value=0.0, value=0.0, step=1.0,
+                    )
+                    mitigation_evidence = st.text_area("Evidence / verification reference")
+                    mitigation_actor = st.text_input("Updated by (attribution)")
+                    mitigation_submitted = st.form_submit_button("Save mitigation record")
+                if mitigation_submitted:
+                    try:
+                        mitigation_store.save(
+                            project_id=project_id, risk_id=mitigation_risk_id,
+                            mitigation_action=mitigation_action, owner=mitigation_owner,
+                            due_date=mitigation_due, status=mitigation_status,
+                            residual_probability=residual_probability,
+                            residual_impact=residual_impact, evidence=mitigation_evidence,
+                            updated_by=mitigation_actor,
+                        )
+                        st.success("Mitigation record saved in the local workspace.")
+                        st.rerun()
+                    except (TypeError, ValueError, OSError) as mitigation_error:
+                        st.error("Mitigation record not saved: " + str(mitigation_error))
+        if saved_mitigations:
+            today = __import__("datetime").date.today().isoformat()
+            for item in saved_mitigations:
+                if item["risk_id"] not in risk_ids:
+                    item["risk_link_status"] = "RISK_NOT_IN_CURRENT_REGISTER"
+                else:
+                    item["risk_link_status"] = "MATCHED"
+                item["overdue"] = (
+                    item["due_date"] < today
+                    and item["status"] not in {"VERIFIED", "CANCELLED"}
+                )
+            st.dataframe(saved_mitigations, use_container_width=True, hide_index=True)
+            overdue_mitigations = sum(bool(item["overdue"]) for item in saved_mitigations)
+            st.metric("Overdue mitigation actions", overdue_mitigations)
+        else:
+            st.info("Belum ada rencana mitigasi tersimpan untuk proyek ini.")
+        st.caption("Residual exposure dihitung dari residual probability × residual impact. Status VERIFIED tetap memerlukan pemeriksaan bukti oleh pejabat berwenang; catatan pengguna bukan autentikasi.")
+    except (TypeError, ValueError, OSError) as mitigation_error:
+        st.warning("Risk mitigation tracker unavailable: " + str(mitigation_error))
 
     st.markdown("#### Executive Recovery Decision Brief")
     try:
