@@ -87,3 +87,8 @@ The multipage Streamlit application includes **Dated Cash Flow Forecast**. Enter
 ## EVM and cost forecast control
 
 Open the **EVM & Cost Forecast Control** page. Provide project BAC and currency, progress records with PV/EV, and actual cost records. The page calculates EVM indicators and three transparent EAC scenarios (CPI, budget-rate, and CPI×SPI). Missing inputs remain unassessed; scenarios are not approved budget revisions. Period records must use a consistent delta or snapshot convention as described by the EVM engine.
+
+
+## Telegram executive report
+
+Open **Telegram Executive Report** to compose a factual message from supplied portfolio intelligence and action-register JSON. Delivery is explicit and requires a reviewed confirmation checkbox plus `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` configured as deployment secrets or environment variables. The `.env.example` file contains blank placeholders only. Never commit real credentials. Telegram delivery has not been validated against a live bot in this repository review.
