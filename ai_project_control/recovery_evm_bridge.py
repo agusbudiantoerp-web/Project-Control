@@ -33,12 +33,14 @@ def evaluate_recovery_evm(
         as_of_period=after_period,
     )
     before_indicators = {
-        "SPI": before["SPI"], "CPI": before["CPI"],
+        "SPI": before["SPI"],
+        "CPI": before["CPI"] if before["AC"] is not None else None,
         "risk_score": None, "delayed_activity_count": None,
         "overdue_action_count": None,
     }
     after_indicators = {
-        "SPI": after["SPI"], "CPI": after["CPI"],
+        "SPI": after["SPI"],
+        "CPI": after["CPI"] if after["AC"] is not None else None,
         "risk_score": None, "delayed_activity_count": None,
         "overdue_action_count": None,
     }
