@@ -57,3 +57,30 @@ def test_normalizes_underscores_and_repeated_spaces():
     result = suggest_column_mapping("activities", ["project__id", "activity-code"])
     assert result["mapping"]["project_id"] == "project__id"
     assert result["mapping"]["activity_id"] == "activity-code"
+
+
+def test_maps_portfolio_health_snapshots_from_english_and_indonesian_headers():
+    result = suggest_column_mapping(
+        "portfolio_snapshots",
+        ["Kode Proyek", "Tanggal Snapshot", "Schedule Performance Index",
+         "Cost Performance Index", "Skor Risiko"],
+    )
+    assert result["ready"] is True
+    assert result["mapping"] == {
+        "project_id": "Kode Proyek",
+        "snapshot_date": "Tanggal Snapshot",
+        "SPI": "Schedule Performance Index",
+        "CPI": "Cost Performance Index",
+        "risk_score": "Skor Risiko",
+    }
+
+
+def test_rejects_invalid_portfolio_snapshot_date_and_risk_score():
+    result = map_import_rows(
+        "portfolio_snapshots",
+        [{"Project ID": "P1", "Snapshot Date": "yesterday", "Risk Score": 120}],
+        {"project_id": "Project ID", "snapshot_date": "Snapshot Date", "risk_score": "Risk Score"},
+    )
+    codes = {issue["code"] for issue in result["validation"]["issues"]}
+    assert "INVALID_SNAPSHOT_DATE" in codes
+    assert "RISK_SCORE_OUT_OF_RANGE" in codes
