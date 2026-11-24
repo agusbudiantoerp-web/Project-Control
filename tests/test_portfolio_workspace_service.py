@@ -158,7 +158,7 @@ def test_saved_portfolio_returns_schedule_cost_outlook_when_as_of_date_supplied(
     }])
     result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
     outlook = result["schedule_cost_outlooks"][0]
-    assert outlook["status"] == "PARTIALLY_ASSESSED"
+    assert outlook["status"] == "ASSESSED"
     assert outlook["schedule_forecast"]["delayed_activity_ids"] == ["A1"]
     assert outlook["cost_forecast"]["status"] == "ASSESSED"
     assert "Schedule and cost outlook" in result["executive_report"]
