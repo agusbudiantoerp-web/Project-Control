@@ -11,7 +11,7 @@ from typing import Any
 
 
 def _number(value: Any) -> float | None:
-    if value in (None, ""):
+    if value in (None, "") or isinstance(value, bool):
         return None
     try:
         result = float(value)
