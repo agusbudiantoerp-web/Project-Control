@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import math
 import random
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 
 def _finite(value: Any, field: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be numeric, not boolean")
     try:
         number = float(value)
     except (TypeError, ValueError):
@@ -88,7 +90,10 @@ def simulate_schedule_risk(
     if not isinstance(iterations, int) or isinstance(iterations, bool) or not 1000 <= iterations <= 200000:
         raise ValueError("iterations must be an integer from 1000 to 200000")
     try:
-        start = project_start_date if isinstance(project_start_date, date) else date.fromisoformat(str(project_start_date))
+        if isinstance(project_start_date, datetime):
+            start = project_start_date.date()
+        else:
+            start = project_start_date if isinstance(project_start_date, date) else date.fromisoformat(str(project_start_date))
     except ValueError:
         raise ValueError("project_start_date must be YYYY-MM-DD") from None
     if not activities:
