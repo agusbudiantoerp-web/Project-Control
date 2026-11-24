@@ -13,6 +13,7 @@ from ai_project_control.project_store import ProjectStore
 from ai_project_control.risk_exposure_matrix import build_risk_exposure_matrix
 from ai_project_control.risk_governance_bridge import build_risk_governance_view
 from ai_project_control.risk_mitigation_store import RiskMitigationStore
+from ai_project_control.portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 
 
 def build_saved_portfolio_report(
@@ -100,6 +101,7 @@ def build_saved_portfolio_report(
 
     scorecard = build_portfolio_scorecard(records)
     health_monitoring = build_health_monitoring(health_snapshots)
+    portfolio_resource_intelligence = build_stored_portfolio_risk_resource_view(database_path)
     report = build_portfolio_executive_report(records, as_of_period or "Latest saved data", language)
     governance_summary = {
         "project_count": len(governance_results),
@@ -130,12 +132,15 @@ def build_saved_portfolio_report(
         "risk_governance_summary": governance_summary,
         "risk_exposure_matrices": risk_matrix_results,
         "health_monitoring": health_monitoring,
+        "portfolio_resource_intelligence": portfolio_resource_intelligence,
         "executive_report": report,
         "as_of_period": as_of_period,
         "as_of_date": as_of_date,
         "limitations": [
             "Only projects saved in this local SQLite workspace are included.",
             "Health trends use only explicitly captured dated snapshots; no historical values are reconstructed.",
+            "Shared-resource conflicts require identical resource IDs, periods, units and capacity declarations across projects.",
+            "Monetary risk exposure is meaningful only when risk impact values are actual monetary amounts in the project currency.",
             "SPI and CPI are calculated from saved period records; missing core values remain unassessed.",
             "Portfolio budget totals remain separated by currency; no FX conversion is performed.",
             "Period rows must be deltas, not cumulative snapshots, unless normalized before import.",
