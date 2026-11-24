@@ -70,4 +70,5 @@ jobs:
             tests/test_project_performance_history.py \\
             tests/test_historical_ml_training.py \\
             tests/test_risk_mitigation_store.py \\
-            tests/test_risk_governance_bridge.py
+            tests/test_risk_governance_bridge.py \\
+            tests/test_portfolio_risk_resource_intelligence.py
