@@ -84,7 +84,7 @@ def test_network_failure_does_not_expose_token_or_chained_url():
             send_telegram_message("hello", bot_token=token, chat_id="123")
     assert token not in str(captured.value)
     assert captured.value.__cause__ is None
-    assert captured.value.__context__ is None
+    assert captured.value.__suppress_context__ is True
 
 
 def test_api_error_description_redacts_token():
