@@ -73,4 +73,4 @@ def test_schedule_risk_normalizes_datetime_project_start():
     result = simulate_schedule_risk(
         activities(), [], datetime(2026, 11, 1, 12, 30), iterations=1000
     )
-    assert result["start_date"] == "2026-11-01"
+    assert result["project_start_date"] == "2026-11-01"
