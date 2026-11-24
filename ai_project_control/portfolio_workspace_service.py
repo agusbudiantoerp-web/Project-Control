@@ -8,6 +8,7 @@ from ai_project_control.action_register_store import ActionRegisterStore
 from ai_project_control.evm_engine import calculate_evm
 from ai_project_control.portfolio_executive_report import build_portfolio_executive_report
 from ai_project_control.portfolio_performance import build_portfolio_scorecard
+from ai_project_control.portfolio_health_monitoring import build_health_monitoring
 from ai_project_control.project_store import ProjectStore
 from ai_project_control.risk_exposure_matrix import build_risk_exposure_matrix
 from ai_project_control.risk_governance_bridge import build_risk_governance_view
@@ -29,6 +30,7 @@ def build_saved_portfolio_report(
     project_results: list[dict[str, Any]] = []
     governance_results: list[dict[str, Any]] = []
     risk_matrix_results: list[dict[str, Any]] = []
+    health_snapshots: list[dict[str, Any]] = []
     for project_id in store.list_project_ids():
         workspace = store.load_project_workspace(project_id)
         if not workspace["project_master"]:
@@ -79,6 +81,7 @@ def build_saved_portfolio_report(
                 "error": str(exc),
             })
 
+        health_snapshots.extend(workspace["portfolio_snapshots"])
         risks = workspace["risk"]
         actions = action_store.list_project(project_id)["actions"]
         mitigations = mitigation_store.list_project(project_id)
@@ -96,6 +99,7 @@ def build_saved_portfolio_report(
         })
 
     scorecard = build_portfolio_scorecard(records)
+    health_monitoring = build_health_monitoring(health_snapshots)
     report = build_portfolio_executive_report(records, as_of_period or "Latest saved data", language)
     governance_summary = {
         "project_count": len(governance_results),
@@ -113,7 +117,11 @@ def build_saved_portfolio_report(
     report += f"- Overdue linked actions: {governance_summary['overdue_action_count']}\n"
     report += f"- Blocked linked actions: {governance_summary['blocked_action_count']}\n"
     report += f"- Risks without mitigation plan: {governance_summary['risks_without_mitigation']}\n"
-    report += "- Risk attention flags are governance worklist signals, not an automated risk acceptance decision.\n"
+    report += "- Risk attention flags are governance worklist signals, not an automated risk acceptance decision.\n"    report += "\n## Portfolio health trends\n"
+    report += f"- Projects with dated health snapshots: {health_monitoring['summary']['project_count']}\n"
+    report += f"- Trends assessed: {health_monitoring['summary']['trend_assessed_count']}\n"
+    report += f"- Projects without baseline: {health_monitoring['summary']['no_baseline_count']}\n"
+    report += f"- Snapshot conflicts: {health_monitoring['summary']['data_conflict_count']}\n"
     return {
         "project_count": len(project_results),
         "scorecard": scorecard,
@@ -121,11 +129,13 @@ def build_saved_portfolio_report(
         "risk_governance": governance_results,
         "risk_governance_summary": governance_summary,
         "risk_exposure_matrices": risk_matrix_results,
+        "health_monitoring": health_monitoring,
         "executive_report": report,
         "as_of_period": as_of_period,
         "as_of_date": as_of_date,
         "limitations": [
             "Only projects saved in this local SQLite workspace are included.",
+            "Health trends use only explicitly captured dated snapshots; no historical values are reconstructed.",
             "SPI and CPI are calculated from saved period records; missing core values remain unassessed.",
             "Portfolio budget totals remain separated by currency; no FX conversion is performed.",
             "Period rows must be deltas, not cumulative snapshots, unless normalized before import.",
