@@ -124,21 +124,28 @@ def simulate_schedule_risk(
             raise ValueError(f"{rid}: probability must be 0..1 and delays 0 <= min <= most_likely <= max")
         parsed_risks.append((aid, probability, low, mode, high))
 
-    rng = random.Random(seed)
+    # Independent streams preserve common random numbers: adding a risk event
+    # must not perturb the sampled baseline activity durations.
+    duration_rng = random.Random(seed)
+    risk_rng = random.Random(seed ^ 0x5F3759DF)
+    terminal_activities = [
+        aid for aid in order
+        if not any(aid in row["predecessors"] for row in records.values())
+    ]
     finishes = []
     for _ in range(iterations):
         sampled = {
-            aid: rng.triangular(low, high, mode)
+            aid: duration_rng.triangular(low, high, mode)
             for aid, (low, mode, high) in durations.items()
         }
         for aid, probability, low, mode, high in parsed_risks:
-            if rng.random() < probability:
-                sampled[aid] += rng.triangular(low, high, mode)
+            if risk_rng.random() < probability:
+                sampled[aid] += risk_rng.triangular(low, high, mode)
         earliest_finish = {}
         for aid in order:
             predecessor_finish = max((earliest_finish[p] for p in records[aid]["predecessors"]), default=0.0)
             earliest_finish[aid] = predecessor_finish + sampled[aid]
-        finishes.append(earliest_finish[order[-1]] if order else 0.0)
+        finishes.append(max((earliest_finish[aid] for aid in terminal_activities), default=0.0))
 
     p50, p80, p90 = (_percentile(finishes, p) for p in (.5, .8, .9))
     probability_target = {}
