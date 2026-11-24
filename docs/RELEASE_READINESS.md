@@ -51,3 +51,11 @@ The system is not production-ready until the final test phase passes, critical d
 - Daily running balance, monthly flow summary and projected negative-balance date flags.
 - This remains a user-supplied transaction forecast, not a bank-confirmed balance or an inferred payment prediction.
 - Add clean-environment UI smoke testing and source-data reconciliation to the final release test evidence.
+
+
+## EVM and cost control page addition
+
+- Standalone Streamlit page connects source-record EVM calculations to CPI, budget-rate and CPI×SPI EAC scenarios.
+- Missing/invalid source values remain unassessed; project currency is shown explicitly.
+- Verify period semantics (delta versus cumulative snapshot), reference cases, zero/negative edge cases and Streamlit UI behavior in final test phase.
+- Forecast scenarios are not approved budgets, cash-flow forecasts or commitments.
