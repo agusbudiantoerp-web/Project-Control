@@ -83,11 +83,20 @@ def build_risk_exposure_matrix(
 
     activity_ids = {str(row.get("activity_id", "")).strip() for row in activities if isinstance(row, dict)}
     wbs_ids = {str(row.get("wbs_id", "")).strip() for row in wbs if isinstance(row, dict)}
-    cpm = calculate_critical_path(activities) if activities else {"status": "NO_ACTIVITIES", "activities": []}
+    has_complete_durations = bool(activities) and all(
+        isinstance(row, dict) and row.get("duration_days") not in (None, "")
+        for row in activities
+    )
+    cpm = (
+        calculate_critical_path(activities)
+        if has_complete_durations
+        else {"status": "NO_ACTIVITIES" if not activities else "INSUFFICIENT_DATA", "activities": []}
+    )
+    critical_mapping_available = cpm.get("status") == "ASSESSED"
     critical_ids = {
         str(row["activity_id"]) for row in cpm.get("activities", [])
         if row.get("is_critical")
-    } if cpm.get("status") == "ASSESSED" else set()
+    } if critical_mapping_available else set()
 
     seen = set()
     ranked = []
@@ -131,7 +140,12 @@ def build_risk_exposure_matrix(
             "priority": priority,
             "activity_id": activity_id or None,
             "activity_link_status": "UNLINKED" if not activity_id else "MATCHED" if activity_known else "UNKNOWN_ACTIVITY",
-            "is_critical_activity": is_critical if activity_known else None,
+            "is_critical_activity": (
+                is_critical if critical_mapping_available
+                else False if not activities
+                else None
+            ),
+            "critical_mapping_status": cpm.get("status"),
             "wbs_id": wbs_id or None,
             "wbs_link_status": "UNLINKED" if not wbs_id else "MATCHED" if wbs_known else "UNKNOWN_WBS",
             "mitigation_recommendation": _recommendation(row, is_critical),
