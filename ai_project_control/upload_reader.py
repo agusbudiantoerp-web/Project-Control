@@ -19,14 +19,19 @@ MAX_COLUMNS = 200
 
 
 def _validate_headers(headers: list[str]) -> None:
-    """Reject oversized or ambiguous headers before reading data rows."""
+    """Normalize and reject blank, duplicate or excessive column headers."""
     if not headers or not any(str(header).strip() for header in headers):
         raise ValueError("No usable header row was found.")
     if len(headers) > MAX_COLUMNS:
         raise ValueError(f"File exceeds the {MAX_COLUMNS} column limit.")
-    duplicates = sorted({header for header in headers if header and headers.count(header) > 1})
+    normalized = [str(header).strip() for header in headers]
+    if any(not header for header in normalized):
+        raise ValueError("Blank column headers are not allowed.")
+    folded = [header.casefold() for header in normalized]
+    duplicates = sorted({header for header in folded if folded.count(header) > 1})
     if duplicates:
         raise ValueError("Duplicate column headers: " + ", ".join(duplicates))
+    headers[:] = normalized
 
 
 def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) -> dict[str, Any]:
@@ -56,11 +61,14 @@ def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) ->
         reader = csv.DictReader(io.StringIO(text), dialect=dialect)
         headers = list(reader.fieldnames or [])
         _validate_headers(headers)
+        reader.fieldnames = headers
         rows = []
         for index, row in enumerate(reader):
             if index >= MAX_ROWS:
                 raise ValueError(f"CSV exceeds the {MAX_ROWS} data-row limit.")
-            rows.append({str(k): v for k, v in row.items() if k is not None})
+            if None in row:
+                raise ValueError(f"CSV row {index + 2} contains more values than the header.")
+            rows.append({str(k): v for k, v in row.items()})
         selected_sheet = None
     else:
         try:
