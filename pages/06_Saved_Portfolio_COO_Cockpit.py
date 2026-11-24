@@ -60,6 +60,25 @@ if submitted:
                     if schedule.get("activities"):
                         st.dataframe(schedule["activities"], use_container_width=True, hide_index=True)
                     st.caption("Cost forecasts are deterministic EVM scenarios; schedule forecasts use explicit activity dates. They are not a probabilistic joint forecast or an approved baseline.")
+        st.subheader("Portfolio financial position by currency")
+        finance = result["portfolio_cashflow"]
+        fcols = st.columns(3)
+        fcols[0].metric("Projects assessed", finance["project_count_assessed"])
+        fcols[1].metric("Projects with data gaps", finance["project_count_unassessed"])
+        fcols[2].metric("Projects above budget", finance["projects_over_budget"])
+        if finance["projects"]:
+            st.dataframe(finance["projects"], use_container_width=True, hide_index=True)
+        if finance["totals_by_currency"]:
+            st.dataframe(
+                [{"Currency": currency, **totals}
+                 for currency, totals in finance["totals_by_currency"].items()],
+                use_container_width=True, hide_index=True,
+            )
+        if finance["unassessed_projects"]:
+            st.warning("Some project financial positions cannot be assessed from saved records.")
+            st.dataframe(finance["unassessed_projects"], use_container_width=True, hide_index=True)
+        st.caption("Actual cost is summed from saved actual-cost records; projects without actual-cost evidence remain unassessed. Currency totals are never combined or converted.")
+
         st.subheader("Project resource loading and capacity")
         for item in result["resource_loading"]:
             with st.expander(f"Resource loading — {item['project_name']} ({item['project_id']})"):
