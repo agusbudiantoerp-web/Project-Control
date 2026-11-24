@@ -150,3 +150,11 @@ The system is not production-ready until the final test phase passes, critical d
 - COO cockpit displays resource/period utilization, overload counts and unassessed counts.
 - Added integration tests for overload and missing capacity; execution remains pending.
 - Per-project resource loading does not substitute for a fully levelled cross-project schedule or resource-constrained critical path.
+
+
+## Portfolio financial position
+
+- Saved portfolio service now aggregates supplied project BAC (or BOQ amount fallback) and actual-cost records into currency-separated financial position.
+- COO cockpit shows assessed/unassessed projects, projects above budget, and per-currency totals.
+- Projects without actual-cost evidence remain unassessed; this view is explicitly not a dated cash forecast.
+- Added integration tests for currency separation and missing actual-cost evidence; execution remains pending.
