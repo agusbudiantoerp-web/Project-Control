@@ -70,11 +70,19 @@ def send_telegram_message(
     try:
         with urlopen(request, timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, OSError) as exc:
-        raise RuntimeError("Telegram delivery failed; check network and bot configuration.") from exc
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Telegram returned an unreadable response.") from exc
+    except (HTTPError, URLError, TimeoutError, OSError):
+        # The underlying exception can contain the request URL, including token.
+        raise RuntimeError("Telegram delivery failed; check network and bot configuration.") from None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise RuntimeError("Telegram returned an unreadable response.") from None
+
+    if not isinstance(data, dict):
+        raise RuntimeError("Telegram returned an unexpected response format.")
     if not data.get("ok"):
         description = str(data.get("description", "Telegram rejected the message"))
+        if token in description:
+            description = description.replace(token, "[redacted]")
         raise RuntimeError(f"Telegram delivery rejected: {description}")
-    return {"status": "SENT", "message_id": data.get("result", {}).get("message_id")}
+    result = data.get("result")
+    message_id = result.get("message_id") if isinstance(result, dict) else None
+    return {"status": "SENT", "message_id": message_id}
