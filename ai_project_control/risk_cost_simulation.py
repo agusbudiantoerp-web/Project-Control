@@ -9,6 +9,8 @@ from typing import Any
 
 def _number(row: dict[str, Any], field: str, risk_id: str) -> float:
     raw = row.get(field)
+    if isinstance(raw, bool):
+        raise ValueError(f"{risk_id}: {field} must be numeric, not boolean")
     try:
         value = float(raw)
     except (TypeError, ValueError):
@@ -43,6 +45,8 @@ def build_risk_cost_simulation(
     """
     if not isinstance(risks, list) or any(not isinstance(row, dict) for row in risks):
         raise TypeError("risks must be a list of records")
+    if isinstance(base_cost, bool):
+        raise ValueError("base_cost must be numeric, not boolean")
     try:
         base = float(base_cost)
     except (TypeError, ValueError):
@@ -53,7 +57,7 @@ def build_risk_cost_simulation(
     if not currency:
         return {"status": "INSUFFICIENT_DATA", "reason": "Project currency is required",
                 "risk_count": len(risks), "scenarios": []}
-    if not isinstance(iterations, int) or iterations < 1000 or iterations > 200000:
+    if not isinstance(iterations, int) or isinstance(iterations, bool) or iterations < 1000 or iterations > 200000:
         raise ValueError("iterations must be an integer from 1000 to 200000")
     if not risks:
         return {"status": "NO_RISKS", "currency": currency, "risk_count": 0,
