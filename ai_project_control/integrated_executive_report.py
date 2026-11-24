@@ -119,6 +119,6 @@ def build_integrated_executive_report(
         "Financial values in different currencies must not be summed without an approved conversion basis.",
     ]
     if not projects:
-        limitations.append("No portfolio projects were supplied for this report.")
+        limitations.append("No project records supplied: no portfolio projects were supplied for this report.")
     lines.extend("- " + item for item in limitations)
     return "\n".join(lines) + "\n"
