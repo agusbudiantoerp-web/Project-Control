@@ -76,13 +76,15 @@ def evaluate_recovery_effectiveness(
     else:
         cost_status, cost_variance = "UNASSESSED", None
 
-    if improved and not worsened:
+    if not comparisons:
+        outcome = "INSUFFICIENT_DATA"
+    elif improved and not worsened:
         outcome = "POSITIVE_INDICATORS"
     elif worsened and not improved:
         outcome = "NEGATIVE_INDICATORS"
     elif improved and worsened:
         outcome = "MIXED_INDICATORS"
-    elif unassessed == len(_METRICS):
+    elif unassessed == len(comparisons):
         outcome = "INSUFFICIENT_DATA"
     else:
         outcome = "NO_MEASURED_CHANGE"
