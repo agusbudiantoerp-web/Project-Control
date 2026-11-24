@@ -18,6 +18,7 @@ from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 from .coo_portfolio_decision_brief import build_coo_portfolio_decision_brief
+from .portfolio_cashflow_workspace import build_stored_portfolio_cashflow_view
 from .portfolio_monitoring import PortfolioMonitoringStore
 from .project_recovery_intelligence import build_project_recovery_intelligence
 from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
@@ -171,6 +172,30 @@ def render_project_workspace_dashboard(
                 st.caption("• " + note)
     except (TypeError, ValueError, KeyError) as coo_error:
         st.warning("COO executive brief unavailable: " + str(coo_error))
+
+    st.subheader("Portfolio Cost & Cashflow Intelligence")
+    try:
+        cashflow_view = build_stored_portfolio_cashflow_view(database_path)
+        cf1, cf2, cf3 = st.columns(3)
+        cf1.metric("Projects with cost data", cashflow_view["project_count_assessed"])
+        cf2.metric("Projects over supplied budget", cashflow_view["projects_over_budget"])
+        cf3.metric("Projects with unassessed finance", cashflow_view["project_count_unassessed"])
+        if cashflow_view["totals_by_currency"]:
+            st.markdown("**Portfolio cost totals by currency**")
+            st.dataframe([
+                {"Currency": currency, **values}
+                for currency, values in cashflow_view["totals_by_currency"].items()
+            ], use_container_width=True, hide_index=True)
+        if cashflow_view["projects"]:
+            st.dataframe(cashflow_view["projects"], use_container_width=True, hide_index=True)
+        if cashflow_view["unassessed_projects"]:
+            with st.expander("Projects with incomplete financial data"):
+                st.dataframe(cashflow_view["unassessed_projects"], use_container_width=True, hide_index=True)
+        with st.expander("Cashflow methodology and limitations"):
+            for limitation in cashflow_view["limitations"]:
+                st.caption("• " + limitation)
+    except (TypeError, ValueError, OSError, KeyError) as cashflow_error:
+        st.warning("Portfolio cost/cashflow intelligence unavailable: " + str(cashflow_error))
 
     st.subheader("Project Recovery Intelligence")
     try:
