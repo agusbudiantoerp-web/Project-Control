@@ -1,4 +1,5 @@
 import json
+from urllib.error import URLError
 from unittest.mock import patch
 
 import pytest
@@ -71,3 +72,46 @@ def test_telegram_api_rejection_is_reported_without_credentials():
     with patch("ai_project_control.telegram_notifications.urlopen", return_value=FakeResponse()):
         with pytest.raises(RuntimeError, match="chat not found"):
             send_telegram_message("hello", bot_token="secret", chat_id="123")
+
+
+def test_network_failure_does_not_expose_token_or_chained_url():
+    token = "123456:TOP_SECRET_TOKEN"
+    with patch(
+        "ai_project_control.telegram_notifications.urlopen",
+        side_effect=URLError(f"https://api.telegram.org/bot{token}/sendMessage"),
+    ):
+        with pytest.raises(RuntimeError) as captured:
+            send_telegram_message("hello", bot_token=token, chat_id="123")
+    assert token not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+def test_api_error_description_redacts_token():
+    token = "123456:TOP_SECRET_TOKEN"
+
+    class FakeResponse:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self):
+            return json.dumps({
+                "ok": False,
+                "description": f"request failed for /bot{token}/sendMessage",
+            }).encode()
+
+    with patch("ai_project_control.telegram_notifications.urlopen", return_value=FakeResponse()):
+        with pytest.raises(RuntimeError) as captured:
+            send_telegram_message("hello", bot_token=token, chat_id="123")
+    assert token not in str(captured.value)
+
+
+def test_unexpected_success_payload_is_handled_safely():
+    class FakeResponse:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b'{"ok": true, "result": []}'
+
+    with patch("ai_project_control.telegram_notifications.urlopen", return_value=FakeResponse()):
+        assert send_telegram_message("hello", bot_token="secret", chat_id="123") == {
+            "status": "SENT", "message_id": None,
+        }
