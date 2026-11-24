@@ -32,3 +32,48 @@ def test_executive_summary_does_not_invent_missing_metrics():
     assert "CPI" in report and "unavailable" in report
     assert "Risk schedule exposure P80" not in report
     assert "Risk cost exposure P80" not in report
+
+
+def test_indonesian_report_uses_indonesian_labels_without_english_duplicates():
+    report = build_executive_summary(
+        "P-3", "Jalan", "2026-11-24",
+        {
+            "SPI": 0.95,
+            "CPI": 0.90,
+            "Risk cost P80": 125_000,
+            "Risk schedule days P80": 18,
+            "Overloaded resource days": 3,
+        },
+        language="id",
+    )
+    assert "- Kinerja jadwal: SPI 0.950" in report
+    assert "- Kinerja biaya: CPI 0.900" in report
+    assert "- Eksposur biaya risiko P80: 125,000.00." in report
+    assert "- Eksposur keterlambatan risiko P80: 18.0 hari." in report
+    assert "- Hari-resource mengalami overload: 3." in report
+    assert "Schedule performance (English label)" not in report
+    assert "Risk cost exposure P80" not in report
+    assert "Risk schedule exposure P80" not in report
+    assert "Overloaded resource days:" not in report
+
+
+def test_english_report_uses_english_labels_without_indonesian_duplicates():
+    report = build_executive_summary(
+        "P-4", "Bridge", "2026-11-24",
+        {
+            "SPI": 0.95,
+            "CPI": 0.90,
+            "Risk cost P80": 125_000,
+            "Risk schedule days P80": 18,
+            "Overloaded resource days": 3,
+        },
+        language="en",
+    )
+    assert "Schedule performance: SPI 0.950" in report
+    assert "Cost performance: CPI 0.900" in report
+    assert "Risk cost exposure P80: 125,000.00." in report
+    assert "Risk schedule exposure P80: 18.0 days." in report
+    assert "Overloaded resource days: 3." in report
+    assert "Eksposur biaya risiko P80" not in report
+    assert "Eksposur keterlambatan risiko P80" not in report
+    assert "Hari-resource mengalami overload" not in report
