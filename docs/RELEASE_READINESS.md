@@ -89,3 +89,11 @@ The system is not production-ready until the final test phase passes, critical d
 - Saved project financial-control page now offers PDF, XLSX and JSON downloads from the same calculated result.
 - Verify PDF rendering, workbook readability, special characters, large reports and output consistency during the final test phase.
 - Exports are unsigned decision-support documents; approval/signature workflow is not implemented by this export feature.
+
+
+## Saved portfolio COO cockpit
+
+- Added project discovery from the local SQLite workspace and a read-only portfolio calculation service.
+- Added per-project EVM status, RED/AMBER/INSUFFICIENT_DATA scorecard, currency-separated BAC summary, project details and bilingual report exports.
+- Added tests to focused CI; execution and UI behavior remain unverified until final testing.
+- Cockpit is limited to one local SQLite workspace; shared multi-user persistence, authentication, authorization, audit identity and server backup remain deployment blockers.
