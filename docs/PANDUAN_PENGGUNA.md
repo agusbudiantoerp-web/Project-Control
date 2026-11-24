@@ -172,3 +172,8 @@ Untuk mengimpor histori snapshot, gunakan dataset `portfolio_snapshots`. Pemetaa
 ## P. Konflik Resource Lintas Proyek
 
 COO Cockpit memeriksa resource yang dipakai bersama oleh beberapa proyek. Impor dataset `resources` dengan `project_id`, `resource_id`, `period`, `unit`, `planned_units`, dan `capacity_units`. Sistem hanya menyatakan overload bila resource ID, periode, satuan, dan kapasitas sama persis pada sedikitnya dua proyek. Pastikan ID yang sama memang menunjuk ke armada/peralatan/tenaga kerja yang sama. Jika kapasitas berbeda atau data wajib hilang, hasilnya tidak dinilai dan bukan dianggap aman. Jangan menjumlahkan resource yang satuannya berbeda.
+
+
+## Q. Schedule & Cost Outlook pada COO Cockpit
+
+Isi tanggal `Governance as-of date` dengan `YYYY-MM-DD` saat memuat portofolio. Untuk setiap aktivitas, impor `baseline_finish_date` dan `forecast_finish_date`; `planned_progress_pct` dan `actual_progress_pct` dapat melengkapi penilaian. Sistem menampilkan selisih tanggal finish dan aktivitas terlambat, serta tiga skenario EAC dari EVM (CPI, budget rate, CPI×SPI). Jika tanggal as-of tidak diberikan, outlook diberi status NOT_RUN. Jika tanggal aktivitas atau data EVM tidak lengkap, hasil tetap parsial/tidak dinilai. Skenario EAC bukan anggaran yang disetujui, bukan simulasi Monte Carlo, dan tidak memasukkan kalender kerja kecuali telah tercermin pada tanggal forecast.
