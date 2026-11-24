@@ -182,9 +182,11 @@ def build_saved_portfolio_report(
     portfolio_cashflow = build_portfolio_cashflow_view(project_finance_records)
     portfolio_resource_intelligence = build_stored_portfolio_risk_resource_view(database_path)
     decision_matrix = build_decision_matrix(decision_records)
-    decision_rows = []
-    for source, scored in zip(decision_records, decision_matrix["decisions"]):
-        decision_rows.append({**source, **scored})
+    decision_source_by_id = {row["project_id"]: row for row in decision_records}
+    decision_rows = [
+        {**decision_source_by_id.get(scored["project_id"], {}), **scored}
+        for scored in decision_matrix["decisions"]
+    ]
     decision_matrix["decisions"] = decision_rows
     decision_portfolio = {"project_count": len(decision_rows), "projects": decision_rows}
     coo_decision_brief = build_coo_portfolio_decision_brief(
