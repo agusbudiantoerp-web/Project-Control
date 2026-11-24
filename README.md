@@ -102,3 +102,6 @@ See [`docs/PANDUAN_INSTALASI_WINDOWS.md`](docs/PANDUAN_INSTALASI_WINDOWS.md) for
 ## Saved Project Financial Control
 
 Open **Saved Project Financial Control** after importing a project into the local Project Workspace. Enter its Project ID to calculate EVM and EAC scenarios from persisted progress and actual-cost records. The page is read-only and project-scoped. Explicit row currency mismatches are rejected; missing currency fields remain an assumption to review. See the user guide for period semantics and limitations.
+
+
+The saved financial-control page can export the calculated project brief as PDF, Excel and JSON. The PDF/Excel outputs are generated from the same displayed report content; they are not signed or approved records.
