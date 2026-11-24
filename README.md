@@ -12,7 +12,7 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 - Risk exposure matrix, WBS/activity traceability, persistent mitigation execution tracker, append-only mitigation change history and cross-register governance view
 - Recovery scenario comparison and resource-based recovery estimates
 - Executive action register with optional risk-ID links, audit events and escalation review
-- Portfolio command center, snapshot monitoring, portfolio-wide risk aggregation by currency, cross-project shared-resource capacity checks, COO executive decision brief and executive reporting
+- Portfolio command center, snapshot monitoring, portfolio-wide risk aggregation by currency, cross-project shared-resource capacity checks, currency-safe portfolio cost/cashflow analysis, COO executive decision brief and executive reporting
 - Historical KPI snapshot store, next-snapshot dataset export, chronological Random Forest baseline evaluation and trend-based early warning
 - Telegram executive reporting integration (requires explicit bot configuration)
 
