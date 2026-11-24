@@ -74,4 +74,5 @@ jobs:
             tests/test_portfolio_risk_resource_intelligence.py \
             tests/test_portfolio_workspace_intelligence.py \
             tests/test_coo_portfolio_decision_brief.py \
-            tests/test_portfolio_cashflow_intelligence.py
+            tests/test_portfolio_cashflow_intelligence.py \\
+            tests/test_dated_cashflow_forecast.py
