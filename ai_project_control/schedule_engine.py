@@ -11,6 +11,8 @@ from typing import Any
 
 
 def _duration(value: Any, activity_id: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"Activity {activity_id}: duration_days must be numeric, not boolean")
     try:
         duration = float(value)
     except (TypeError, ValueError):
@@ -103,6 +105,8 @@ def calculate_critical_path(activities: list[dict[str, Any]]) -> dict[str, Any]:
         node = nodes[activity_id]
         es[activity_id] = max((ef[pred] for pred in node["predecessors"]), default=0.0)
         ef[activity_id] = es[activity_id] + node["duration"]
+        if not math.isfinite(ef[activity_id]):
+            raise ValueError("Schedule duration overflowed the supported numeric range")
 
     project_duration = max(ef.values())
     lf: dict[str, float] = {}
