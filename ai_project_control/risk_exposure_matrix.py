@@ -8,6 +8,8 @@ from .schedule_engine import calculate_critical_path
 
 
 def _finite(value: Any, field: str, risk_id: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{risk_id}: {field} must be numeric, not boolean")
     try:
         number = float(value)
     except (TypeError, ValueError):
@@ -76,6 +78,8 @@ def build_risk_exposure_matrix(
     wbs = wbs or []
     if not isinstance(activities, list) or not isinstance(wbs, list):
         raise TypeError("activities and wbs must be lists")
+    if isinstance(impact_medium_threshold, bool) or isinstance(impact_high_threshold, bool):
+        raise ValueError("impact thresholds must be numeric, not boolean")
     medium = float(impact_medium_threshold)
     high = float(impact_high_threshold)
     if not math.isfinite(medium) or not math.isfinite(high) or medium < 0 or high <= medium:
@@ -125,6 +129,8 @@ def build_risk_exposure_matrix(
         p_band = _probability_band(probability)
         i_band = _impact_band(impact, medium, high)
         expected_exposure = probability * impact
+        if not math.isfinite(expected_exposure):
+            raise ValueError(f"{rid}: expected exposure exceeds the supported numeric range")
         priority = _priority(p_band, i_band)
         ranked.append({
             "risk_id": rid,
