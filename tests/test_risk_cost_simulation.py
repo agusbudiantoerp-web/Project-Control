@@ -77,3 +77,12 @@ def test_triangular_expected_impact_uses_distribution_mean_for_ranking():
     assert ranked["WIDE"] == pytest.approx(110 / 3, abs=0.01)
     assert ranked["NARROW"] == 30
     assert result["risk_register"][0]["risk_id"] == "WIDE"
+
+
+def test_risk_cost_simulation_rejects_boolean_probability_and_base_cost():
+    data = risks()
+    data[0]["probability"] = True
+    with pytest.raises(ValueError, match="not boolean"):
+        build_risk_cost_simulation(data, 1000, "IDR", iterations=1000)
+    with pytest.raises(ValueError, match="not boolean"):
+        build_risk_cost_simulation(risks(), True, "IDR", iterations=1000)
