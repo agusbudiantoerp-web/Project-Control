@@ -99,7 +99,7 @@ def build_risk_cost_simulation(
             "cost_impact_max": high,
             # Triangular expected value is (min + mode + max) / 3.
             # Use that value for prioritization, not the mode alone.
-            "expected_cost_impact": probability * ((low + mode + high) / 3)
+            "expected_cost_impact": probability * (low / 3 + mode / 3 + high / 3)
             * (1 if risk_type == "THREAT" else -1),
         })
 
@@ -116,6 +116,8 @@ def build_risk_cost_simulation(
                     risk["cost_impact_most_likely"],
                 )
                 total += impact if risk["risk_type"] == "THREAT" else -impact
+                if not math.isfinite(total):
+                    raise ValueError("Simulated project cost exceeds the supported numeric range")
         totals.append(max(0.0, total))
 
     p50 = _percentile(totals, 0.50)
