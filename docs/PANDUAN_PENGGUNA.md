@@ -177,3 +177,8 @@ COO Cockpit memeriksa resource yang dipakai bersama oleh beberapa proyek. Impor 
 ## Q. Schedule & Cost Outlook pada COO Cockpit
 
 Isi tanggal `Governance as-of date` dengan `YYYY-MM-DD` saat memuat portofolio. Untuk setiap aktivitas, impor `baseline_finish_date` dan `forecast_finish_date`; `planned_progress_pct` dan `actual_progress_pct` dapat melengkapi penilaian. Sistem menampilkan selisih tanggal finish dan aktivitas terlambat, serta tiga skenario EAC dari EVM (CPI, budget rate, CPI×SPI). Jika tanggal as-of tidak diberikan, outlook diberi status NOT_RUN. Jika tanggal aktivitas atau data EVM tidak lengkap, hasil tetap parsial/tidak dinilai. Skenario EAC bukan anggaran yang disetujui, bukan simulasi Monte Carlo, dan tidak memasukkan kalender kerja kecuali telah tercermin pada tanggal forecast.
+
+
+## R. Resource Loading dan Capacity Alert
+
+COO Cockpit menampilkan ringkasan utilisasi resource per proyek, resource ID, dan periode. Impor dataset `resources` dengan `resource_id`, `period`, `planned_units`, `capacity_units`, serta `unit`. Jika tersedia, `actual_units` juga ditampilkan. Status OVERLOADED muncul bila planned units melampaui kapasitas yang dinyatakan. Jika demand atau kapasitas tidak tersedia, hasil UNASSESSED—bukan dianggap nol atau aman. Baris dengan resource berbeda, satuan berbeda, atau periode berbeda tidak digabungkan dalam ringkasan per proyek.
