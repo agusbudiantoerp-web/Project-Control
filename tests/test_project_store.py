@@ -117,6 +117,16 @@ def test_rejects_database_with_newer_schema_version(tmp_path):
     with pytest.raises(RuntimeError, match="newer than this application"):
         ProjectStore(database)
 
+    check = sqlite3.connect(database)
+    tables = {
+        row[0] for row in check.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    check.close()
+    assert "project_records" not in tables
+    assert "import_events" not in tables
+
 
 def test_in_memory_store_can_release_keeper_connection():
     import sqlite3
