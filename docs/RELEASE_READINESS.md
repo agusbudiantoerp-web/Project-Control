@@ -296,3 +296,15 @@ Compared the following files on `main` and `ai-project-control-integration`:
 - Combined status lookup for this SHA returned an empty list. No CI success is claimed.
 - Current branch comparison: integration is 746 commits ahead and 13 behind `main`, status `diverged`.
 - Release remains NOT READY pending CI on a single candidate SHA, full branch reconciliation, and Windows/runtime acceptance.
+
+
+## Additional implementation hardening — 2026-11-25
+
+- Upload reader now validates trimmed, case-insensitive unique headers and rejects malformed CSV rows with surplus values before data is accepted.
+- ProjectStore now closes operation connections, supports explicit in-memory database cleanup, and refuses databases with a newer schema version.
+- EVM, CPM, schedule-risk, risk-cost, risk-exposure and resource-loading inputs reject booleans where numeric values are required; invalid or overflowing aggregates are not published as valid metrics.
+- Dashboard metric formatting now renders non-finite values as unavailable rather than displaying "nan".
+- Portfolio cash-flow aggregation no longer converts missing BOQ/actual-cost values to zero and rejects explicit row currencies that conflict with Project Master.
+- Added regression tests for these cases and included the new test files in the focused workflow manifest.
+- Added one root Windows launcher for the documented root Streamlit application; the historical nested launcher delegates to it.
+- These are implementation and test-coverage additions only. They have not yet been executed as a final test run on one commit SHA.
