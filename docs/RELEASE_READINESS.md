@@ -9,6 +9,7 @@
 - Monte Carlo schedule/cost risk engines, combined marginal executive outlook and risk exposure matrix
 - Recovery scenario planning, resource recovery estimate and executive decision brief
 - Executive action register, audit events and escalation
+- Persistent risk mitigation tracker with residual exposure, owner/due date, evidence gate and append-only change history
 - Executive reporting and Telegram reporting integration modules
 - Historical KPI snapshot storage and next-snapshot CSV dataset builder
 - Chronological Random Forest KPI baseline training/evaluation with persistence benchmark
