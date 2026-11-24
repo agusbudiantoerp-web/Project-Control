@@ -59,3 +59,18 @@ def test_invalid_distribution_rejected():
             "duration_most_likely_days": 3, "duration_max_days": 8}]
     with pytest.raises(ValueError, match="durations"):
         simulate_schedule_risk(bad, [], "2026-11-01", iterations=1000)
+
+
+def test_schedule_risk_rejects_boolean_numeric_inputs():
+    bad = [{**activities()[0], "duration_min_days": True}]
+    with pytest.raises(ValueError, match="not boolean"):
+        simulate_schedule_risk(bad, [], "2026-11-01", iterations=1000)
+
+
+def test_schedule_risk_normalizes_datetime_project_start():
+    from datetime import datetime
+
+    result = simulate_schedule_risk(
+        activities(), [], datetime(2026, 11, 1, 12, 30), iterations=1000
+    )
+    assert result["start_date"] == "2026-11-01"
