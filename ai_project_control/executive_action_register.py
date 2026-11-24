@@ -42,7 +42,7 @@ def _date(value: Any) -> str:
 def create_action(
     *, title: str, owner: str, due_date: Any, project_id: str,
     priority: str = "P2", description: str = "", created_by: str,
-    action_id: str | None = None,
+    action_id: str | None = None, risk_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a validated action; created_by is attribution, not authentication."""
     priority = str(priority).strip().upper()
@@ -55,6 +55,7 @@ def create_action(
         "owner": _required_text(owner, "owner"),
         "due_date": _date(due_date),
         "project_id": _required_text(project_id, "project_id"),
+        "risk_id": str(risk_id or "").strip() or None,
         "priority": priority,
         "description": str(description or "").strip(),
         "status": "OPEN",
