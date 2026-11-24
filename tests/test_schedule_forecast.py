@@ -52,3 +52,22 @@ def test_rejects_invalid_date_and_duplicate_ids():
         assess_schedule_delays([{"activity_id": "A", "forecast_finish_date": "not-a-date"}], as_of_date="2026-11-01")
     with pytest.raises(ValueError, match="Duplicate"):
         assess_schedule_delays([{"activity_id": "A"}, {"activity_id": "A"}], as_of_date="2026-11-01")
+
+
+@pytest.mark.parametrize("pct", [float("nan"), float("inf"), True, False])
+def test_rejects_non_finite_and_boolean_progress(pct):
+    with pytest.raises(ValueError):
+        assess_schedule_delays(
+            [{"activity_id": "A", "actual_progress_pct": pct}],
+            as_of_date="2026-11-01",
+        )
+
+
+def test_datetime_as_of_date_is_normalized_to_calendar_date():
+    from datetime import datetime
+
+    result = assess_schedule_delays(
+        [{"activity_id": "A"}],
+        as_of_date=datetime(2026, 11, 1, 12, 30),
+    )
+    assert result["as_of_date"] == "2026-11-01"
