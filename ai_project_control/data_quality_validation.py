@@ -23,6 +23,7 @@ TABLE_KEYS = {
 }
 PROJECT_LINKED = tuple(name for name in TABLE_KEYS if name != "project_master")
 NUMERIC_FIELDS = {
+    "project_master": ("BAC", "bac", "budget_at_completion"),
     "boq": ("quantity", "unit_rate", "amount"),
     "activities": ("duration_days", "planned_duration_days", "actual_duration_days"),
     "progress": ("planned_value", "earned_value", "physical_progress_pct"),
@@ -94,7 +95,7 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                 if raw in (None, ""):
                     continue
                 try:
-                    number = float(raw)
+                    number = math.nan if isinstance(raw, bool) else float(raw)
                 except (TypeError, ValueError):
                     number = math.nan
                 if not math.isfinite(number):
@@ -117,9 +118,12 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                     issues.append({"severity": "ERROR", "code": "PERCENT_OUT_OF_RANGE",
                                    "table": table, "record": str(index), "field": field,
                                    "message": "physical_progress_pct must be between 0 and 100"})
-                elif field in {"quantity", "unit_rate", "amount", "duration_days",
-                               "planned_duration_days", "actual_duration_days",
-                               "planned_units", "actual_units", "capacity_units", "impact", "exposure", "cost_impact_min", "cost_impact_most_likely", "cost_impact_max"} and number < 0:
+                elif field in {"BAC", "bac", "budget_at_completion", "quantity", "unit_rate", "amount",
+                               "planned_value", "earned_value", "actual_cost",
+                               "duration_days", "planned_duration_days", "actual_duration_days",
+                               "planned_units", "actual_units", "capacity_units", "impact",
+                               "exposure", "cost_impact_min", "cost_impact_most_likely",
+                               "cost_impact_max"} and number < 0:
                     issues.append({"severity": "ERROR", "code": "NEGATIVE_VALUE",
                                    "table": table, "record": str(index), "field": field,
                                    "message": f"{field} cannot be negative"})
