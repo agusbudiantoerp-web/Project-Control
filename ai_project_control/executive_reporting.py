@@ -42,6 +42,7 @@ def build_executive_summary(
     p80_finish = metrics.get("Risk-adjusted finish P80")
     critical = _number(metrics.get("Critical activities (integrated)", metrics.get("Critical activities")))
     risk_cost = _number(metrics.get("Risk cost P80", metrics.get("Risk-adjusted cost P80")))
+    risk_days = _number(metrics.get("Risk schedule days P80"))
     overload = _number(metrics.get("Overloaded resource days"))
 
     if en:
@@ -73,6 +74,8 @@ def build_executive_summary(
         lines.append((f"- Critical activities: {int(critical)}." if en else f"- Jumlah aktivitas kritis: {int(critical)}."))
     if risk_cost is not None:
         lines.append((f"- Risk cost exposure P80: {risk_cost:,.2f}." if en else f"- Eksposur biaya risiko P80: {risk_cost:,.2f}."))
+    if risk_days is not None:
+        lines.append((f"- Risk schedule exposure P80: {risk_days:,.1f} days." if en else f"- Eksposur keterlambatan risiko P80: {risk_days:,.1f} hari."))
     if overload is not None:
         lines.append((f"- Overloaded resource days: {int(overload)}." if en else f"- Hari-resource mengalami overload: {int(overload)}."))
 
@@ -84,7 +87,7 @@ def build_executive_summary(
         attention.append("Reconcile actual cost, commitments, quantities and approved changes." if en else "Rekonsiliasi biaya aktual, komitmen, kuantitas, dan perubahan yang telah disetujui.")
     if overload is not None and overload > 0:
         attention.append("Resolve resource overloads through a validated work-front and capacity plan." if en else "Atasi overload resource melalui rencana work-front dan kapasitas yang tervalidasi.")
-    if risk_cost is not None and risk_cost > 0:
+    if (risk_cost is not None and risk_cost > 0) or (risk_days is not None and risk_days > 0):
         attention.append("Review high-exposure risks, accountable owners and response due dates." if en else "Tinjau risiko dengan eksposur tinggi, pemilik risiko, dan tenggat respons.")
     if not attention:
         attention.append("No adverse signal can be confirmed from the available calculated metrics; continue routine controls and verify data completeness." if en else "Belum ada sinyal negatif yang dapat dipastikan dari metrik yang tersedia; lanjutkan pengendalian rutin dan verifikasi kelengkapan data.")
