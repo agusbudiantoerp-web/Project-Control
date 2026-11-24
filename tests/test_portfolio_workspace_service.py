@@ -257,3 +257,16 @@ def test_saved_portfolio_coo_decision_does_not_reuse_previous_project_evm(tmp_pa
     assert decisions["P2"]["SPI"] is None
     assert decisions["P2"]["CPI"] is None
     assert decisions["P2"]["priority"] == "UNASSESSED"
+
+
+def test_saved_portfolio_decision_rows_keep_project_evidence_after_priority_sort(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Lower Priority Project", 500, 490, 490)
+    add_project(store, "P2", "Higher Priority Project", 500, 250, 700)
+    result = build_saved_portfolio_report(db)
+    decisions = result["decision_matrix"]["decisions"]
+    assert decisions[0]["project_id"] == "P2"
+    assert decisions[0]["SPI"] == 0.5
+    assert decisions[1]["project_id"] == "P1"
+    assert decisions[1]["SPI"] == 0.98
