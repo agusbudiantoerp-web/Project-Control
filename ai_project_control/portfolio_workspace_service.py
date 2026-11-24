@@ -16,6 +16,7 @@ from ai_project_control.risk_mitigation_store import RiskMitigationStore
 from ai_project_control.portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 from ai_project_control.schedule_cost_outlook import build_schedule_cost_outlook
 from ai_project_control.resource_loading_summary import build_resource_loading_summary
+from ai_project_control.portfolio_cashflow_intelligence import build_portfolio_cashflow_view
 
 
 def build_saved_portfolio_report(
@@ -36,6 +37,7 @@ def build_saved_portfolio_report(
     health_snapshots: list[dict[str, Any]] = []
     schedule_cost_outlooks: list[dict[str, Any]] = []
     resource_loading_results: list[dict[str, Any]] = []
+    project_finance_records: list[dict[str, Any]] = []
     for project_id in store.list_project_ids():
         workspace = store.load_project_workspace(project_id)
         if not workspace["project_master"]:
@@ -103,6 +105,24 @@ def build_saved_portfolio_report(
             })
 
         health_snapshots.extend(workspace["portfolio_snapshots"])
+        try:
+            actual_cost_total = (
+                sum(float(row["actual_cost"]) for row in workspace["actual_cost"])
+                if workspace["actual_cost"] else None
+            )
+        except (TypeError, ValueError, KeyError):
+            actual_cost_total = None
+        budget_value = project.get("BAC")
+        if budget_value in (None, "") and workspace["boq"]:
+            try:
+                budget_value = sum(float(row["amount"]) for row in workspace["boq"] if row.get("amount") not in (None, ""))
+            except (TypeError, ValueError, KeyError):
+                budget_value = None
+        project_finance_records.append({
+            "project_id": project_id, "project_name": name,
+            "currency": currency, "budget": budget_value,
+            "actual_cost": actual_cost_total,
+        })
         resource_loading = build_resource_loading_summary(workspace["resources"])
         resource_loading_results.append({
             "project_id": project_id, "project_name": name,
@@ -129,6 +149,7 @@ def build_saved_portfolio_report(
 
     scorecard = build_portfolio_scorecard(records)
     health_monitoring = build_health_monitoring(health_snapshots)
+    portfolio_cashflow = build_portfolio_cashflow_view(project_finance_records)
     portfolio_resource_intelligence = build_stored_portfolio_risk_resource_view(database_path)
     report = build_portfolio_executive_report(records, as_of_period or "Latest saved data", language)
     governance_summary = {
@@ -157,6 +178,12 @@ def build_saved_portfolio_report(
     report += f"- Projects with resource overload: {sum(item['overloaded_count'] > 0 for item in resource_loading_results)}\n"
     report += f"- Resource periods overloaded: {sum(item['overloaded_count'] for item in resource_loading_results)}\n"
     report += f"- Resource periods unassessed: {sum(item['unassessed_count'] for item in resource_loading_results)}\n"
+    report += "\n## Portfolio financial position (currency-separated)\n"
+    report += f"- Projects with assessed finance: {portfolio_cashflow['project_count_assessed']}\n"
+    report += f"- Projects with incomplete finance data: {portfolio_cashflow['project_count_unassessed']}\n"
+    report += f"- Projects above supplied budget: {portfolio_cashflow['projects_over_budget']}\n"
+    for currency_code, totals in portfolio_cashflow["totals_by_currency"].items():
+        report += f"- {currency_code}: budget={totals['budget']:,.2f}; actual cost={totals['actual_cost']:,.2f}; remaining={totals['remaining_budget']:,.2f}\n"
     report += "\n## Schedule and cost outlook\n"
     report += f"- Projects with outlook: {sum(item.get('status') in ('ASSESSED', 'PARTIALLY_ASSESSED') for item in schedule_cost_outlooks)}\n"
     report += f"- Projects requiring an as-of date: {sum(item.get('status') == 'NOT_RUN' for item in schedule_cost_outlooks)}\n"
@@ -175,6 +202,7 @@ def build_saved_portfolio_report(
         "portfolio_resource_intelligence": portfolio_resource_intelligence,
         "schedule_cost_outlooks": schedule_cost_outlooks,
         "resource_loading": resource_loading_results,
+        "portfolio_cashflow": portfolio_cashflow,
         "executive_report": report,
         "as_of_period": as_of_period,
         "as_of_date": as_of_date,
