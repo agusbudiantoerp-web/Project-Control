@@ -259,3 +259,12 @@ Compared the following files on `main` and `ai-project-control-integration`:
 - No open pull request was returned by the latest PR search.
 - No merge/rebase/cherry-pick was performed. The 13 main-only commits are not yet fully reconciled.
 - Release remains NOT READY pending cleanup of bilingual report duplication, fresh all-workflow CI on one exact candidate SHA, Windows installation/runtime acceptance, owner-data acceptance, Telegram delivery test, and backup/restore drill.
+
+## Executive report bilingual cleanup — 2026-11-24
+
+- Updated `ai_project_control/executive_reporting.py` in commit `d7c08799d9ee357545827f60a2d9a1ed35c76e31`.
+- Removed English-only duplicate schedule/CPI lines from Indonesian reports.
+- Made cost P80, schedule P80 and overloaded-resource labels language-selective rather than emitting both English and Indonesian variants.
+- Preserved P80 metrics and their underlying calculations.
+- This is a code change committed to the integration branch; no test result is claimed yet. A fresh CI result for this exact SHA is required.
+- Release remains NOT READY until report-language regression tests, all workflow families on one candidate SHA, Windows acceptance, and the outstanding 13-commit branch reconciliation are completed.
