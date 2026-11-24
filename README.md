@@ -105,3 +105,8 @@ Open **Saved Project Financial Control** after importing a project into the loca
 
 
 The saved financial-control page can export the calculated project brief as PDF, Excel and JSON. The PDF/Excel outputs are generated from the same displayed report content; they are not signed or approved records.
+
+
+## Saved Portfolio COO Executive Cockpit
+
+Open **Saved Portfolio — COO Executive Cockpit** to discover projects saved in the local SQLite workspace, calculate each project's EVM indicators, review RED/AMBER/INSUFFICIENT_DATA states, compare budgets by currency without implicit FX conversion, and export an Indonesian or English executive report as PDF, XLSX or JSON. Only projects present in this local workspace are included; this is not a synchronized multi-user portfolio database.
