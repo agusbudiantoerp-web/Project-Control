@@ -36,6 +36,18 @@ if submitted:
                     st.json({"EVM": project["evm"], "Source counts": project["source_counts"], "Validation": project["validation"]})
                 else:
                     st.warning(project.get("error", "Data not assessed"))
+        st.subheader("Portfolio health trends")
+        trend = result["health_monitoring"]
+        hcols = st.columns(4)
+        for col, label, value in zip(hcols, ("Projects with snapshots", "Trend assessed", "No baseline", "Data conflicts"),
+                                     (trend["summary"]["project_count"], trend["summary"]["trend_assessed_count"],
+                                      trend["summary"]["no_baseline_count"], trend["summary"]["data_conflict_count"])):
+            col.metric(label, value)
+        st.caption(trend["method"])
+        if trend["projects"]:
+            st.dataframe(trend["projects"], use_container_width=True, hide_index=True)
+        else:
+            st.info("Belum ada snapshot kesehatan proyek. Tren tidak disimpulkan tanpa snapshot historis.")
         st.subheader("Risk governance overview")
         gov = result["risk_governance_summary"]
         gcols = st.columns(5)
