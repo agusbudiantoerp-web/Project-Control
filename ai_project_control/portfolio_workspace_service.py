@@ -14,6 +14,7 @@ from ai_project_control.risk_exposure_matrix import build_risk_exposure_matrix
 from ai_project_control.risk_governance_bridge import build_risk_governance_view
 from ai_project_control.risk_mitigation_store import RiskMitigationStore
 from ai_project_control.portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
+from ai_project_control.schedule_cost_outlook import build_schedule_cost_outlook
 
 
 def build_saved_portfolio_report(
@@ -32,6 +33,7 @@ def build_saved_portfolio_report(
     governance_results: list[dict[str, Any]] = []
     risk_matrix_results: list[dict[str, Any]] = []
     health_snapshots: list[dict[str, Any]] = []
+    schedule_cost_outlooks: list[dict[str, Any]] = []
     for project_id in store.list_project_ids():
         workspace = store.load_project_workspace(project_id)
         if not workspace["project_master"]:
@@ -58,6 +60,17 @@ def build_saved_portfolio_report(
                 "SPI": evm.get("SPI"), "CPI": evm.get("CPI"),
                 "currency": currency, "budget_at_completion": project.get("BAC"),
             })
+            if as_of_date:
+                outlook = build_schedule_cost_outlook(
+                    {**evm, "project_id": project_id, "currency": currency},
+                    workspace["activities"], as_of_date=as_of_date,
+                )
+            else:
+                outlook = {
+                    "status": "NOT_RUN", "project_id": project_id, "currency": currency,
+                    "reason": "Provide as_of_date (YYYY-MM-DD) for dated schedule outlook.",
+                }
+            schedule_cost_outlooks.append({"project_id": project_id, "project_name": name, **outlook})
             project_results.append({
                 "project_id": project_id, "project_name": name,
                 "status": evm.get("status"), "currency": currency,
@@ -119,11 +132,15 @@ def build_saved_portfolio_report(
     report += f"- Overdue linked actions: {governance_summary['overdue_action_count']}\n"
     report += f"- Blocked linked actions: {governance_summary['blocked_action_count']}\n"
     report += f"- Risks without mitigation plan: {governance_summary['risks_without_mitigation']}\n"
-    report += "- Risk attention flags are governance worklist signals, not an automated risk acceptance decision.\n"    report += "\n## Portfolio health trends\n"
+    report += "- Risk attention flags are governance worklist signals, not an automated risk acceptance decision.\n"
+    report += "\n## Portfolio health trends\n"
     report += f"- Projects with dated health snapshots: {health_monitoring['summary']['project_count']}\n"
     report += f"- Trends assessed: {health_monitoring['summary']['trend_assessed_count']}\n"
     report += f"- Projects without baseline: {health_monitoring['summary']['no_baseline_count']}\n"
     report += f"- Snapshot conflicts: {health_monitoring['summary']['data_conflict_count']}\n"
+    report += "\n## Schedule and cost outlook\n"
+    report += f"- Projects with outlook: {sum(item.get('status') in ('ASSESSED', 'PARTIALLY_ASSESSED') for item in schedule_cost_outlooks)}\n"
+    report += f"- Projects requiring an as-of date: {sum(item.get('status') == 'NOT_RUN' for item in schedule_cost_outlooks)}\n"
     return {
         "project_count": len(project_results),
         "scorecard": scorecard,
@@ -133,6 +150,7 @@ def build_saved_portfolio_report(
         "risk_exposure_matrices": risk_matrix_results,
         "health_monitoring": health_monitoring,
         "portfolio_resource_intelligence": portfolio_resource_intelligence,
+        "schedule_cost_outlooks": schedule_cost_outlooks,
         "executive_report": report,
         "as_of_period": as_of_period,
         "as_of_date": as_of_date,
@@ -140,6 +158,7 @@ def build_saved_portfolio_report(
             "Only projects saved in this local SQLite workspace are included.",
             "Health trends use only explicitly captured dated snapshots; no historical values are reconstructed.",
             "Shared-resource conflicts require identical resource IDs, periods, units and capacity declarations across projects.",
+            "Schedule/cost outlook requires an explicit as_of_date and dated activity forecast fields; missing evidence remains unassessed.",
             "Monetary risk exposure is meaningful only when risk impact values are actual monetary amounts in the project currency.",
             "SPI and CPI are calculated from saved period records; missing core values remain unassessed.",
             "Portfolio budget totals remain separated by currency; no FX conversion is performed.",
