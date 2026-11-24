@@ -47,7 +47,7 @@ Database lokal dibuat pada `.project_control/project_control.sqlite3`. Jangan me
 8. Catat rencana mitigasi pada Risk Mitigation Execution Tracker, termasuk risk ID, owner, due date, status, residual probability/impact, dan bukti. Status VERIFIED wajib memiliki bukti.
 9. Gunakan ringkasan risk governance untuk melihat tindakan terkait, action overdue/blocked, dan risiko yang belum memiliki mitigasi.
 10. Hubungkan executive action ke risk ID terkait bila tindakan berasal dari risiko yang tercatat.
-11. Gunakan Portfolio Command Center untuk melihat ringkasan lintas proyek.
+11. Gunakan Portfolio Command Center dan Portfolio-wide Risk & Shared Resource Intelligence untuk memeriksa paparan risiko per mata uang dan konflik kapasitas resource lintas proyek. Pastikan resource ID, periode, unit, dan kapasitas benar-benar merujuk pada pool yang sama.
 12. Simpan snapshot KPI historis secara berkala. Setelah tersedia minimal tiga tanggal untuk suatu indikator, jalankan early warning dari histori tersimpan.
 13. Jika histori mencukupi, jalankan evaluasi baseline ML KPI dan bandingkan MAE dengan persistence baseline. Model hanya dievaluasi dalam memori; belum disimpan atau dipakai otomatis untuk keputusan.
 14. Ekspor laporan untuk review dan persetujuan manajemen.
