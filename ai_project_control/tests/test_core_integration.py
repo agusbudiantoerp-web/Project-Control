@@ -490,6 +490,7 @@ def test_project_backup_restore_is_atomic_and_rejects_invalid_archive(tmp_path, 
     assert restored == ["project_master.csv"]
     restored_frame = core.load_dataset("P-200","project_master.csv")
     assert restored_frame.iloc[0]["project_name"] == "Backup Test"
+    assert restored_frame.iloc[0]["project_id"] == "P-200"
 
     before = core.load_dataset("P-200","project_master.csv").copy()
     try:
