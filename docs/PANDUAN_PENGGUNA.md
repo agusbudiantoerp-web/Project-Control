@@ -31,7 +31,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 streamlit run app.py
 ```
 
-Browser biasanya terbuka otomatis. Jika tidak, buka alamat lokal yang ditampilkan Streamlit di terminal.
+Untuk penggunaan berikutnya, aplikasi juga dapat dijalankan dengan klik dua kali `START_AI_PROJECT_CONTROL.bat` pada folder utama repository. Browser biasanya terbuka otomatis. Jika tidak, buka alamat lokal yang ditampilkan Streamlit di terminal.
 
 Database lokal dibuat pada `.project_control/project_control.sqlite3`. Jangan menghapus folder tersebut jika data proyek masih diperlukan. Buat backup berkala dan jangan unggah database yang berisi informasi proyek rahasia ke repository publik.
 
