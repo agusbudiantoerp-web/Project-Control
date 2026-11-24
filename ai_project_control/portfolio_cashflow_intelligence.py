@@ -14,12 +14,14 @@ def build_portfolio_cashflow_view(project_finance: list[dict[str, Any]]) -> dict
         "budget": 0.0, "actual_cost": 0.0, "remaining_budget": 0.0
     })
     unassessed = []
+    seen_project_ids: set[str] = set()
     for item in project_finance:
         project_id = str(item.get("project_id", "")).strip()
         if not project_id:
             raise ValueError("project_id is required")
-        if project_id in by_project:
+        if project_id in seen_project_ids:
             raise ValueError(f"duplicate project finance record: {project_id}")
+        seen_project_ids.add(project_id)
         currency = str(item.get("currency", "")).strip().upper()
         if not currency:
             unassessed.append({"project_id": project_id, "reason": "Project currency missing"})
