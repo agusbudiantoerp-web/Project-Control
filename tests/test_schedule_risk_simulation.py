@@ -74,3 +74,19 @@ def test_schedule_risk_normalizes_datetime_project_start():
         activities(), [], datetime(2026, 11, 1, 12, 30), iterations=1000
     )
     assert result["project_start_date"] == "2026-11-01"
+
+
+def test_schedule_risk_rejects_overflowing_sampled_finish():
+    huge = [{
+        "activity_id": "A", "predecessors": [],
+        "duration_min_days": 1e308,
+        "duration_most_likely_days": 1e308,
+        "duration_max_days": 1e308,
+    }, {
+        "activity_id": "B", "predecessors": ["A"],
+        "duration_min_days": 1e308,
+        "duration_most_likely_days": 1e308,
+        "duration_max_days": 1e308,
+    }]
+    with pytest.raises(ValueError, match="supported numeric range"):
+        simulate_schedule_risk(huge, [], "2026-11-01", iterations=1000)
