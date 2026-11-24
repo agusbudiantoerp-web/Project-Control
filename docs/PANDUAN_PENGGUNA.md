@@ -167,3 +167,8 @@ Untuk menilai perubahan kinerja, impor dataset `portfolio_snapshots` dengan satu
 
 
 Untuk mengimpor histori snapshot, gunakan dataset `portfolio_snapshots`. Pemetaan kolom menerima `Project ID`/`Kode Proyek`, `Snapshot Date`/`Tanggal Snapshot`, `SPI`/`Schedule Performance Index`, `CPI`/`Cost Performance Index`, dan `Risk Score`/`Skor Risiko`. Tanggal harus valid `YYYY-MM-DD`; risk score dibatasi 0–100; SPI/CPI tidak boleh negatif. Sediakan satu baris per tanggal per proyek.
+
+
+## P. Konflik Resource Lintas Proyek
+
+COO Cockpit memeriksa resource yang dipakai bersama oleh beberapa proyek. Impor dataset `resources` dengan `project_id`, `resource_id`, `period`, `unit`, `planned_units`, dan `capacity_units`. Sistem hanya menyatakan overload bila resource ID, periode, satuan, dan kapasitas sama persis pada sedikitnya dua proyek. Pastikan ID yang sama memang menunjuk ke armada/peralatan/tenaga kerja yang sama. Jika kapasitas berbeda atau data wajib hilang, hasilnya tidak dinilai dan bukan dianggap aman. Jangan menjumlahkan resource yang satuannya berbeda.
