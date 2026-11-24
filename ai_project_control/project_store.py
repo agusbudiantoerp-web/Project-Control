@@ -23,12 +23,26 @@ class ProjectStore:
 
     def __init__(self, database_path: str | Path):
         self.database_path = str(database_path)
-        if self.database_path != ":memory:":
-            Path(self.database_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
+        self._sqlite_uri = False
+        self._memory_keeper = None
+        if self.database_path == ":memory:":
+            # Each store operation opens its own connection. A shared-cache
+            # URI plus a keeper connection makes the in-memory database live
+            # across those operations instead of silently creating empty DBs.
+            self._sqlite_target = f"file:project_control_{uuid.uuid4().hex}?mode=memory&cache=shared"
+            self._sqlite_uri = True
+            self._memory_keeper = sqlite3.connect(self._sqlite_target, uri=True, timeout=15)
+        else:
+            path = Path(self.database_path).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.database_path = str(path)
+            self._sqlite_target = self.database_path
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database_path, timeout=15)
+        connection = sqlite3.connect(
+            self._sqlite_target, timeout=15, uri=self._sqlite_uri
+        )
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
