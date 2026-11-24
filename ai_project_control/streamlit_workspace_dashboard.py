@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 from typing import Any
 
 from .data_quality_validation import TABLE_KEYS
@@ -19,6 +20,17 @@ from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 from .coo_portfolio_decision_brief import build_coo_portfolio_decision_brief
 from .portfolio_cashflow_workspace import build_stored_portfolio_cashflow_view
+
+def _finite_metric_display(value: Any) -> str:
+    """Render missing or non-finite metrics as unavailable, never as 'nan'."""
+    if value is None or isinstance(value, bool):
+        return "Not available"
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "Not available"
+    return f"{number:,.2f}" if math.isfinite(number) else "Not available"
+
 
 def _performance_display_value(summary: dict[str, Any], projects: list[dict[str, Any]]) -> Any:
     """Return the assessed score without treating a valid zero as missing."""
@@ -733,7 +745,7 @@ def render_project_workspace_dashboard(
     evm_cols = st.columns(4)
     for column, label, key in zip(evm_cols, ["PV", "EV", "AC", "BAC"], ["PV", "EV", "AC", "BAC"]):
         value = evm[key]
-        column.metric(label, f"{value:,.2f}" if value is not None else "Not available")
+        column.metric(label, _finite_metric_display(value))
     ratio_cols = st.columns(4)
     for column, label, key in zip(ratio_cols, ["SPI", "CPI", "EAC", "VAC"], ["SPI", "CPI", "EAC", "VAC"]):
         value = evm[key]
