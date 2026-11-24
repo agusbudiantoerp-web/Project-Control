@@ -20,6 +20,14 @@ def _number(value: Any) -> float | None:
     return result if math.isfinite(result) else None
 
 
+def _safe_ratio(numerator: float, denominator: float) -> float | None:
+    try:
+        value = numerator / denominator
+    except (ZeroDivisionError, OverflowError):
+        return None
+    return value if math.isfinite(value) else None
+
+
 def _sum_field(rows: list[dict[str, Any]], field: str) -> float | None:
     values = [_number(row.get(field)) for row in rows]
     if not values or any(value is None or value < 0 for value in values):
@@ -61,14 +69,14 @@ def calculate_evm(
     ac = _sum_field(costs, "actual_cost")
     bac = _number(project.get("BAC", project.get("bac", project.get("budget_at_completion"))))
 
-    spi = ev / pv if ev is not None and pv is not None and pv > 0 else None
-    cpi = ev / ac if ev is not None and ac is not None and ac > 0 else None
+    spi = _safe_ratio(ev, pv) if ev is not None and pv is not None and pv > 0 else None
+    cpi = _safe_ratio(ev, ac) if ev is not None and ac is not None and ac > 0 else None
     sv = ev - pv if ev is not None and pv is not None else None
     cv = ev - ac if ev is not None and ac is not None else None
-    eac = bac / cpi if bac is not None and bac > 0 and cpi is not None and cpi > 0 else None
+    eac = _safe_ratio(bac, cpi) if bac is not None and bac > 0 and cpi is not None and cpi > 0 else None
     etc = eac - ac if eac is not None and ac is not None else None
     vac = bac - eac if bac is not None and eac is not None else None
-    tcpi = ((bac - ev) / (bac - ac)
+    tcpi = (_safe_ratio(bac - ev, bac - ac)
             if bac is not None and ev is not None and ac is not None and bac > ac
             else None)
 
@@ -82,8 +90,16 @@ def calculate_evm(
         gaps.append("PV_MUST_BE_POSITIVE_FOR_SPI")
     if ac is not None and ac <= 0:
         gaps.append("AC_MUST_BE_POSITIVE_FOR_CPI")
+    if ev is not None and pv is not None and pv > 0 and spi is None:
+        gaps.append("SPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
+    if ev is not None and ac is not None and ac > 0 and cpi is None:
+        gaps.append("CPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
     if cpi is not None and cpi <= 0:
         gaps.append("CPI_MUST_BE_POSITIVE_FOR_EAC")
+    if bac is not None and bac > 0 and cpi is not None and cpi > 0 and eac is None:
+        gaps.append("EAC_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
+    if bac is not None and ev is not None and ac is not None and bac > ac and tcpi is None:
+        gaps.append("TCPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
 
     def rounded(value: float | None) -> float | None:
         return round(value, 2) if value is not None else None
