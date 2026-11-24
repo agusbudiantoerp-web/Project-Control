@@ -56,12 +56,6 @@ def build_executive_summary(
     else:
         lines.append("- Schedule performance: unavailable (EVM inputs incomplete)." if en else "- Kinerja jadwal: belum tersedia (data EVM belum lengkap).")
 
-    if en:
-        pass
-    else:
-        lines.append(f"- Schedule performance (English label): SPI {spi:.3f}." if spi is not None else "- Schedule performance: SPI unavailable.")
-    if cpi is None and not en:
-        lines.append("- Cost performance: CPI unavailable.")
     if cpi is not None:
         state = ("cost efficient" if cpi > 1.02 else "cost inefficient" if cpi < 0.98 else "approximately on budget") if en else ("efisien terhadap biaya" if cpi > 1.02 else "kurang efisien terhadap biaya" if cpi < 0.98 else "relatif sesuai anggaran")
         lines.append((f"- Cost performance: CPI {cpi:.3f} ({state})." if en else f"- Kinerja biaya: CPI {cpi:.3f} ({state})."))
@@ -79,18 +73,12 @@ def build_executive_summary(
     if critical is not None:
         lines.append((f"- Critical activities: {int(critical)}." if en else f"- Jumlah aktivitas kritis: {int(critical)}."))
     if risk_cost is not None:
-        lines.append(f"- Risk cost exposure P80: {risk_cost:,.2f}.")
-        if not en:
-            lines.append(f"- Eksposur biaya risiko P80: {risk_cost:,.2f}.")
+        lines.append((f"- Risk cost exposure P80: {risk_cost:,.2f}." if en else f"- Eksposur biaya risiko P80: {risk_cost:,.2f}."))
 
     if risk_days is not None:
-        lines.append(f"- Risk schedule exposure P80: {risk_days:,.1f} days.")
-        if not en:
-            lines.append(f"- Eksposur keterlambatan risiko P80: {risk_days:,.1f} hari.")
+        lines.append((f"- Risk schedule exposure P80: {risk_days:,.1f} days." if en else f"- Eksposur keterlambatan risiko P80: {risk_days:,.1f} hari."))
     if overload is not None:
-        lines.append(f"- Overloaded resource days: {int(overload)}.")
-        if not en:
-            lines.append(f"- Hari-resource mengalami overload: {int(overload)}.")
+        lines.append((f"- Overloaded resource days: {int(overload)}." if en else f"- Hari-resource mengalami overload: {int(overload)}."))
 
     lines.extend(["", "## Management attention" if en else "## Perhatian manajemen"])
     attention = []
