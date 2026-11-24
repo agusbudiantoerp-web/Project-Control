@@ -84,6 +84,11 @@ def build_saved_portfolio_report(
                 "validation": store.validate_workspace(project_id),
             })
         except (TypeError, ValueError, KeyError) as exc:
+            schedule_cost_outlooks.append({
+                "project_id": project_id, "project_name": name,
+                "status": "REVIEW_REQUIRED", "currency": currency,
+                "reason": f"Cost/schedule outlook could not be assessed: {exc}",
+            })
             records.append({
                 "project_id": project_id, "project_name": name,
                 "SPI": None, "CPI": None, "currency": currency,
@@ -141,6 +146,10 @@ def build_saved_portfolio_report(
     report += "\n## Schedule and cost outlook\n"
     report += f"- Projects with outlook: {sum(item.get('status') in ('ASSESSED', 'PARTIALLY_ASSESSED') for item in schedule_cost_outlooks)}\n"
     report += f"- Projects requiring an as-of date: {sum(item.get('status') == 'NOT_RUN' for item in schedule_cost_outlooks)}\n"
+    for item in schedule_cost_outlooks:
+        attention = item.get("management_attention", {})
+        if attention.get("delayed_activity_ids") or attention.get("cost_scenarios_over_budget"):
+            report += f"- {item['project_name']}: delayed activities={', '.join(attention.get('delayed_activity_ids', [])) or 'none'}; over-budget scenarios={', '.join(attention.get('cost_scenarios_over_budget', [])) or 'none'}\n"
     return {
         "project_count": len(project_results),
         "scorecard": scorecard,
