@@ -32,6 +32,17 @@ def add_performance_indices(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _safe_percentage(numerator: float, denominator: float) -> float:
+    """Return a finite percentage or NaN when the ratio is undefined/out of range."""
+    try:
+        if denominator == 0:
+            return float("nan")
+        result = float(numerator) / float(denominator) * 100
+    except (TypeError, ValueError, ZeroDivisionError, OverflowError):
+        return float("nan")
+    return result if math.isfinite(result) else float("nan")
+
+
 def project_summary(df: pd.DataFrame, bac: float) -> dict:
     """Headline EVM figures as of the latest period with actuals."""
     actuals = actuals_only(df)
@@ -74,14 +85,14 @@ def project_summary(df: pd.DataFrame, bac: float) -> dict:
         "sv": ev - pv,
         # Same zero-denominator guard as spi/cpi above: a zero pv or ev can't
         # yield a meaningful percentage, so report NaN instead of inf/-inf.
-        "sv_pct": (ev - pv) / pv * 100 if pv else float("nan"),
+        "sv_pct": _safe_percentage(ev - pv, pv),
         "cv": ev - ac,
-        "cv_pct": (ev - ac) / ev * 100 if ev else float("nan"),
+        "cv_pct": _safe_percentage(ev - ac, ev),
         "spi": spi,
         "cpi": cpi,
         "percent_complete": (
-            ev / bac_value * 100
-            if valid_bac and pd.notna(ev) and math.isfinite(float(ev / bac_value * 100))
+            _safe_percentage(ev, bac_value)
+            if valid_bac and pd.notna(ev)
             else float("nan")
         ),
         "eac": eac,
