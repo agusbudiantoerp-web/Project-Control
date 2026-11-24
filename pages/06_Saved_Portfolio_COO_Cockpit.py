@@ -60,6 +60,19 @@ if submitted:
                     if schedule.get("activities"):
                         st.dataframe(schedule["activities"], use_container_width=True, hide_index=True)
                     st.caption("Cost forecasts are deterministic EVM scenarios; schedule forecasts use explicit activity dates. They are not a probabilistic joint forecast or an approved baseline.")
+        st.subheader("Project resource loading and capacity")
+        for item in result["resource_loading"]:
+            with st.expander(f"Resource loading — {item['project_name']} ({item['project_id']})"):
+                r1, r2, r3 = st.columns(3)
+                r1.metric("Status", item["status"])
+                r2.metric("Overloaded periods", item["overloaded_count"])
+                r3.metric("Unassessed periods", item["unassessed_count"])
+                if item["rows"]:
+                    st.dataframe(item["rows"], use_container_width=True, hide_index=True)
+                else:
+                    st.info("Belum ada data resource untuk proyek ini.")
+        st.caption("Utilisasi dibandingkan dengan kapasitas yang dinyatakan dalam dataset; periode dan satuan tidak digabungkan.")
+
         st.subheader("Cross-project shared resource intelligence")
         shared = result["portfolio_resource_intelligence"]
         rcols = st.columns(4)
