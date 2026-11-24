@@ -31,6 +31,10 @@ def import_uploaded_dataset(
     if mode not in {"upsert", "replace"}:
         raise ValueError("mode must be 'upsert' or 'replace'")
 
+    # Streamlit uploads and file-like objects may already have been read for preview.
+    # Always parse from byte zero so the service is safe for direct and UI callers.
+    if hasattr(uploaded_file, "seek"):
+        uploaded_file.seek(0)
     parsed = read_tabular_upload(uploaded_file, sheet_name=sheet_name)
     suggestion = suggest_column_mapping(dataset, parsed["columns"])
     if mapping is None:
