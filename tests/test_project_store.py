@@ -91,3 +91,28 @@ def test_in_memory_store_persists_across_operation_connections():
         {"project_id": "P1", "boq_id": "B1", "quantity": 7}
     ])
     assert memory_store.load_dataset("P1", "boq")[0]["quantity"] == 7
+
+
+def test_store_connections_are_closed_after_operations(tmp_path):
+    store = ProjectStore(tmp_path / "closed.sqlite3")
+    seed_project(store)
+    assert store.list_project_ids() == ["P1"]
+    assert store._memory_keeper is None
+
+
+def test_rejects_database_with_newer_schema_version(tmp_path):
+    import sqlite3
+
+    database = tmp_path / "future.sqlite3"
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "CREATE TABLE store_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
+    connection.execute(
+        "INSERT INTO store_metadata(key, value) VALUES ('schema_version', '999')"
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(RuntimeError, match="newer than this application"):
+        ProjectStore(database)
