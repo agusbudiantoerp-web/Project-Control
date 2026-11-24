@@ -104,3 +104,27 @@ def test_boolean_financial_values_are_not_treated_as_numeric():
     )
     assert result["BAC"] is None
     assert result["EAC"] is None
+
+
+def test_negative_or_overflowing_evm_source_amounts_remain_unassessed():
+    negative = calculate_evm(
+        {"project_id": "P1", "BAC": 1000},
+        [{"project_id": "P1", "period": "2026-01", "planned_value": 100,
+          "earned_value": -10}],
+        [{"project_id": "P1", "period": "2026-01", "actual_cost": 90}],
+    )
+    assert negative["EV"] is None
+    assert negative["status"] == "INSUFFICIENT_DATA"
+
+    overflow = calculate_evm(
+        {"project_id": "P1", "BAC": 1e308},
+        [
+            {"project_id": "P1", "period": "2026-01", "planned_value": 1e308,
+             "earned_value": 1e308},
+            {"project_id": "P1", "period": "2026-02", "planned_value": 1e308,
+             "earned_value": 1e308},
+        ],
+        [{"project_id": "P1", "period": "2026-01", "actual_cost": 1e308}],
+    )
+    assert overflow["PV"] is None
+    assert overflow["status"] == "INSUFFICIENT_DATA"
