@@ -26,6 +26,9 @@ def build_portfolio_cashflow_view(project_finance: list[dict[str, Any]]) -> dict
         if not currency:
             unassessed.append({"project_id": project_id, "reason": "Project currency missing"})
             continue
+        if isinstance(item.get("budget"), bool) or isinstance(item.get("actual_cost"), bool):
+            unassessed.append({"project_id": project_id, "reason": "Budget or actual cost must not be boolean"})
+            continue
         try:
             budget = float(item.get("budget"))
             actual = float(item.get("actual_cost"))
@@ -52,6 +55,8 @@ def build_portfolio_cashflow_view(project_finance: list[dict[str, Any]]) -> dict
         totals["budget"] += budget
         totals["actual_cost"] += actual
         totals["remaining_budget"] += remaining
+        if not all(math.isfinite(totals[key]) for key in ("budget", "actual_cost", "remaining_budget")):
+            raise ValueError(f"Portfolio financial totals exceed the supported numeric range for {currency}")
 
     totals = {
         currency: {key: round(value, 2) for key, value in values.items()}
