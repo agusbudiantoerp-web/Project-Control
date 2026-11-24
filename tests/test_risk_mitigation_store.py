@@ -30,6 +30,11 @@ def test_mitigation_create_update_and_project_isolation(tmp_path):
     assert rows[0]["status"] == "VERIFIED"
     assert rows[0]["residual_exposure"] == 8
     assert rows[0]["evidence"] == "Approval reference PO-123"
+    events = store.list_events("P-01", "R-01")
+    assert len(events) == 2
+    assert events[0]["status"] == "IN_PROGRESS"
+    assert events[1]["status"] == "VERIFIED"
+    assert events[0]["event_id"] != events[1]["event_id"]
 
 
 @pytest.mark.parametrize("probability", [-.1, 1.1, float("nan"), float("inf")])
@@ -66,3 +71,4 @@ def test_in_memory_database_supported():
         residual_probability=.2, residual_impact=10, updated_by="User",
     )
     assert len(store.list_project("P")) == 1
+    assert len(store.list_events("P")) == 1
