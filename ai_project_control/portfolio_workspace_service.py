@@ -19,6 +19,8 @@ from ai_project_control.resource_loading_summary import build_resource_loading_s
 from ai_project_control.portfolio_cashflow_intelligence import build_portfolio_cashflow_view
 from ai_project_control.project_director_decision_matrix import build_decision_matrix
 from ai_project_control.coo_portfolio_decision_brief import build_coo_portfolio_decision_brief
+from ai_project_control.recovery_decision_engine import build_recovery_decision_brief
+from ai_project_control.predictive_early_warning import forecast_project_control_trends
 
 
 def build_saved_portfolio_report(
@@ -41,6 +43,7 @@ def build_saved_portfolio_report(
     resource_loading_results: list[dict[str, Any]] = []
     project_finance_records: list[dict[str, Any]] = []
     decision_records: list[dict[str, Any]] = []
+    recovery_decisions: list[dict[str, Any]] = []
     for project_id in store.list_project_ids():
         workspace = store.load_project_workspace(project_id)
         if not workspace["project_master"]:
@@ -170,6 +173,13 @@ def build_saved_portfolio_report(
         matrix = build_risk_exposure_matrix(
             risks, activities=workspace["activities"], wbs=workspace["wbs"]
         )
+        recovery_brief = build_recovery_decision_brief(
+            evm=evm if isinstance(evm, dict) else None,
+            risk_exposure=matrix,
+        )
+        recovery_decisions.append({
+            "project_id": project_id, "project_name": name, **recovery_brief,
+        })
         governance_results.append({
             "project_id": project_id, "project_name": name, **governance,
         })
@@ -179,6 +189,17 @@ def build_saved_portfolio_report(
 
     scorecard = build_portfolio_scorecard(records)
     health_monitoring = build_health_monitoring(health_snapshots)
+    try:
+        predictive_early_warning = forecast_project_control_trends([
+            {**row, "date": row.get("date") or row.get("snapshot_date")}
+            for row in health_snapshots
+        ])
+    except (TypeError, ValueError) as exc:
+        predictive_early_warning = {
+            "status": "REVIEW_REQUIRED", "project_count": 0, "projects": [],
+            "reason": str(exc),
+            "limitations": ["Predictive trend assessment was not run because snapshot data failed validation."],
+        }
     portfolio_cashflow = build_portfolio_cashflow_view(project_finance_records)
     portfolio_resource_intelligence = build_stored_portfolio_risk_resource_view(database_path)
     decision_matrix = build_decision_matrix(decision_records)
@@ -203,7 +224,14 @@ def build_saved_portfolio_report(
         "risks_without_mitigation": sum(row["risks_without_mitigation"] for row in governance_results),
         "orphan_action_count": sum(row["orphan_action_count"] for row in governance_results),
     }
-    report += "\n## COO decision brief\n"
+    report += "\n## Predictive early warning (snapshot trend)\n"
+    report += f"- Projects with trend history: {predictive_early_warning.get('project_count', 0)}\\n"
+    report += f"- Status: {predictive_early_warning.get('status')}\\n"
+    report += "\\n## Recovery decision review\\n"
+    report += f"- Projects with recovery review: {len(recovery_decisions)}\\n"
+    report += f"- Projects with immediate signals: {sum(item.get('signal_count', 0) > 0 for item in recovery_decisions)}\\n"
+    report += f"- Projects with missing recovery inputs: {sum(bool(item.get('missing_inputs')) for item in recovery_decisions)}\\n"
+    report += "\\n## COO decision brief\\n"
     report += f"- Projects requiring management review: {coo_decision_brief['projects_requiring_review']}\n"
     report += f"- Executive actions overdue: {coo_decision_brief['executive_action_summary'].get('overdue_count', 0)}\n"
     report += f"- Executive actions blocked: {coo_decision_brief['executive_action_summary'].get('blocked_count', 0)}\n"
@@ -253,6 +281,8 @@ def build_saved_portfolio_report(
         "portfolio_cashflow": portfolio_cashflow,
         "decision_matrix": decision_matrix,
         "coo_decision_brief": coo_decision_brief,
+        "recovery_decisions": recovery_decisions,
+        "predictive_early_warning": predictive_early_warning,
         "executive_report": report,
         "as_of_period": as_of_period,
         "as_of_date": as_of_date,
