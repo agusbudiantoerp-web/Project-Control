@@ -13,10 +13,11 @@ database_path = os.getenv("PROJECT_CONTROL_DB", ".project_control/project_contro
 with st.form("portfolio_cockpit_form"):
     period = st.text_input("As-of period (optional)", placeholder="YYYY-MM")
     language = st.selectbox("Report language", ["id", "en"], format_func=lambda x: "Bahasa Indonesia" if x == "id" else "English")
+    as_of_date = st.text_input("Governance as-of date (optional)", placeholder="YYYY-MM-DD")
     submitted = st.form_submit_button("Load saved portfolio")
 if submitted:
     try:
-        result = build_saved_portfolio_report(database_path, as_of_period=period.strip() or None, language=language)
+        result = build_saved_portfolio_report(database_path, as_of_period=period.strip() or None, language=language, as_of_date=as_of_date.strip() or None)
         summary = result["scorecard"]["summary"]
         st.subheader("Portfolio overview")
         cols = st.columns(5)
@@ -35,6 +36,23 @@ if submitted:
                     st.json({"EVM": project["evm"], "Source counts": project["source_counts"], "Validation": project["validation"]})
                 else:
                     st.warning(project.get("error", "Data not assessed"))
+        st.subheader("Risk governance overview")
+        gov = result["risk_governance_summary"]
+        gcols = st.columns(5)
+        for col, label, value in zip(gcols, ("Registered risks", "Need attention", "Overdue actions", "Blocked actions", "No mitigation"), (gov["risk_count"], gov["risks_requiring_attention"], gov["overdue_action_count"], gov["blocked_action_count"], gov["risks_without_mitigation"])):
+            col.metric(label, value)
+        for item in result["risk_governance"]:
+            with st.expander(f"Risk governance — {item['project_name']} ({item['project_id']})"):
+                st.dataframe(item["rows"], use_container_width=True, hide_index=True)
+                st.caption(f"Orphan linked actions: {item['orphan_action_count']} | Orphan mitigations: {item['orphan_mitigation_count']}")
+        st.subheader("Risk exposure ranking")
+        for item in result["risk_exposure_matrices"]:
+            with st.expander(f"Risk matrix — {item['project_name']} ({item['project_id']})"):
+                if item["risks"]:
+                    st.dataframe(item["risks"], use_container_width=True, hide_index=True)
+                else:
+                    st.info("No risk records supplied.")
+                st.json({"priority_summary": item["priority_summary"], "critical_activity_risk_count": item["critical_activity_risk_count"], "unlinked_activity_count": item["unlinked_activity_count"], "unlinked_wbs_count": item["unlinked_wbs_count"]})
         report = result["executive_report"]
         st.subheader("Executive report preview")
         st.markdown(report)
