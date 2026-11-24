@@ -224,3 +224,36 @@ def test_saved_portfolio_finance_without_actual_cost_evidence_is_unassessed(tmp_
     assert finance["project_count_assessed"] == 0
     assert finance["project_count_unassessed"] == 1
     assert finance["unassessed_projects"][0]["project_id"] == "P1"
+
+
+def test_saved_portfolio_integrates_coo_decision_brief_and_priorities(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 300, 600)
+    store.save_dataset("P1", "risk", [{
+        "project_id": "P1", "risk_id": "R1", "description": "Major execution risk",
+        "probability": 0.9, "impact": 100, "risk_score": 85,
+    }])
+    result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
+    brief = result["coo_decision_brief"]
+    assert brief["status"] == "ASSESSED"
+    assert brief["projects_requiring_review"] == 1
+    assert "P1_PRIORITY" in brief["projects_for_review"][0]["flags"]
+    assert result["decision_matrix"]["summary"]["p1_count"] == 1
+    assert "COO decision brief" in result["executive_report"]
+
+
+def test_saved_portfolio_coo_decision_does_not_reuse_previous_project_evm(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project With EVM", 500, 300, 600)
+    store.save_dataset("P2", "project_master", [{
+        "project_id": "P2", "project_name": "Project Missing EVM",
+        "currency": "IDR", "BAC": 1000,
+    }])
+    result = build_saved_portfolio_report(db)
+    decisions = {row["project_id"]: row for row in result["decision_matrix"]["decisions"]}
+    assert decisions["P1"]["SPI"] == 0.6
+    assert decisions["P2"]["SPI"] is None
+    assert decisions["P2"]["CPI"] is None
+    assert decisions["P2"]["priority"] == "UNASSESSED"
