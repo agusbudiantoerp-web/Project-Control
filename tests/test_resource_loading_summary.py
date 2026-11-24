@@ -41,3 +41,15 @@ def test_rejects_negative_or_nonfinite_values():
 
 def test_empty_records_are_no_data():
     assert build_resource_loading_summary([])["status"] == "NO_DATA"
+
+
+def test_rejects_boolean_resource_units_and_aggregate_overflow():
+    with pytest.raises(ValueError, match="not boolean"):
+        build_resource_loading_summary([
+            {"resource_id": "R", "period": "P1", "planned_units": True, "capacity_units": 2},
+        ])
+    with pytest.raises(ValueError, match="numeric range"):
+        build_resource_loading_summary([
+            {"resource_id": "R", "period": "P1", "planned_units": 1e308, "capacity_units": 1e308},
+            {"resource_id": "R", "period": "P1", "planned_units": 1e308, "capacity_units": 1e308},
+        ])
