@@ -9,7 +9,7 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 - EVM performance review (SPI, CPI, EAC and related indicators)
 - Cost and schedule forecasting, Monte Carlo risk assessment
 - Combined marginal cost and schedule outlook with explicit non-correlation caveat
-- Risk exposure matrix, WBS/activity traceability, persistent mitigation execution tracker and append-only mitigation change history
+- Risk exposure matrix, WBS/activity traceability, persistent mitigation execution tracker, append-only mitigation change history and cross-register governance view
 - Recovery scenario comparison and resource-based recovery estimates
 - Executive action register with optional risk-ID links, audit events and escalation review
 - Portfolio command center, snapshot monitoring and executive reporting
