@@ -160,6 +160,16 @@ class ProjectStore:
             "validation_status": validation["status"],
         }
 
+
+    def list_project_ids(self) -> list[str]:
+        """List project IDs with a saved project_master record, in stable order."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT DISTINCT project_id FROM project_records "
+                "WHERE dataset='project_master' ORDER BY project_id"
+            ).fetchall()
+        return [str(row["project_id"]) for row in rows]
+
     def load_dataset(self, project_id: str, dataset: str) -> list[dict[str, Any]]:
         if dataset not in TABLE_KEYS:
             raise ValueError(f"Unsupported dataset: {dataset}")
