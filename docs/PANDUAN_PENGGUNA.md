@@ -72,3 +72,14 @@ Dataset pembelajaran memasangkan snapshot saat ini dengan snapshot berikutnya pa
 ## F. Jangan lakukan dulu
 
 Jangan menggunakan data contoh sebagai data proyek aktual. Jangan mengirim token Telegram/API ke chat, source code, issue publik atau commit. Masukkan rahasia hanya melalui mekanisme secrets yang aman pada lingkungan deployment.
+
+
+## G. Dated Cash Flow Forecast
+
+1. Open the **Dated Cash Flow Forecast** page from the Streamlit sidebar.
+2. Enter the reconciled opening cash balance separately for every currency used.
+3. Enter each actual or planned transaction with a unique transaction ID, date, project ID, currency, direction, positive amount, and status ACTUAL or FORECAST.
+4. Generate the daily running balance and monthly summary; inspect any dates with projected negative balances.
+5. Download the JSON output for review and retain the source transaction evidence.
+
+The page does not infer invoice due dates, collection probability, financing availability or FX rates. A forecast transaction is only a supplied plan, not a confirmed payment. Do not use sample values as actual treasury data.
