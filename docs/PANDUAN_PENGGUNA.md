@@ -164,3 +164,6 @@ Risk matrix menggunakan probabilitas × impact. Nilai impact hanya dapat dibandi
 ## O. Histori Kesehatan Portofolio dan Early Warning
 
 Untuk menilai perubahan kinerja, impor dataset `portfolio_snapshots` dengan satu record per proyek per tanggal: `project_id`, `snapshot_date` (YYYY-MM-DD), dan nilai yang tersedia untuk `SPI`, `CPI`, serta `risk_score`. Simpan snapshot secara berkala setelah periode pelaporan disetujui. COO Cockpit membandingkan dua tanggal terbaru; penurunan SPI/CPI lebih dari 0,02 dan kenaikan risk score lebih dari 5 poin menghasilkan sinyal pemeriksaan. Satu snapshot saja berstatus NO_BASELINE. Metrik yang hilang tidak diganti nol. Jangan mengisi snapshot historis dengan angka perkiraan.
+
+
+Untuk mengimpor histori snapshot, gunakan dataset `portfolio_snapshots`. Pemetaan kolom menerima `Project ID`/`Kode Proyek`, `Snapshot Date`/`Tanggal Snapshot`, `SPI`/`Schedule Performance Index`, `CPI`/`Cost Performance Index`, dan `Risk Score`/`Skor Risiko`. Tanggal harus valid `YYYY-MM-DD`; risk score dibatasi 0–100; SPI/CPI tidak boleh negatif. Sediakan satu baris per tanggal per proyek.
