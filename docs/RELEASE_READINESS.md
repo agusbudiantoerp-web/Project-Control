@@ -97,3 +97,11 @@ The system is not production-ready until the final test phase passes, critical d
 - Added per-project EVM status, RED/AMBER/INSUFFICIENT_DATA scorecard, currency-separated BAC summary, project details and bilingual report exports.
 - Added tests to focused CI; execution and UI behavior remain unverified until final testing.
 - Cockpit is limited to one local SQLite workspace; shared multi-user persistence, authentication, authorization, audit identity and server backup remain deployment blockers.
+
+
+## Workspace backup and import history
+
+- Added consistent SQLite online-backup snapshot utility and project-scoped import history page.
+- Added restoration-oriented tests to focused CI; execution status remains pending verification.
+- Automatic backup scheduling, encryption-at-rest for exported backup files, retention, restore UI and disaster-recovery drills are not implemented.
+- Operators must protect backup files as sensitive project data.
