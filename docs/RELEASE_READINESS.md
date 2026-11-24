@@ -197,3 +197,26 @@ Latest verified integration-branch evidence:
 The only change between `b94103fd` and `900b22a` was a correction to the recovery CPI test expectation (CPI increases from 0.70 to 0.95 when EV rises from 70 to 95 with AC fixed at 100). Therefore the application code covered by the two broader successful workflows is unchanged at `900b22a`; nevertheless, all four workflow families have not yet been executed successfully on one identical commit SHA.
 
 This evidence is **not** a production release sign-off. No clean Windows installation, representative owner-data acceptance, live Telegram delivery, authenticated multi-user deployment, or disaster-recovery drill has been verified. Branch comparison remains divergent: integration branch is 729 commits ahead of and 13 commits behind `main`. Do not merge automatically; review the 13 main-only commits and the resulting file-level differences first.
+
+## Branch reconciliation audit — 2026-11-24 (20:36 UTC+8)
+
+Verified branch comparison:
+- Integration head: `4ba4c0e716319a6a2f21beea95df999cb6f86dc9`.
+- Main head: `0423b83f377d67c5c2682e125d2bf9ab923623cb`.
+- Branches are divergent: integration is 733 commits ahead and 13 commits behind main.
+- No open pull request was returned by the repository PR search at the time of this audit.
+
+File-level comparison of the 13 main-only commits:
+- `tests/test_coo_portfolio_decision_brief.py` is identical on both branches.
+- `tests/test_project_store.py` is identical on both branches.
+- `ai_project_control/streamlit_workspace_dashboard.py` differs substantially: integration has the larger workspace implementation (80,194 characters versus 3,208 on main). Do not replace it with main's version.
+- `ai_project_control/executive_reporting.py`, `ai_project_control/streamlit_persistent_import_ui.py`, `tests/test_import_service.py`, and the focused workflow differ. Integration versions contain additional report metrics, import safeguards/tests, broader test coverage and dependency installation. These differences require semantic review; they are not safe candidates for blind overwrite.
+- Main contains a short focused workflow with a narrower test list; integration contains the broader test list and installs both root and app dependencies.
+
+Decision:
+- Do not merge or reset either branch automatically. Preserve the integration branch's larger dashboard and broader test workflow.
+- The 13 main-only commits have not been fully replayed or semantically merged. This audit identifies overlap and risk but is not a completed reconciliation.
+- Latest combined status query for commit `4ba4c0e716319a6a2f21beea95df999cb6f86dc9` returned no status entries; this is not evidence of passing CI.
+- Latest main commit `0423b83f377d67c5c2682e125d2bf9ab923623cb` adds a COO portfolio decision brief test; that test file is identical on both branches.
+
+Release gate remains closed: no final same-SHA success evidence for all workflow families, clean Windows installation, full UI acceptance, live Telegram delivery, authenticated multi-user deployment, or disaster-recovery drill has been verified.
