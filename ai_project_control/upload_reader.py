@@ -17,6 +17,10 @@ MAX_ROWS = 20_000
 MAX_COLUMNS = 200
 
 
+
+def _validate_headers(headers: list[str]) -> None:
+    """Reject oversized or ambiguous headers before reading data rows."""
+
 def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) -> dict[str, Any]:
     """Read a bounded CSV/XLSX upload and return headers, rows and metadata."""
     filename = str(getattr(uploaded_file, "name", "") or "")
@@ -43,6 +47,7 @@ def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) ->
             dialect = csv.excel
         reader = csv.DictReader(io.StringIO(text), dialect=dialect)
         headers = list(reader.fieldnames or [])
+        _validate_headers(headers)
         rows = []
         for index, row in enumerate(reader):
             if index >= MAX_ROWS:
@@ -66,6 +71,7 @@ def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) ->
             iterator = sheet.iter_rows(values_only=True)
             first = next(iterator, None)
             headers = [str(value).strip() if value is not None else "" for value in (first or ())]
+            _validate_headers(headers)
             rows = []
             for index, values in enumerate(iterator):
                 if index >= MAX_ROWS:
