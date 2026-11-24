@@ -135,3 +135,6 @@ The saved COO cockpit includes per-project resource loading and capacity alerts 
 
 
 The COO portfolio view includes a currency-separated budget-versus-actual-cost position. Projects with missing actual-cost evidence are reported as unassessed, not as zero spend. This financial position is distinct from dated cash-flow forecasting.
+
+
+The Saved Portfolio COO Cockpit includes a Project Director decision matrix and COO management-review brief derived from stored EVM, risk, dated schedule and resource evidence. Missing indicators remain unassessed; recommendations are review prompts, not automatic approvals.
