@@ -132,3 +132,6 @@ The COO cockpit can combine saved project EVM cost scenarios with explicit activ
 
 
 The saved COO cockpit includes per-project resource loading and capacity alerts by resource ID, unit and period. Missing capacity or demand is shown as unassessed rather than treated as available capacity.
+
+
+The COO portfolio view includes a currency-separated budget-versus-actual-cost position. Projects with missing actual-cost evidence are reported as unassessed, not as zero spend. This financial position is distinct from dated cash-flow forecasting.
