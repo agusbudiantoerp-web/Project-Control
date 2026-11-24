@@ -90,7 +90,7 @@ def build_project_director_review(
         else:
             signals.append({"area": "RISK_COST", "status": "UNASSESSED",
                             "evidence": "Risk simulation is not assessed; verify the risk register and currency."})
-    else:
+    elif schedule_forecast is not None or resource_summary is not None:
         signals.append({"area": "RISK_COST", "status": "UNASSESSED",
                         "evidence": "No risk simulation result is available; confirm the risk register has been reviewed."})
 
