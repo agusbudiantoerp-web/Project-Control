@@ -22,8 +22,14 @@ def build_stored_portfolio_cashflow_view(database_path: str | Path) -> dict[str,
         master = workspace["project_master"][0]
         budget = master.get("BAC")
         if budget in (None, ""):
-            budget = sum(float(row.get("amount") or 0) for row in workspace["boq"])
-        actual_cost = sum(float(row.get("actual_cost") or 0) for row in workspace["actual_cost"])
+            try:
+                budget = sum(float(row.get("amount") or 0) for row in workspace["boq"])
+            except (TypeError, ValueError):
+                budget = None
+        try:
+            actual_cost = sum(float(row.get("actual_cost") or 0) for row in workspace["actual_cost"])
+        except (TypeError, ValueError):
+            actual_cost = None
         records.append({
             "project_id": project_id,
             "project_name": master.get("project_name", ""),
