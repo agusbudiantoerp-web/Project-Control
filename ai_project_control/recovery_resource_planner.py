@@ -63,8 +63,11 @@ def estimate_resource_recovery(
     if days_week > 7:
         raise ValueError("working_days_per_week cannot exceed 7")
 
-    effective_added_rate = (crews * crew_rate + equipment * equipment_rate) * efficiency
-    accelerated_rate = base_rate + effective_added_rate
+    # Efficiency is the realized productivity factor for the existing work
+    # front; explicitly stated added-resource rates are already net rates.
+    effective_base_rate = base_rate * efficiency
+    effective_added_rate = crews * crew_rate + equipment * equipment_rate
+    accelerated_rate = effective_base_rate + effective_added_rate
     baseline_days = work / base_rate
     accelerated_days = work / accelerated_rate
     days_saved = max(0.0, baseline_days - accelerated_days)
@@ -100,7 +103,7 @@ def estimate_resource_recovery(
         },
         "assumptions": [
             "Productivity is additive and constant; actual crew/equipment interaction may be non-linear.",
-            "Efficiency factor applies only to added-resource productivity.",
+            "Efficiency factor applies to current/base productivity; additional-resource productivity inputs are treated as net realized rates.",
             "Costs are per working day in one consistent currency; mobilization, overtime, standby and indirect costs are excluded unless included in inputs.",
             "This is a work-package estimate, not a CPM network or critical-path recalculation.",
             "Safety, workface congestion, permits, quality, material availability and resource availability require independent validation.",
