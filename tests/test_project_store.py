@@ -116,3 +116,23 @@ def test_rejects_database_with_newer_schema_version(tmp_path):
 
     with pytest.raises(RuntimeError, match="newer than this application"):
         ProjectStore(database)
+
+
+def test_in_memory_store_can_release_keeper_connection():
+    import sqlite3
+
+    memory_store = ProjectStore(":memory:")
+    seed_project(memory_store)
+    keeper = memory_store._memory_keeper
+    assert keeper is not None
+    memory_store.close()
+    assert memory_store._memory_keeper is None
+    with pytest.raises(sqlite3.ProgrammingError):
+        keeper.execute("SELECT 1")
+
+
+def test_project_store_context_manager_closes_in_memory_database():
+    with ProjectStore(":memory:") as memory_store:
+        seed_project(memory_store)
+        assert memory_store.list_project_ids() == ["P1"]
+    assert memory_store._memory_keeper is None
