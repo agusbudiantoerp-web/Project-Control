@@ -38,7 +38,13 @@ class RiskMitigationStore:
 
     def __init__(self, database_path: str | Path):
         self.database_path = str(database_path)
-        if self.database_path != ":memory:":
+        self._memory_uri = None
+        self._memory_anchor = None
+        if self.database_path == ":memory:":
+            # Keep a shared-cache in-memory database alive across short-lived connections.
+            self._memory_uri = f"file:risk_mitigation_{uuid4().hex}?mode=memory&cache=shared"
+            self._memory_anchor = sqlite3.connect(self._memory_uri, uri=True, timeout=15)
+        else:
             Path(self.database_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:
             db.execute("""
@@ -62,7 +68,10 @@ class RiskMitigationStore:
             db.execute("CREATE INDEX IF NOT EXISTS idx_risk_mitigation_events_project ON risk_mitigation_events(project_id, risk_id)")
 
     def _connect(self) -> sqlite3.Connection:
-        db = sqlite3.connect(self.database_path, timeout=15)
+        if self._memory_uri:
+            db = sqlite3.connect(self._memory_uri, uri=True, timeout=15)
+        else:
+            db = sqlite3.connect(self.database_path, timeout=15)
         db.row_factory = sqlite3.Row
         return db
 
