@@ -15,6 +15,7 @@ from ai_project_control.risk_governance_bridge import build_risk_governance_view
 from ai_project_control.risk_mitigation_store import RiskMitigationStore
 from ai_project_control.portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 from ai_project_control.schedule_cost_outlook import build_schedule_cost_outlook
+from ai_project_control.resource_loading_summary import build_resource_loading_summary
 
 
 def build_saved_portfolio_report(
@@ -34,6 +35,7 @@ def build_saved_portfolio_report(
     risk_matrix_results: list[dict[str, Any]] = []
     health_snapshots: list[dict[str, Any]] = []
     schedule_cost_outlooks: list[dict[str, Any]] = []
+    resource_loading_results: list[dict[str, Any]] = []
     for project_id in store.list_project_ids():
         workspace = store.load_project_workspace(project_id)
         if not workspace["project_master"]:
@@ -101,6 +103,14 @@ def build_saved_portfolio_report(
             })
 
         health_snapshots.extend(workspace["portfolio_snapshots"])
+        resource_loading = build_resource_loading_summary(workspace["resources"])
+        resource_loading_results.append({
+            "project_id": project_id, "project_name": name,
+            "status": resource_loading["status"],
+            "overloaded_count": resource_loading["overloaded_count"],
+            "unassessed_count": resource_loading["unassessed_count"],
+            "rows": resource_loading["rows"].to_dict(orient="records"),
+        })
         risks = workspace["risk"]
         actions = action_store.list_project(project_id)["actions"]
         mitigations = mitigation_store.list_project(project_id)
@@ -143,6 +153,10 @@ def build_saved_portfolio_report(
     report += f"- Trends assessed: {health_monitoring['summary']['trend_assessed_count']}\n"
     report += f"- Projects without baseline: {health_monitoring['summary']['no_baseline_count']}\n"
     report += f"- Snapshot conflicts: {health_monitoring['summary']['data_conflict_count']}\n"
+    report += "\n## Resource loading\n"
+    report += f"- Projects with resource overload: {sum(item['overloaded_count'] > 0 for item in resource_loading_results)}\n"
+    report += f"- Resource periods overloaded: {sum(item['overloaded_count'] for item in resource_loading_results)}\n"
+    report += f"- Resource periods unassessed: {sum(item['unassessed_count'] for item in resource_loading_results)}\n"
     report += "\n## Schedule and cost outlook\n"
     report += f"- Projects with outlook: {sum(item.get('status') in ('ASSESSED', 'PARTIALLY_ASSESSED') for item in schedule_cost_outlooks)}\n"
     report += f"- Projects requiring an as-of date: {sum(item.get('status') == 'NOT_RUN' for item in schedule_cost_outlooks)}\n"
@@ -160,6 +174,7 @@ def build_saved_portfolio_report(
         "health_monitoring": health_monitoring,
         "portfolio_resource_intelligence": portfolio_resource_intelligence,
         "schedule_cost_outlooks": schedule_cost_outlooks,
+        "resource_loading": resource_loading_results,
         "executive_report": report,
         "as_of_period": as_of_period,
         "as_of_date": as_of_date,
