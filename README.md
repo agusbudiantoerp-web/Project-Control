@@ -77,3 +77,8 @@ A green focused workflow is necessary but not sufficient for production readines
 ## Dated cash flow forecast
 
 Open the Streamlit page **Dated Cash Flow Forecast** from the sidebar. Supply reconciled opening cash by currency and dated transaction rows. Actual and forecast transactions remain separate; currencies are never silently converted. The forecast is a model from supplied transactions, not a bank balance or inferred payment prediction.
+
+
+## Dated cash flow forecasting
+
+The multipage Streamlit application includes **Dated Cash Flow Forecast**. Enter reconciled opening cash by currency and dated actual/forecast transactions to calculate daily running balances, monthly flow summaries and projected negative-balance dates. The engine keeps currencies separate and does not infer invoice payment dates, collections, financing or FX conversion. Its output is a scenario based on supplied inputs, not a bank-confirmed cash position.
