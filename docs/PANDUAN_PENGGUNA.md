@@ -136,3 +136,14 @@ Setelah Saved Project Financial Control berhasil menghitung data tersimpan, guna
 7. Tinjau preview dan unduh laporan PDF, Excel atau JSON.
 
 Cockpit hanya membaca proyek dalam SQLite lokal pada komputer ini. Nilai BAC antar mata uang tidak dijumlahkan. Scorecard SPI/CPI adalah indikator ringkas, bukan pengganti risk review, critical-path analysis atau keputusan pemilik proyek.
+
+
+## M. Workspace Backup & Import History
+
+1. Buka **Workspace Backup & Import History**.
+2. Pilih Project ID untuk melihat hingga 100 peristiwa impor terbaru (waktu, dataset, mode, jumlah baris dan status).
+3. Tekan **Prepare SQLite backup**, kemudian unduh file backup.
+4. Simpan backup di media terenkripsi dan lokasi terpisah dari komputer kerja. Batasi akses karena database dapat memuat informasi komersial dan operasional sensitif.
+5. Jangan unggah database atau backup ke repository GitHub publik. Lakukan uji pemulihan pada salinan terpisah sebelum mengandalkan backup untuk pemulihan operasional.
+
+Fitur ini membuat snapshot konsisten dari SQLite lokal; belum ada penjadwalan backup otomatis, enkripsi backup otomatis, retensi terkelola, atau pemulihan satu klik.
