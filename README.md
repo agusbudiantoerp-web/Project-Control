@@ -118,3 +118,8 @@ Open **Workspace Backup & Import History** to review the latest 100 import event
 
 
 The saved COO cockpit now joins the imported risk register with persisted executive actions and mitigation tracking. It displays risk exposure ranking, activity/WBS link status, overdue or blocked linked actions, mitigation coverage and residual exposure. Risk impact values must use consistent units within each project. Actor names remain attribution fields only; they do not authenticate users.
+
+
+## Portfolio health trend monitoring
+
+The COO cockpit can compare the latest two distinct dated `portfolio_snapshots` per project. Save records with `project_id`, `snapshot_date` (YYYY-MM-DD), and available `SPI`, `CPI`, and `risk_score` values. Missing metrics remain unavailable; a single snapshot is marked NO_BASELINE and duplicate project/date records are flagged as conflicts. Trend thresholds are screening indicators, not automated decisions.
