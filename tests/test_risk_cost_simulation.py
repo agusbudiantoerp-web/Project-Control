@@ -61,3 +61,19 @@ def test_opportunity_can_reduce_simulated_cost_but_not_below_zero():
 def test_missing_currency_is_not_assumed():
     result = build_risk_cost_simulation(risks(), 1000, "")
     assert result["status"] == "INSUFFICIENT_DATA"
+
+
+def test_triangular_expected_impact_uses_distribution_mean_for_ranking():
+    data = [
+        {"risk_id": "WIDE", "probability": 1, "cost_impact_min": 0,
+         "cost_impact_most_likely": 10, "cost_impact_max": 100,
+         "risk_type": "THREAT", "currency": "IDR"},
+        {"risk_id": "NARROW", "probability": 1, "cost_impact_min": 30,
+         "cost_impact_most_likely": 30, "cost_impact_max": 30,
+         "risk_type": "THREAT", "currency": "IDR"},
+    ]
+    result = build_risk_cost_simulation(data, 1000, "IDR", iterations=1000)
+    ranked = {row["risk_id"]: row["expected_cost_impact"] for row in result["risk_register"]}
+    assert ranked["WIDE"] == pytest.approx(110 / 3, abs=0.01)
+    assert ranked["NARROW"] == 30
+    assert result["risk_register"][0]["risk_id"] == "WIDE"
