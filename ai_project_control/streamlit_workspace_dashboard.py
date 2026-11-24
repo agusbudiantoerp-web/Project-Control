@@ -980,6 +980,9 @@ def render_project_workspace_dashboard(
             st.dataframe(saved_mitigations, use_container_width=True, hide_index=True)
             overdue_mitigations = sum(bool(item["overdue"]) for item in saved_mitigations)
             st.metric("Overdue mitigation actions", overdue_mitigations)
+            with st.expander("Mitigation change history (append-only)"):
+                mitigation_events = mitigation_store.list_events(project_id)
+                st.dataframe(mitigation_events, use_container_width=True, hide_index=True)
         else:
             st.info("Belum ada rencana mitigasi tersimpan untuk proyek ini.")
         st.caption("Residual exposure dihitung dari residual probability × residual impact. Status VERIFIED tetap memerlukan pemeriksaan bukti oleh pejabat berwenang; catatan pengguna bukan autentikasi.")
