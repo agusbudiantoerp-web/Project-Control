@@ -147,3 +147,15 @@ Cockpit hanya membaca proyek dalam SQLite lokal pada komputer ini. Nilai BAC ant
 5. Jangan unggah database atau backup ke repository GitHub publik. Lakukan uji pemulihan pada salinan terpisah sebelum mengandalkan backup untuk pemulihan operasional.
 
 Fitur ini membuat snapshot konsisten dari SQLite lokal; belum ada penjadwalan backup otomatis, enkripsi backup otomatis, retensi terkelola, atau pemulihan satu klik.
+
+
+## N. Risk Governance di COO Cockpit
+
+1. Impor dataset `risk`, `activities` dan `wbs` untuk setiap proyek melalui Project Workspace.
+2. Pastikan `risk_id` unik per proyek, probabilitas berada pada rentang 0–1, dan impact menggunakan unit serta mata uang yang konsisten dalam proyek.
+3. Buat executive action dengan `risk_id` yang sama untuk menautkannya ke risiko. Tindakan tanpa risk_id tidak dihitung sebagai tindakan mitigasi risiko.
+4. Catat mitigation pada Risk Mitigation Store. Status VERIFIED memerlukan evidence.
+5. Buka COO Cockpit, pilih periode EVM dan tanggal governance. Tinjau risk priority, activity/WBS link, tindakan terlambat/blocked, mitigasi yang belum direncanakan dan residual exposure.
+6. Periksa orphan action dan orphan mitigation; hubungan yang tidak cocok tidak ditebak oleh sistem.
+
+Risk matrix menggunakan probabilitas × impact. Nilai impact hanya dapat dibandingkan dalam satuan yang konsisten. Label `created_by`, `changed_by`, dan `updated_by` merupakan atribusi, bukan identitas terautentikasi. Persetujuan dan penerimaan risiko tetap dilakukan oleh manajemen.
