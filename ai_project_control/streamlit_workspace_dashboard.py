@@ -17,6 +17,7 @@ from .risk_adjusted_project_outlook import build_risk_adjusted_project_outlook
 from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
+from .coo_portfolio_decision_brief import build_coo_portfolio_decision_brief
 from .portfolio_monitoring import PortfolioMonitoringStore
 from .project_recovery_intelligence import build_project_recovery_intelligence
 from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
@@ -54,6 +55,7 @@ def render_project_workspace_dashboard(
         raise RuntimeError("Streamlit is required to render this component.") from exc
 
     portfolio: dict[str, Any] = {"projects": []}
+    portfolio_intelligence: dict[str, Any] = {"top_risks": [], "shared_resource_conflicts": [], "expected_exposure_by_currency": {}, "risk_count_unassessed": 0, "unassessed_resources": []}
     portfolio_actions: dict[str, Any] = {"actions": [], "summary": {"action_count": 0, "open_count": 0, "in_progress_count": 0, "blocked_count": 0, "overdue_count": 0}}
 
     st.subheader("Project Portfolio Command Center")
@@ -148,6 +150,27 @@ def render_project_workspace_dashboard(
             st.info("No portfolio-wide executive actions recorded yet.")
     except (TypeError, ValueError, OSError) as exc:
         st.warning("Portfolio action register unavailable: " + str(exc))
+
+    st.subheader("COO Executive Portfolio Decision Brief")
+    try:
+        coo_brief = build_coo_portfolio_decision_brief(
+            portfolio, portfolio_intelligence, portfolio_actions
+        )
+        cb1, cb2, cb3, cb4 = st.columns(4)
+        cb1.metric("Projects requiring review", coo_brief["projects_requiring_review"])
+        cb2.metric("Overdue executive actions", coo_brief["executive_action_summary"].get("overdue_count", 0))
+        cb3.metric("Shared resource conflicts", len(coo_brief["shared_resource_conflicts"]))
+        cb4.metric("Unassessed risks", coo_brief["unassessed_risk_count"])
+        if coo_brief["projects_for_review"]:
+            st.dataframe(coo_brief["projects_for_review"], use_container_width=True, hide_index=True)
+        st.markdown("**Recommended management reviews**")
+        for recommendation in coo_brief["recommended_management_reviews"]:
+            st.write("• " + recommendation)
+        with st.expander("COO decision brief governance notes"):
+            for note in coo_brief["governance_notes"]:
+                st.caption("• " + note)
+    except (TypeError, ValueError, KeyError) as coo_error:
+        st.warning("COO executive brief unavailable: " + str(coo_error))
 
     st.subheader("Project Recovery Intelligence")
     try:
