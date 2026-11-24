@@ -17,6 +17,8 @@ from ai_project_control.portfolio_workspace_intelligence import build_stored_por
 from ai_project_control.schedule_cost_outlook import build_schedule_cost_outlook
 from ai_project_control.resource_loading_summary import build_resource_loading_summary
 from ai_project_control.portfolio_cashflow_intelligence import build_portfolio_cashflow_view
+from ai_project_control.project_director_decision_matrix import build_decision_matrix
+from ai_project_control.coo_portfolio_decision_brief import build_coo_portfolio_decision_brief
 
 
 def build_saved_portfolio_report(
@@ -38,6 +40,7 @@ def build_saved_portfolio_report(
     schedule_cost_outlooks: list[dict[str, Any]] = []
     resource_loading_results: list[dict[str, Any]] = []
     project_finance_records: list[dict[str, Any]] = []
+    decision_records: list[dict[str, Any]] = []
     for project_id in store.list_project_ids():
         workspace = store.load_project_workspace(project_id)
         if not workspace["project_master"]:
@@ -132,6 +135,32 @@ def build_saved_portfolio_report(
             "rows": resource_loading["rows"].to_dict(orient="records"),
         })
         risks = workspace["risk"]
+        valid_risk_scores = []
+        for risk_row in risks:
+            try:
+                value = float(risk_row.get("risk_score"))
+                if value == value and abs(value) != float("inf"):
+                    valid_risk_scores.append(value)
+            except (TypeError, ValueError):
+                pass
+        delayed_count = 0
+        if schedule_cost_outlooks and schedule_cost_outlooks[-1].get("project_id") == project_id:
+            delayed_count = len(
+                (schedule_cost_outlooks[-1].get("schedule_forecast") or {}).get("delayed_activity_ids", [])
+            )
+        decision_records.append({
+            "project_id": project_id, "project_name": name,
+            "SPI": evm.get("SPI") if "evm" in locals() and isinstance(evm, dict) else None,
+            "CPI": evm.get("CPI") if "evm" in locals() and isinstance(evm, dict) else None,
+            "risk_score": max(valid_risk_scores) if valid_risk_scores else None,
+            "overloaded_resource_days": resource_loading["overloaded_count"],
+            "forecast_variance_days": None,
+            "schedule_status": "DELAYED" if delayed_count else "UNASSESSED",
+            "delayed_activity_count": delayed_count,
+            "resource_overloaded_count": resource_loading["overloaded_count"],
+            "risk_status": "ASSESSED" if valid_risk_scores else ("NO_RISKS" if not risks else "INVALID_DATA"),
+            "currency": currency,
+        })
         actions = action_store.list_project(project_id)["actions"]
         mitigations = mitigation_store.list_project(project_id)
         governance = build_risk_governance_view(
@@ -151,6 +180,16 @@ def build_saved_portfolio_report(
     health_monitoring = build_health_monitoring(health_snapshots)
     portfolio_cashflow = build_portfolio_cashflow_view(project_finance_records)
     portfolio_resource_intelligence = build_stored_portfolio_risk_resource_view(database_path)
+    decision_matrix = build_decision_matrix(decision_records)
+    decision_rows = []
+    for source, scored in zip(decision_records, decision_matrix["decisions"]):
+        decision_rows.append({**source, **scored})
+    decision_matrix["decisions"] = decision_rows
+    decision_portfolio = {"project_count": len(decision_rows), "projects": decision_rows}
+    coo_decision_brief = build_coo_portfolio_decision_brief(
+        decision_portfolio, portfolio_resource_intelligence,
+        action_store.list_portfolio(), as_of_date=as_of_date,
+    )
     report = build_portfolio_executive_report(records, as_of_period or "Latest saved data", language)
     governance_summary = {
         "project_count": len(governance_results),
@@ -161,6 +200,12 @@ def build_saved_portfolio_report(
         "risks_without_mitigation": sum(row["risks_without_mitigation"] for row in governance_results),
         "orphan_action_count": sum(row["orphan_action_count"] for row in governance_results),
     }
+    report += "\n## COO decision brief\n"
+    report += f"- Projects requiring management review: {coo_decision_brief['projects_requiring_review']}\n"
+    report += f"- Executive actions overdue: {coo_decision_brief['executive_action_summary'].get('overdue_count', 0)}\n"
+    report += f"- Executive actions blocked: {coo_decision_brief['executive_action_summary'].get('blocked_count', 0)}\n"
+    for recommendation in coo_decision_brief["recommended_management_reviews"]:
+        report += f"- Management review: {recommendation}\n"
     report += "\n## Risk governance\n"
     report += f"- Projects with governance review: {governance_summary['project_count']}\n"
     report += f"- Registered risks: {governance_summary['risk_count']}\n"
@@ -203,6 +248,8 @@ def build_saved_portfolio_report(
         "schedule_cost_outlooks": schedule_cost_outlooks,
         "resource_loading": resource_loading_results,
         "portfolio_cashflow": portfolio_cashflow,
+        "decision_matrix": decision_matrix,
+        "coo_decision_brief": coo_decision_brief,
         "executive_report": report,
         "as_of_period": as_of_period,
         "as_of_date": as_of_date,
