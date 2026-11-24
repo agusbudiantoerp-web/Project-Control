@@ -52,3 +52,45 @@ def test_saved_portfolio_empty_workspace_is_valid_empty_result(tmp_path):
     result = build_saved_portfolio_report(tmp_path / "empty.sqlite3")
     assert result["project_count"] == 0
     assert result["scorecard"]["summary"]["project_count"] == 0
+
+
+def test_saved_portfolio_integrates_risk_governance_and_exposure(tmp_path):
+    from ai_project_control.action_register_store import ActionRegisterStore
+    from ai_project_control.risk_mitigation_store import RiskMitigationStore
+
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "risk", [{
+        "project_id": "P1", "risk_id": "R1", "description": "Critical path equipment delay",
+        "probability": 0.8, "impact": 10, "activity_id": "A1", "wbs_id": "W1",
+        "category": "SCHEDULE",
+    }])
+    store.save_dataset("P1", "activities", [{
+        "project_id": "P1", "activity_id": "A1", "duration_days": 5, "predecessors": [],
+    }])
+    store.save_dataset("P1", "wbs", [{
+        "project_id": "P1", "wbs_id": "W1", "wbs_name": "Construction",
+    }])
+    actions = ActionRegisterStore(db)
+    actions.create(title="Expedite equipment", owner="Procurement", due_date="2026-11-01",
+                   project_id="P1", created_by="PM", risk_id="R1", priority="P1")
+    mitigations = RiskMitigationStore(db)
+    mitigations.save(project_id="P1", risk_id="R1", mitigation_action="Expedite vendor",
+                     owner="Procurement", due_date="2026-11-30", status="IN_PROGRESS",
+                     residual_probability=0.4, residual_impact=5, updated_by="PM")
+    result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
+    assert result["risk_governance_summary"]["risk_count"] == 1
+    assert result["risk_governance_summary"]["risks_requiring_attention"] == 1
+    assert result["risk_governance"][0]["rows"][0]["linked_action_count"] == 1
+    assert result["risk_exposure_matrices"][0]["risks"][0]["priority"] == "CRITICAL"
+    assert "Risk governance" in result["executive_report"]
+
+
+def test_saved_portfolio_risk_matrix_marks_empty_risk_register(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    result = build_saved_portfolio_report(db)
+    assert result["risk_governance"][0]["status"] == "NO_RISKS"
+    assert result["risk_exposure_matrices"][0]["status"] == "NO_RISKS"
