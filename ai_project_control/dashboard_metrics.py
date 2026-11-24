@@ -26,8 +26,10 @@ def add_performance_indices(df: pd.DataFrame) -> pd.DataFrame:
     # Guard zero PV/AC the same way project_summary guards zero (bac - ac) for
     # tcpi: a zero denominator can't yield a meaningful index, so report NaN
     # instead of letting it silently become inf/-inf.
-    out["spi"] = out["earned_value_cum"] / out["planned_value_cum"].replace(0, float("nan"))
-    out["cpi"] = out["earned_value_cum"] / out["actual_cost_cum"].replace(0, float("nan"))
+    with pd.option_context("mode.use_inf_as_na", True):
+        out["spi"] = out["earned_value_cum"] / out["planned_value_cum"].replace(0, float("nan"))
+        out["cpi"] = out["earned_value_cum"] / out["actual_cost_cum"].replace(0, float("nan"))
+    out[["spi", "cpi"]] = out[["spi", "cpi"]].replace([float("inf"), -float("inf")], float("nan"))
     return out
 
 
@@ -44,29 +46,29 @@ def project_summary(df: pd.DataFrame, bac: float) -> dict:
     # A zero/invalid CPI cannot support a CPI-based EAC forecast.
     # Also reject non-finite or non-positive BAC rather than publishing
     # misleading percentages or forecasts from an invalid baseline.
-    valid_bac = (
-        pd.notna(bac)
-        and math.isfinite(float(bac))
-        and float(bac) > 0
-    )
-    valid_cpi = (
-        pd.notna(cpi)
-        and math.isfinite(float(cpi))
-        and float(cpi) > 0
-    )
-    eac = float(bac) / float(cpi) if valid_bac and valid_cpi else float("nan")
-    etc = eac - ac if pd.notna(eac) else float("nan")
-    vac = float(bac) - eac if valid_bac and pd.notna(eac) else float("nan")
-    tcpi_denominator = float(bac) - float(ac) if valid_bac and pd.notna(ac) else float("nan")
+    try:
+        bac_value = float(bac) if not isinstance(bac, bool) else float("nan")
+    except (TypeError, ValueError):
+        bac_value = float("nan")
+    valid_bac = math.isfinite(bac_value) and bac_value > 0
+    valid_cpi = pd.notna(cpi) and math.isfinite(float(cpi)) and float(cpi) > 0
+    eac = bac_value / float(cpi) if valid_bac and valid_cpi else float("nan")
+    if not math.isfinite(eac):
+        eac = float("nan")
+    etc = eac - ac if pd.notna(eac) and math.isfinite(float(ac)) else float("nan")
+    vac = bac_value - eac if valid_bac and pd.notna(eac) else float("nan")
+    tcpi_denominator = bac_value - float(ac) if valid_bac and pd.notna(ac) else float("nan")
     tcpi = (
-        (float(bac) - float(ev)) / tcpi_denominator
+        (bac_value - float(ev)) / tcpi_denominator
         if pd.notna(ev) and pd.notna(tcpi_denominator) and tcpi_denominator > 0
         else float("nan")
     )
+    if not math.isfinite(tcpi):
+        tcpi = float("nan")
 
     return {
         "status_period": latest["period_label"].strftime("%Y-%m"),
-        "bac": bac,
+        "bac": bac_value,
         "pv": pv,
         "ev": ev,
         "ac": ac,
@@ -78,7 +80,11 @@ def project_summary(df: pd.DataFrame, bac: float) -> dict:
         "cv_pct": (ev - ac) / ev * 100 if ev else float("nan"),
         "spi": spi,
         "cpi": cpi,
-        "percent_complete": ev / bac * 100 if valid_bac and pd.notna(ev) else float("nan"),
+        "percent_complete": (
+            ev / bac_value * 100
+            if valid_bac and pd.notna(ev) and math.isfinite(float(ev / bac_value * 100))
+            else float("nan")
+        ),
         "eac": eac,
         "etc": etc,
         "vac": vac,
