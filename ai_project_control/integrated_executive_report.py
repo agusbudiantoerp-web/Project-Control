@@ -85,7 +85,7 @@ def build_integrated_executive_report(
                     changes.get("SPI"), changes.get("CPI"), changes.get("risk_score")]
             lines.append("| " + " | ".join(_safe(v) for v in vals) + " |")
     else:
-        lines.append("- " + ("No dated trend snapshots supplied." if en else "Belum ada snapshot tren bertanggal."))
+        lines.append("- " + ("No dated trend snapshots supplied." if en else "Belum ada snapshot tren bertanggal (No dated trend snapshots supplied)."))
 
     lines.extend(["", "## " + ("Recovery assessment" if en else "Penilaian pemulihan")])
     if recovery_assessment:
