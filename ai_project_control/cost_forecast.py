@@ -8,6 +8,8 @@ from typing import Any
 def _finite_nonnegative(value: Any, field: str) -> float | None:
     if value in (None, ""):
         return None
+    if isinstance(value, bool):
+        return None
     try:
         number = float(value)
     except (TypeError, ValueError):
