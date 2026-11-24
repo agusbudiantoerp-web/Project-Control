@@ -87,6 +87,8 @@ class RiskMitigationStore:
                 due = date.fromisoformat(str(due_date).strip()).isoformat()
             except (TypeError, ValueError):
                 raise ValueError("due_date must be a valid ISO date") from None
+        if state == "VERIFIED" and not str(evidence or "").strip():
+            raise ValueError("evidence is required when mitigation status is VERIFIED")
         probability = _number(residual_probability, "residual_probability", minimum=0, maximum=1)
         impact = _number(residual_impact, "residual_impact", minimum=0)
         row = {
