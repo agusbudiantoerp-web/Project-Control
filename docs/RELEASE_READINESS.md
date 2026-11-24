@@ -121,3 +121,8 @@ The system is not production-ready until the final test phase passes, critical d
 - Saved COO report and page compare the latest two distinct snapshots, expose missing baselines and data conflicts, and include trend summaries in executive output.
 - Tests cover dated trend integration and missing baseline handling; execution remains pending.
 - Trend output depends on users capturing dated snapshots over time. It does not reconstruct historical EVM or infer missing values.
+
+
+- Added import-column aliases for portfolio snapshots in English and Indonesian.
+- Added validation for ISO snapshot dates, non-negative SPI/CPI and risk score range 0–100.
+- Added mapping/validation tests to the focused suite; execution remains unverified.
