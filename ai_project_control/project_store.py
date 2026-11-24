@@ -18,6 +18,16 @@ from .data_quality_validation import TABLE_KEYS, validate_project_control_data
 SCHEMA_VERSION = 1
 
 
+class _ClosingConnection(sqlite3.Connection):
+    """Commit/rollback with the context manager, then always release the handle."""
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            return super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self.close()
+
+
 class ProjectStore:
     """SQLite repository for one local project-control workspace."""
 
@@ -41,7 +51,8 @@ class ProjectStore:
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(
-            self._sqlite_target, timeout=15, uri=self._sqlite_uri
+            self._sqlite_target, timeout=15, uri=self._sqlite_uri,
+            factory=_ClosingConnection,
         )
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
@@ -77,8 +88,17 @@ class ProjectStore:
                     value TEXT NOT NULL
                 )
             """)
+            current = db.execute(
+                "SELECT value FROM store_metadata WHERE key=?",
+                ("schema_version",),
+            ).fetchone()
+            if current is not None and int(current["value"]) > SCHEMA_VERSION:
+                raise RuntimeError(
+                    "Workspace database schema is newer than this application; "
+                    "upgrade the application before opening this database."
+                )
             db.execute(
-                "INSERT OR REPLACE INTO store_metadata(key, value) VALUES (?, ?)",
+                "INSERT OR IGNORE INTO store_metadata(key, value) VALUES (?, ?)",
                 ("schema_version", str(SCHEMA_VERSION)),
             )
 
