@@ -22,9 +22,13 @@ def _number(value: Any) -> float | None:
 
 def _sum_field(rows: list[dict[str, Any]], field: str) -> float | None:
     values = [_number(row.get(field)) for row in rows]
-    if not values or any(value is None for value in values):
+    if not values or any(value is None or value < 0 for value in values):
         return None
-    return sum(values)
+    try:
+        total = math.fsum(values)
+    except OverflowError:
+        return None
+    return total if math.isfinite(total) else None
 
 
 def calculate_evm(
