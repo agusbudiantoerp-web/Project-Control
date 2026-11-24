@@ -105,3 +105,11 @@ The system is not production-ready until the final test phase passes, critical d
 - Added restoration-oriented tests to focused CI; execution status remains pending verification.
 - Automatic backup scheduling, encryption-at-rest for exported backup files, retention, restore UI and disaster-recovery drills are not implemented.
 - Operators must protect backup files as sensitive project data.
+
+
+## Risk governance in saved COO cockpit
+
+- Saved portfolio service now loads the risk register, linked executive actions and mitigation tracker for each project.
+- COO page shows risk governance counts, risk-by-risk action/mitigation status, risk exposure ranking and activity/WBS traceability.
+- Integration tests added for a linked schedule risk, overdue action and mitigation; execution remains pending.
+- Risk matrix assumes consistent impact units within a project. Identity/authentication, authorization, cross-project risk acceptance and formal approval workflows remain outstanding.
