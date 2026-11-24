@@ -26,9 +26,8 @@ def add_performance_indices(df: pd.DataFrame) -> pd.DataFrame:
     # Guard zero PV/AC the same way project_summary guards zero (bac - ac) for
     # tcpi: a zero denominator can't yield a meaningful index, so report NaN
     # instead of letting it silently become inf/-inf.
-    with pd.option_context("mode.use_inf_as_na", True):
-        out["spi"] = out["earned_value_cum"] / out["planned_value_cum"].replace(0, float("nan"))
-        out["cpi"] = out["earned_value_cum"] / out["actual_cost_cum"].replace(0, float("nan"))
+    out["spi"] = out["earned_value_cum"] / out["planned_value_cum"].replace(0, float("nan"))
+    out["cpi"] = out["earned_value_cum"] / out["actual_cost_cum"].replace(0, float("nan"))
     out[["spi", "cpi"]] = out[["spi", "cpi"]].replace([float("inf"), -float("inf")], float("nan"))
     return out
 
