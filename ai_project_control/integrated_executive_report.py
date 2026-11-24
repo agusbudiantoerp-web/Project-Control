@@ -97,7 +97,7 @@ def build_integrated_executive_report(
         for signal in recovery_assessment.get("signals", []):
             lines.append("- " + _safe(signal))
     else:
-        lines.append("- " + ("No recovery assessment supplied." if en else "Belum ada assessment pemulihan."))
+        lines.append("- " + ("No recovery assessment supplied." if en else "Belum ada assessment pemulihan (No recovery assessment supplied)."))
 
     lines.extend(["", "## " + ("Recovery scenario comparison" if en else "Perbandingan skenario pemulihan")])
     scenario_rows = (scenario_comparison or {}).get("scenarios", [])
