@@ -48,6 +48,7 @@ def build_saved_portfolio_report(
         project = workspace["project_master"][0]
         name = str(project.get("project_name") or project_id)
         currency = str(project.get("currency") or "").strip().upper()
+        evm = None
         try:
             for dataset in ("progress", "actual_cost"):
                 mismatch = sorted({
@@ -150,8 +151,8 @@ def build_saved_portfolio_report(
             )
         decision_records.append({
             "project_id": project_id, "project_name": name,
-            "SPI": evm.get("SPI") if "evm" in locals() and isinstance(evm, dict) else None,
-            "CPI": evm.get("CPI") if "evm" in locals() and isinstance(evm, dict) else None,
+            "SPI": evm.get("SPI") if isinstance(evm, dict) else None,
+            "CPI": evm.get("CPI") if isinstance(evm, dict) else None,
             "risk_score": max(valid_risk_scores) if valid_risk_scores else None,
             "overloaded_resource_days": resource_loading["overloaded_count"],
             "forecast_variance_days": None,
