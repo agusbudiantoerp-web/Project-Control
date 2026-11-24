@@ -55,6 +55,9 @@ Halaman multipage tersedia melalui navigasi sidebar, termasuk:
 - Dated Cash Flow Forecast
 - EVM & Cost Forecast Control
 - Telegram Executive Report
+- Saved Project Financial Control
+- Saved Portfolio COO Executive Cockpit
+- Workspace Backup & Import History
 
 ## 4. Telegram (opsional)
 
