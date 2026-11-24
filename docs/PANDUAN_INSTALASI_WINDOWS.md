@@ -48,7 +48,7 @@ Jika PowerShell memblokir aktivasi script, jalankan perintah aktivasi melalui Co
 python -m streamlit run app.py
 ```
 
-Browser biasanya terbuka otomatis. Jika tidak, salin alamat lokal yang ditampilkan Streamlit ke browser.
+Alternatif untuk penggunaan berikutnya: klik dua kali `START_AI_PROJECT_CONTROL.bat` di folder utama repository. File launcher lama di folder `ai_project_control` juga diarahkan ke launcher utama agar aplikasi yang dijalankan tetap satu. Browser biasanya terbuka otomatis. Jika tidak, salin alamat lokal yang ditampilkan Streamlit ke browser.
 
 Halaman multipage tersedia melalui navigasi sidebar, termasuk:
 - Workspace dashboard
