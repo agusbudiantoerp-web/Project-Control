@@ -65,6 +65,13 @@ ALIASES = {
         "activity_id": ("activity id", "kode aktivitas"),
         "description": ("description", "uraian risiko", "deskripsi"),
     },
+    "portfolio_snapshots": {
+        "project_id": ("project id", "project code", "kode proyek"),
+        "snapshot_date": ("snapshot date", "tanggal snapshot", "as of date"),
+        "SPI": ("spi", "schedule performance index"),
+        "CPI": ("cpi", "cost performance index"),
+        "risk_score": ("risk score", "skor risiko"),
+    },
     "resources": {
         "resource_type": ("resource type", "jenis resource", "jenis sumber daya", "category"),
         "resource_name": ("resource name", "nama resource", "nama sumber daya"),
