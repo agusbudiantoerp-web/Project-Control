@@ -146,10 +146,14 @@ def simulate_schedule_risk(
         for aid, probability, low, mode, high in parsed_risks:
             if risk_rng.random() < probability:
                 sampled[aid] += risk_rng.triangular(low, high, mode)
+                if not math.isfinite(sampled[aid]):
+                    raise ValueError("Sampled activity duration exceeds the supported numeric range")
         earliest_finish = {}
         for aid in order:
             predecessor_finish = max((earliest_finish[p] for p in records[aid]["predecessors"]), default=0.0)
             earliest_finish[aid] = predecessor_finish + sampled[aid]
+            if not math.isfinite(earliest_finish[aid]):
+                raise ValueError("Simulated schedule duration exceeds the supported numeric range")
         finishes.append(max((earliest_finish[aid] for aid in terminal_activities), default=0.0))
 
     p50, p80, p90 = (_percentile(finishes, p) for p in (.5, .8, .9))
