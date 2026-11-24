@@ -16,6 +16,7 @@ from .risk_cost_simulation import build_risk_cost_simulation
 from .risk_adjusted_project_outlook import build_risk_adjusted_project_outlook
 from .project_director_review import build_project_director_review
 from .portfolio_command_center import build_portfolio_command_center
+from .portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 from .portfolio_monitoring import PortfolioMonitoringStore
 from .project_recovery_intelligence import build_project_recovery_intelligence
 from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
@@ -79,6 +80,37 @@ def render_project_workspace_dashboard(
                     st.write("• " + limitation)
     except (TypeError, ValueError, OSError) as exc:
         st.warning("Portfolio command center unavailable: " + str(exc))
+
+    st.subheader("Portfolio-wide Risk & Shared Resource Intelligence")
+    try:
+        portfolio_intelligence = build_stored_portfolio_risk_resource_view(database_path)
+        ri1, ri2, ri3, ri4 = st.columns(4)
+        ri1.metric("Assessed risks", portfolio_intelligence["risk_count_assessed"])
+        ri2.metric("Unassessed risks", portfolio_intelligence["risk_count_unassessed"])
+        ri3.metric("Shared resource periods", portfolio_intelligence["shared_resource_period_count"])
+        ri4.metric("Cross-project overloads", portfolio_intelligence["shared_resource_conflict_count"])
+        if portfolio_intelligence["expected_exposure_by_currency"]:
+            st.caption("Expected exposure by currency: " + " | ".join(
+                f"{currency} {amount:,.2f}"
+                for currency, amount in portfolio_intelligence["expected_exposure_by_currency"].items()
+            ))
+        if portfolio_intelligence["top_risks"]:
+            st.markdown("**Highest expected risk exposures (separated by currency)**")
+            st.dataframe(portfolio_intelligence["top_risks"], use_container_width=True, hide_index=True)
+        if portfolio_intelligence["shared_resource_conflicts"]:
+            st.markdown("**Cross-project shared-resource capacity checks**")
+            st.dataframe(portfolio_intelligence["shared_resource_conflicts"], use_container_width=True, hide_index=True)
+        if portfolio_intelligence["unassessed_risks"] or portfolio_intelligence["unassessed_resources"]:
+            with st.expander("Unassessed portfolio records"):
+                st.write("Risks")
+                st.dataframe(portfolio_intelligence["unassessed_risks"], use_container_width=True, hide_index=True)
+                st.write("Resources")
+                st.dataframe(portfolio_intelligence["unassessed_resources"], use_container_width=True, hide_index=True)
+        with st.expander("Portfolio risk/resource limitations"):
+            for limitation in portfolio_intelligence["limitations"]:
+                st.write("• " + limitation)
+    except (TypeError, ValueError, OSError, KeyError) as portfolio_intelligence_error:
+        st.warning("Portfolio risk/resource intelligence unavailable: " + str(portfolio_intelligence_error))
 
     st.subheader("Portfolio Change Monitoring")
     try:
