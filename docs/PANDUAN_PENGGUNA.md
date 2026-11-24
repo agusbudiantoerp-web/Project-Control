@@ -44,7 +44,7 @@ Database lokal dibuat pada `.project_control/project_control.sqlite3`. Jangan me
 5. Periksa EVM, resource loading, cost forecast, schedule forecast dan Monte Carlo.
 6. Periksa ringkasan gabungan risk-adjusted cost dan schedule, lalu Risk Exposure Matrix dan rekomendasi mitigasi. P80 biaya dan P80 jadwal adalah distribusi marginal terpisah, bukan satu skenario gabungan berkorelasi.
 7. Bandingkan recovery scenario dan validasi asumsi produktivitas tambahan.
-8. Catat executive actions beserta owner, due date, status dan bukti.
+8. Catat rencana mitigasi pada Risk Mitigation Execution Tracker, termasuk risk ID, owner, due date, status, residual probability/impact, dan bukti. Status VERIFIED wajib memiliki bukti.
 9. Gunakan Portfolio Command Center untuk melihat ringkasan lintas proyek.
 10. Simpan snapshot KPI historis secara berkala. Setelah tersedia minimal tiga tanggal untuk suatu indikator, jalankan early warning dari histori tersimpan.
 11. Jika histori mencukupi, jalankan evaluasi baseline ML KPI dan bandingkan MAE dengan persistence baseline. Model hanya dievaluasi dalam memori; belum disimpan atau dipakai otomatis untuk keputusan.
