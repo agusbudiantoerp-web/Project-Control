@@ -29,9 +29,12 @@ def build_portfolio_risk_resource_view(
         if key in seen_risk_keys:
             raise ValueError(f"duplicate risk {project_id}/{risk_id}")
         seen_risk_keys.add(key)
+        impact_raw = next((item.get(field) for field in (
+            "cost_impact_most_likely", "impact", "exposure"
+        ) if item.get(field) not in (None, "")), None)
         try:
             probability = float(item.get("probability"))
-            impact = float(item.get("cost_impact_most_likely", item.get("impact", item.get("exposure"))))
+            impact = float(impact_raw)
         except (TypeError, ValueError):
             unassessed_risks.append({"project_id": project_id, "risk_id": risk_id, "reason": "Probability or impact missing/non-numeric"})
             continue
