@@ -60,7 +60,7 @@ def build_executive_summary(
         state = ("cost efficient" if cpi > 1.02 else "cost inefficient" if cpi < 0.98 else "approximately on budget") if en else ("efisien terhadap biaya" if cpi > 1.02 else "kurang efisien terhadap biaya" if cpi < 0.98 else "relatif sesuai anggaran")
         lines.append((f"- Cost performance: CPI {cpi:.3f} ({state})." if en else f"- Kinerja biaya: CPI {cpi:.3f} ({state})."))
     else:
-        lines.append("- Cost performance: CPI unavailable." if en else "- Kinerja biaya: CPI belum tersedia (CPI unavailable).")
+        lines.append("- Cost performance: CPI unavailable." if en else "- Kinerja biaya: CPI belum tersedia (data biaya aktual belum lengkap).")
 
     if bac is not None:
         lines.append((f"- Budget at completion (BAC): {bac:,.2f}." if en else f"- Anggaran total (BAC): {bac:,.2f}."))
