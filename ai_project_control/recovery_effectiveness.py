@@ -42,6 +42,10 @@ def evaluate_recovery_effectiveness(
     comparisons = {}
     improved = worsened = unchanged = unassessed = 0
     for metric, preferred in _METRICS.items():
+        # A metric omitted from both snapshots was not part of the assessment;
+        # an explicitly supplied None/invalid value is present but unassessed.
+        if metric not in before and metric not in after:
+            continue
         old, new = _finite(before.get(metric)), _finite(after.get(metric))
         if old is None or new is None:
             comparisons[metric] = {
