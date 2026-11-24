@@ -78,4 +78,5 @@ jobs:
             tests/test_financial_control_brief.py \
             tests/test_financial_workspace_service.py \
             tests/test_portfolio_workspace_service.py \
-            tests/test_workspace_backup.py
+            tests/test_workspace_backup.py \
+            tests/test_coo_portfolio_decision_brief.py
