@@ -82,3 +82,10 @@ The system is not production-ready until the final test phase passes, critical d
 - Explicit cost/progress row currency mismatches are rejected against Project Master currency.
 - Unit tests were added to focused CI; execution status must be checked in the final test phase.
 - Period delta versus cumulative snapshot semantics remain a data-owner responsibility and must be reconciled before operational use.
+
+
+## Saved financial-control report exports
+
+- Saved project financial-control page now offers PDF, XLSX and JSON downloads from the same calculated result.
+- Verify PDF rendering, workbook readability, special characters, large reports and output consistency during the final test phase.
+- Exports are unsigned decision-support documents; approval/signature workflow is not implemented by this export feature.
