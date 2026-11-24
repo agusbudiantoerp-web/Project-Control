@@ -49,6 +49,7 @@ Database lokal dibuat pada `.project_control/project_control.sqlite3`. Jangan me
 10. Hubungkan executive action ke risk ID terkait bila tindakan berasal dari risiko yang tercatat.
 11. Gunakan Portfolio Command Center dan Portfolio-wide Risk & Shared Resource Intelligence untuk memeriksa paparan risiko per mata uang dan konflik kapasitas resource lintas proyek. Pastikan resource ID, periode, unit, dan kapasitas benar-benar merujuk pada pool yang sama.
 12. Tinjau COO Executive Portfolio Decision Brief sebagai daftar isu yang memerlukan perhatian manajemen. Rekomendasi merupakan bahan review, bukan persetujuan otomatis.
+13. Gunakan Portfolio Cost & Cashflow Intelligence untuk membandingkan budget dan actual cost per mata uang. Remaining budget bukan saldo kas; pastikan sumber BAC/BOQ dan actual cost telah tervalidasi.
 13. Simpan snapshot KPI historis secara berkala. Setelah tersedia minimal tiga tanggal untuk suatu indikator, jalankan early warning dari histori tersimpan.
 14. Jika histori mencukupi, jalankan evaluasi baseline ML KPI dan bandingkan MAE dengan persistence baseline. Model hanya dievaluasi dalam memori; belum disimpan atau dipakai otomatis untuk keputusan.
 15. Ekspor laporan untuk review dan persetujuan manajemen.
