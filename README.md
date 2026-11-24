@@ -126,3 +126,6 @@ The COO cockpit can compare the latest two distinct dated `portfolio_snapshots` 
 
 
 The saved COO cockpit also reviews cross-project shared-resource demand. It flags overload only when resource ID, period, unit and declared capacity match across at least two projects. Confirm that identical resource IDs refer to the same real-world pool before acting on a flag. Monetary risk exposure is grouped by currency and is meaningful only when impact values are monetary amounts.
+
+
+The COO cockpit can combine saved project EVM cost scenarios with explicit activity finish-date forecasts. Provide an as-of date to run it; the output separates schedule delay evidence from cost scenarios and never claims a probabilistic joint forecast.
