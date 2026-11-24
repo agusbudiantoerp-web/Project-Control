@@ -103,6 +103,15 @@ class ProjectStore:
                     f"Row {index} belongs to project '{row_project}', not '{project_id}'"
                 )
 
+        # Detect repeated natural keys before schema validation so callers get
+        # a stable, actionable import error rather than a validator-specific one.
+        keys_seen = set()
+        for row in normalized:
+            key = self._record_key(dataset, row)
+            if key in keys_seen:
+                raise ValueError(f"Duplicate record key in import: {key}")
+            keys_seen.add(key)
+
         if dataset == "project_master":
             validation = validate_project_control_data({"project_master": normalized})
         else:
