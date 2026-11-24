@@ -39,10 +39,20 @@ def project_summary(df: pd.DataFrame, bac: float) -> dict:
     pv, ev, ac = latest["planned_value_cum"], latest["earned_value_cum"], latest["actual_cost_cum"]
     spi, cpi = latest["spi"], latest["cpi"]
 
-    eac = bac / cpi
-    etc = eac - ac
-    vac = bac - eac
-    tcpi = (bac - ev) / (bac - ac) if (bac - ac) else float("nan")
+    # A zero/invalid CPI cannot support a CPI-based EAC forecast.
+    # Also reject non-finite or non-positive BAC rather than publishing
+    # misleading percentages or forecasts from an invalid baseline.
+    valid_bac = pd.notna(bac) and float(bac) > 0 and pd.notna(float(bac))
+    valid_cpi = pd.notna(cpi) and float(cpi) > 0 and pd.notna(float(cpi))
+    eac = float(bac) / float(cpi) if valid_bac and valid_cpi else float("nan")
+    etc = eac - ac if pd.notna(eac) else float("nan")
+    vac = float(bac) - eac if valid_bac and pd.notna(eac) else float("nan")
+    tcpi_denominator = float(bac) - float(ac) if valid_bac and pd.notna(ac) else float("nan")
+    tcpi = (
+        (float(bac) - float(ev)) / tcpi_denominator
+        if pd.notna(ev) and pd.notna(tcpi_denominator) and tcpi_denominator > 0
+        else float("nan")
+    )
 
     return {
         "status_period": latest["period_label"].strftime("%Y-%m"),
@@ -58,7 +68,7 @@ def project_summary(df: pd.DataFrame, bac: float) -> dict:
         "cv_pct": (ev - ac) / ev * 100 if ev else float("nan"),
         "spi": spi,
         "cpi": cpi,
-        "percent_complete": ev / bac * 100,
+        "percent_complete": ev / bac * 100 if valid_bac and pd.notna(ev) else float("nan"),
         "eac": eac,
         "etc": etc,
         "vac": vac,
