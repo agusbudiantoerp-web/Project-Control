@@ -279,3 +279,11 @@ Compared the following files on `main` and `ai-project-control-integration`:
 - CI status lookup for this SHA returned an empty status list; no pass is claimed. The AI Project Control CI workflow watches `ai_project_control/**`, so this test change is in its configured push path.
 - Branch compare after the test commit: integration is 739 commits ahead and 13 behind `main`; status remains diverged.
 - Release remains NOT READY until the regression suite and all required workflow families pass on one candidate SHA, and Windows/runtime acceptance and branch reconciliation are complete.
+
+## Report header localization regression — 2026-11-24
+
+- Updated `ai_project_control/executive_reporting.py` in commit `8b00066d4bf2a81994819aba612df6b5dc559315`: Indonesian reports now label project and reporting date as `Proyek` and `Tanggal pelaporan`; English reports retain `Project` and `Status date`.
+- Added regression assertions for both languages in `ai_project_control/tests/test_executive_reporting.py`, commit `e686a8ba6838c13fa894e49a318a60d8db19919c`.
+- Combined status queries for both commits returned empty status arrays. No CI pass is claimed.
+- Current branch compare: integration is 744 commits ahead and 13 behind `main`, still diverged.
+- Release remains NOT READY. Run targeted tests and all workflow families on one exact candidate SHA before release.
