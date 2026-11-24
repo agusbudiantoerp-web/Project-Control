@@ -73,3 +73,12 @@ The system is not production-ready until the final test phase passes, critical d
 - Added Windows local installation instructions for Python 3.11, venv, requirements and Streamlit startup.
 - Added optional Telegram environment-variable guidance and local SQLite data-handling cautions.
 - Local startup instructions do not establish successful execution, deployment readiness or multi-user security. Those require the final acceptance test phase.
+
+
+## Persisted financial workspace integration
+
+- Added a read-only service that loads one project from the local SQLite workspace and builds EVM plus cost forecast scenarios.
+- Added a Streamlit page that uses saved records rather than unrelated manually pasted JSON.
+- Explicit cost/progress row currency mismatches are rejected against Project Master currency.
+- Unit tests were added to focused CI; execution status must be checked in the final test phase.
+- Period delta versus cumulative snapshot semantics remain a data-owner responsibility and must be reconciled before operational use.
