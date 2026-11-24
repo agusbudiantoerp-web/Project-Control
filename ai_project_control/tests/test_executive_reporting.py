@@ -46,6 +46,10 @@ def test_indonesian_report_uses_indonesian_labels_without_english_duplicates():
         },
         language="id",
     )
+    assert "**Proyek:** Jalan (P-3)" in report
+    assert "**Tanggal pelaporan:** 2026-11-24" in report
+    assert "**Project:**" not in report
+    assert "**Status date:**" not in report
     assert "- Kinerja jadwal: SPI 0.950" in report
     assert "- Kinerja biaya: CPI 0.900" in report
     assert "- Eksposur biaya risiko P80: 125,000.00." in report
@@ -69,6 +73,10 @@ def test_english_report_uses_english_labels_without_indonesian_duplicates():
         },
         language="en",
     )
+    assert "**Project:** Bridge (P-4)" in report
+    assert "**Status date:** 2026-11-24" in report
+    assert "**Proyek:**" not in report
+    assert "**Tanggal pelaporan:**" not in report
     assert "Schedule performance: SPI 0.950" in report
     assert "Cost performance: CPI 0.900" in report
     assert "Risk cost exposure P80: 125,000.00." in report
