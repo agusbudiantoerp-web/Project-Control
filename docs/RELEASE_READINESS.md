@@ -10,6 +10,7 @@
 - Recovery scenario planning, resource recovery estimate and executive decision brief
 - Executive action register with risk-ID links, audit events and escalation
 - Persistent risk mitigation tracker with residual exposure, owner/due date, evidence gate and append-only change history
+- Cross-register risk governance view linking risks, executive actions and mitigation status
 - Executive reporting and Telegram reporting integration modules
 - Historical KPI snapshot storage and next-snapshot CSV dataset builder
 - Chronological Random Forest KPI baseline training/evaluation with persistence benchmark
