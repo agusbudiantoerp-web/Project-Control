@@ -83,3 +83,15 @@ Jangan menggunakan data contoh sebagai data proyek aktual. Jangan mengirim token
 5. Download the JSON output for review and retain the source transaction evidence.
 
 The page does not infer invoice due dates, collection probability, financing availability or FX rates. A forecast transaction is only a supplied plan, not a confirmed payment. Do not use sample values as actual treasury data.
+
+
+## H. EVM & Cost Forecast Control
+
+1. Open **EVM & Cost Forecast Control** in the Streamlit sidebar.
+2. Enter project ID, BAC and currency.
+3. Supply progress records containing planned_value and earned_value and actual-cost records containing actual_cost. Use one consistent period convention: period deltas can be summed; cumulative snapshots must be reduced to the latest snapshot per activity before calculation.
+4. Optionally enter an as-of period to limit the records included.
+5. Review PV, EV, AC, BAC, SPI, CPI, EAC, ETC, VAC and the three EAC scenarios.
+6. Treat missing data as unassessed and validate source valuation and currency before management use.
+
+CPI-based EAC assumes current cost efficiency continues. CPI×SPI is a scenario, not a probabilistic prediction. These values do not represent payment timing, cash balance, approved budget changes or commitments.
