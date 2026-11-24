@@ -20,6 +20,13 @@ def _number(row: dict[str, Any], field: str, risk_id: str) -> float:
     return value
 
 
+def _triangular(rng: random.Random, low: float, mode: float, high: float) -> float:
+    """Sample a triangular distribution, including a valid zero-width point mass."""
+    if low == high:
+        return low
+    return rng.triangular(low, high, mode)
+
+
 def _percentile(values: list[float], percentile: float) -> float:
     ordered = sorted(values)
     position = (len(ordered) - 1) * percentile
@@ -110,10 +117,11 @@ def build_risk_cost_simulation(
         total = base
         for risk in parsed:
             if rng.random() < risk["probability"]:
-                impact = rng.triangular(
+                impact = _triangular(
+                    rng,
                     risk["cost_impact_min"],
-                    risk["cost_impact_max"],
                     risk["cost_impact_most_likely"],
+                    risk["cost_impact_max"],
                 )
                 total += impact if risk["risk_type"] == "THREAT" else -impact
                 if not math.isfinite(total):
