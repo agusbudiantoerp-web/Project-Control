@@ -182,3 +182,8 @@ Isi tanggal `Governance as-of date` dengan `YYYY-MM-DD` saat memuat portofolio. 
 ## R. Resource Loading dan Capacity Alert
 
 COO Cockpit menampilkan ringkasan utilisasi resource per proyek, resource ID, dan periode. Impor dataset `resources` dengan `resource_id`, `period`, `planned_units`, `capacity_units`, serta `unit`. Jika tersedia, `actual_units` juga ditampilkan. Status OVERLOADED muncul bila planned units melampaui kapasitas yang dinyatakan. Jika demand atau kapasitas tidak tersedia, hasil UNASSESSED—bukan dianggap nol atau aman. Baris dengan resource berbeda, satuan berbeda, atau periode berbeda tidak digabungkan dalam ringkasan per proyek.
+
+
+## S. Portfolio Financial Position
+
+COO Cockpit menampilkan anggaran (BAC atau jumlah BOQ jika BAC tidak tersedia), actual cost dari dataset `actual_cost`, sisa anggaran, dan status over-budget. Setiap proyek harus memiliki mata uang yang benar. Jika actual-cost record belum tersedia atau nilai biaya tidak lengkap, proyek ditandai belum dapat dinilai—tidak diasumsikan memiliki actual cost nol. Ringkasan lintas proyek dipisahkan menurut mata uang; tidak ada konversi kurs. Angka ini adalah posisi anggaran versus actual cost, bukan saldo kas atau proyeksi pembayaran.
