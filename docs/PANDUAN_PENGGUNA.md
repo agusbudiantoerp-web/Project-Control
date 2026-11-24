@@ -159,3 +159,8 @@ Fitur ini membuat snapshot konsisten dari SQLite lokal; belum ada penjadwalan ba
 6. Periksa orphan action dan orphan mitigation; hubungan yang tidak cocok tidak ditebak oleh sistem.
 
 Risk matrix menggunakan probabilitas × impact. Nilai impact hanya dapat dibandingkan dalam satuan yang konsisten. Label `created_by`, `changed_by`, dan `updated_by` merupakan atribusi, bukan identitas terautentikasi. Persetujuan dan penerimaan risiko tetap dilakukan oleh manajemen.
+
+
+## O. Histori Kesehatan Portofolio dan Early Warning
+
+Untuk menilai perubahan kinerja, impor dataset `portfolio_snapshots` dengan satu record per proyek per tanggal: `project_id`, `snapshot_date` (YYYY-MM-DD), dan nilai yang tersedia untuk `SPI`, `CPI`, serta `risk_score`. Simpan snapshot secara berkala setelah periode pelaporan disetujui. COO Cockpit membandingkan dua tanggal terbaru; penurunan SPI/CPI lebih dari 0,02 dan kenaikan risk score lebih dari 5 poin menghasilkan sinyal pemeriksaan. Satu snapshot saja berstatus NO_BASELINE. Metrik yang hilang tidak diganti nol. Jangan mengisi snapshot historis dengan angka perkiraan.
