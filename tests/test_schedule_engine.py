@@ -54,3 +54,13 @@ def test_empty_schedule_is_not_a_zero_day_project():
     result = calculate_critical_path([])
     assert result["status"] == "NO_ACTIVITIES"
     assert result["project_duration_days"] is None
+
+
+def test_rejects_boolean_duration_and_cumulative_overflow():
+    with pytest.raises(ValueError, match="not boolean"):
+        calculate_critical_path([{"activity_id": "A", "duration_days": True}])
+    with pytest.raises(ValueError, match="overflow"):
+        calculate_critical_path([
+            {"activity_id": "A", "duration_days": 1e308},
+            {"activity_id": "B", "duration_days": 1e308, "predecessors": ["A"]},
+        ])
