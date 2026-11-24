@@ -25,6 +25,9 @@ def test_create_action_validates_required_fields_and_normalizes_priority():
     assert action["priority"] == "P1"
     assert action["status"] == "OPEN"
     assert action["project_id"] == "PRJ-001"
+    linked = _action(risk_id="R-009")
+    assert linked["risk_id"] == "R-009"
+    assert _action()["risk_id"] is None
 
 
 @pytest.mark.parametrize("field,value", [
