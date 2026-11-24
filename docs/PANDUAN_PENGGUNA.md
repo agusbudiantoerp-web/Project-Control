@@ -95,3 +95,14 @@ The page does not infer invoice due dates, collection probability, financing ava
 6. Treat missing data as unassessed and validate source valuation and currency before management use.
 
 CPI-based EAC assumes current cost efficiency continues. CPI×SPI is a scenario, not a probabilistic prediction. These values do not represent payment timing, cash balance, approved budget changes or commitments.
+
+
+## I. Telegram Executive Report
+
+1. Create a Telegram bot through the official BotFather process and obtain its bot token securely.
+2. Configure `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the hosting platform's secrets/environment settings. `.env.example` is a blank template; do not commit actual credentials.
+3. Open **Telegram Executive Report**, enter the reporting date and provide the portfolio intelligence/action-register JSON objects.
+4. Generate and review the message preview. Download the text if it needs approval first.
+5. To deliver, check the explicit authorization checkbox and press **Send Telegram report**. The page will report whether Telegram accepted the message.
+
+A successful API response confirms Telegram accepted the message, not that the intended recipient read or acted on it. Test with a private chat before any operational group. Never place bot credentials in the form or source repository.
