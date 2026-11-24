@@ -110,3 +110,8 @@ The saved financial-control page can export the calculated project brief as PDF,
 ## Saved Portfolio COO Executive Cockpit
 
 Open **Saved Portfolio — COO Executive Cockpit** to discover projects saved in the local SQLite workspace, calculate each project's EVM indicators, review RED/AMBER/INSUFFICIENT_DATA states, compare budgets by currency without implicit FX conversion, and export an Indonesian or English executive report as PDF, XLSX or JSON. Only projects present in this local workspace are included; this is not a synchronized multi-user portfolio database.
+
+
+## Workspace Backup & Import History
+
+Open **Workspace Backup & Import History** to review the latest 100 import events for a selected project and prepare a consistent SQLite snapshot using SQLite's online backup API. Backups may contain sensitive commercial and project data: store them encrypted with restricted access and never commit them to a public repository. Restore procedures and backup retention remain organizational responsibilities.
