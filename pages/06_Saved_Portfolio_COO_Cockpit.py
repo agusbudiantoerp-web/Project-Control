@@ -36,6 +36,30 @@ if submitted:
                     st.json({"EVM": project["evm"], "Source counts": project["source_counts"], "Validation": project["validation"]})
                 else:
                     st.warning(project.get("error", "Data not assessed"))
+        st.subheader("Integrated schedule and cost outlook")
+        outlooks = result["schedule_cost_outlooks"]
+        for item in outlooks:
+            with st.expander(f"Outlook — {item['project_name']} ({item['project_id']}) — {item['status']}"):
+                if item["status"] == "NOT_RUN":
+                    st.info(item["reason"])
+                else:
+                    cost = item.get("cost_forecast", {})
+                    schedule = item.get("schedule_forecast", {})
+                    st.json({
+                        "management_attention": item.get("management_attention", {}),
+                        "cost_forecast": cost,
+                        "schedule_summary": {
+                            "status": schedule.get("status"),
+                            "project_baseline_finish_date": schedule.get("project_baseline_finish_date"),
+                            "project_forecast_finish_date": schedule.get("project_forecast_finish_date"),
+                            "project_delay_days": schedule.get("project_delay_days"),
+                            "delayed_activity_ids": schedule.get("delayed_activity_ids", []),
+                            "unassessed_activity_ids": schedule.get("unassessed_activity_ids", []),
+                        },
+                    })
+                    if schedule.get("activities"):
+                        st.dataframe(schedule["activities"], use_container_width=True, hide_index=True)
+                    st.caption("Cost forecasts are deterministic EVM scenarios; schedule forecasts use explicit activity dates. They are not a probabilistic joint forecast or an approved baseline.")
         st.subheader("Cross-project shared resource intelligence")
         shared = result["portfolio_resource_intelligence"]
         rcols = st.columns(4)
