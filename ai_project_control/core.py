@@ -1312,6 +1312,10 @@ def import_project_backup(project_id: str, raw: bytes):
                 if member not in names:
                     raise ValueError(f"Backup is missing {member}.")
                 frame=pd.read_csv(BytesIO(archive.read(member)))
+                # A restore may target a new project ID. Keep the master record
+                # aligned with the project-scoped database key used below.
+                if name=="project_master" and "project_id" in frame.columns:
+                    frame["project_id"]=str(project_id)
                 restored_frames[name]=frame
     except (zipfile.BadZipFile, json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError, pd.errors.ParserError) as exc:
         raise ValueError(f"Backup archive is invalid: {exc}") from exc
