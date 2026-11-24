@@ -20,6 +20,14 @@ MAX_COLUMNS = 200
 
 def _validate_headers(headers: list[str]) -> None:
     """Reject oversized or ambiguous headers before reading data rows."""
+    if not headers or not any(str(header).strip() for header in headers):
+        raise ValueError("No usable header row was found.")
+    if len(headers) > MAX_COLUMNS:
+        raise ValueError(f"File exceeds the {MAX_COLUMNS} column limit.")
+    duplicates = sorted({header for header in headers if header and headers.count(header) > 1})
+    if duplicates:
+        raise ValueError("Duplicate column headers: " + ", ".join(duplicates))
+
 
 def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) -> dict[str, Any]:
     """Read a bounded CSV/XLSX upload and return headers, rows and metadata."""
@@ -81,13 +89,6 @@ def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) ->
         finally:
             workbook.close()
 
-    if not headers or not any(str(header).strip() for header in headers):
-        raise ValueError("No usable header row was found.")
-    if len(headers) > MAX_COLUMNS:
-        raise ValueError(f"File exceeds the {MAX_COLUMNS} column limit.")
-    duplicates = sorted({header for header in headers if header and headers.count(header) > 1})
-    if duplicates:
-        raise ValueError("Duplicate column headers: " + ", ".join(duplicates))
     return {
         "filename": filename,
         "extension": extension,
