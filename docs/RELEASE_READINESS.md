@@ -126,3 +126,11 @@ The system is not production-ready until the final test phase passes, critical d
 - Added import-column aliases for portfolio snapshots in English and Indonesian.
 - Added validation for ISO snapshot dates, non-negative SPI/CPI and risk score range 0–100.
 - Added mapping/validation tests to the focused suite; execution remains unverified.
+
+
+## Cross-project resource intelligence
+
+- Saved COO report now joins resource records across projects and exposes shared-capacity conflicts.
+- A conflict is asserted only for exact resource ID, period, unit and capacity agreement across at least two projects.
+- Added service-level integration test for a 20-unit shared-resource overload; test execution remains pending.
+- Resource IDs must be confirmed as the same physical pool by the project organization before action.
