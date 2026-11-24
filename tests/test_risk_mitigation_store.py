@@ -72,3 +72,15 @@ def test_in_memory_database_supported():
     )
     assert len(store.list_project("P")) == 1
     assert len(store.list_events("P")) == 1
+
+
+
+def test_verified_mitigation_requires_evidence(tmp_path):
+    store = RiskMitigationStore(tmp_path / "workspace.sqlite3")
+    with pytest.raises(ValueError, match="evidence"):
+        store.save(
+            project_id="P", risk_id="R", mitigation_action="Act",
+            owner="Owner", due_date="2026-12-01", status="VERIFIED",
+            residual_probability=.1, residual_impact=5,
+            evidence="", updated_by="User",
+        )
