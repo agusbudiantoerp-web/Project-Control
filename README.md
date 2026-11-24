@@ -129,3 +129,6 @@ The saved COO cockpit also reviews cross-project shared-resource demand. It flag
 
 
 The COO cockpit can combine saved project EVM cost scenarios with explicit activity finish-date forecasts. Provide an as-of date to run it; the output separates schedule delay evidence from cost scenarios and never claims a probabilistic joint forecast.
+
+
+The saved COO cockpit includes per-project resource loading and capacity alerts by resource ID, unit and period. Missing capacity or demand is shown as unassessed rather than treated as available capacity.
