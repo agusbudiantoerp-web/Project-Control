@@ -231,3 +231,31 @@ A fresh compare after the audit documentation commit reports:
 - The branch comparison remains a full-history divergence from merge base `86851692422f3615f933d005a184028bce2ea14f`. The 13 main-only commits still require a controlled semantic reconciliation; no merge, rebase, or cherry-pick was performed in this audit.
 
 Release decision: **NOT READY**. Keep `main` unchanged. Before integration, obtain current CI results for one candidate SHA, reconcile the 13 main-only commits with targeted tests for import/report/dashboard behavior, and complete Windows/runtime acceptance.
+
+## Targeted code-contract review — 2026-11-24
+
+Compared the following files on `main` and `ai-project-control-integration`:
+
+### Import service
+- `ai_project_control/import_service.py` does not exist at the root of `main`; it exists on the integration branch.
+- Integration implementation rewinds seekable upload streams before parsing, validates project scope, and only persists after mapping/validation. Its test suite includes the preview-read/rewind regression case.
+- The corresponding `tests/test_import_service.py` on `main` lacks the stream-rewind regression test; integration has it.
+- Keep the integration implementation and its regression test. There is no main-side implementation to merge for this path.
+
+### Executive reporting
+- `main` version SHA: `703daacc884e58a30c9974ed06c585c2694fad9a`.
+- Integration version SHA: `3e7b430f04ef2bc334631d9be8eaef06403acda3`.
+- Integration adds P80 schedule-risk exposure and corresponding management-attention logic. Main does not expose that metric.
+- Integration currently emits some bilingual labels redundantly in Indonesian mode (for example English and Indonesian schedule/risk labels, and repeated CPI-unavailable wording). This is a real report-quality issue to address with a targeted regression test and a cleanup that preserves the additional P80 metric; do not replace the integration file with main's older version.
+
+### Focused workflow
+- Main workflow SHA: `d34d4da395032d4b3fd19bb7d51bb9994c4f595e`.
+- Integration workflow SHA: `81e709f0c81c91c7925bc8ce62bdbf416e968470`.
+- Integration runs a broader test set and installs root plus app requirements.
+- Main workflow runs a narrower list and includes malformed trailing continuation escapes in the shell command. Keep integration workflow; do not copy main workflow.
+
+### Current branch and release gate
+- Latest branch compare: integration is 735 commits ahead and 13 commits behind main; status `diverged`.
+- No open pull request was returned by the latest PR search.
+- No merge/rebase/cherry-pick was performed. The 13 main-only commits are not yet fully reconciled.
+- Release remains NOT READY pending cleanup of bilingual report duplication, fresh all-workflow CI on one exact candidate SHA, Windows installation/runtime acceptance, owner-data acceptance, Telegram delivery test, and backup/restore drill.
