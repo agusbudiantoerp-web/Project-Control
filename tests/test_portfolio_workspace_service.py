@@ -270,3 +270,48 @@ def test_saved_portfolio_decision_rows_keep_project_evidence_after_priority_sort
     assert decisions[0]["SPI"] == 0.5
     assert decisions[1]["project_id"] == "P1"
     assert decisions[1]["SPI"] == 0.98
+
+
+def test_saved_portfolio_integrates_recovery_decision_review(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project Recovery", 500, 300, 650)
+    store.save_dataset("P1", "risk", [{
+        "project_id": "P1", "risk_id": "R1", "description": "Critical risk",
+        "probability": 0.9, "impact": 100, "risk_score": 90,
+    }])
+    result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
+    recovery = result["recovery_decisions"][0]
+    assert recovery["status"] == "PARTIALLY_ASSESSED"
+    assert recovery["signal_count"] >= 2
+    assert "MONTE_CARLO_OUTLOOK" in recovery["missing_inputs"]
+    assert "Recovery decision review" in result["executive_report"]
+
+
+def test_saved_portfolio_predictive_warning_requires_three_snapshots(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project Trend", 500, 400, 500)
+    store.save_dataset("P1", "portfolio_snapshots", [
+        {"project_id": "P1", "snapshot_date": "2026-11-01", "SPI": 1.02, "CPI": 1.0, "risk_score": 20},
+        {"project_id": "P1", "snapshot_date": "2026-11-10", "SPI": 0.99, "CPI": 0.99, "risk_score": 30},
+        {"project_id": "P1", "snapshot_date": "2026-11-20", "SPI": 0.94, "CPI": 0.97, "risk_score": 45},
+    ])
+    result = build_saved_portfolio_report(db)
+    warning = result["predictive_early_warning"]
+    assert warning["status"] == "ASSESSED"
+    assert warning["projects"][0]["project_id"] == "P1"
+    spi = next(row for row in warning["projects"][0]["metrics"] if row["metric"] == "SPI")
+    assert spi["status"] == "CURRENTLY_ADVERSE"
+
+
+def test_saved_portfolio_duplicate_snapshot_dates_are_review_required_for_prediction(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project Trend", 500, 400, 500)
+    store.save_dataset("P1", "portfolio_snapshots", [
+        {"project_id": "P1", "snapshot_date": "2026-11-01", "SPI": 1.0},
+        {"project_id": "P1", "snapshot_date": "2026-11-01", "SPI": 0.9},
+    ])
+    result = build_saved_portfolio_report(db)
+    assert result["predictive_early_warning"]["status"] == "REVIEW_REQUIRED"
