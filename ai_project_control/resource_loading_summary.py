@@ -30,6 +30,10 @@ def build_resource_loading_summary(records: list[dict[str, Any]]) -> dict[str, A
     for field in ("planned_units", "actual_units", "capacity_units"):
         if field not in frame:
             frame[field] = pd.NA
+        if pd.api.types.is_bool_dtype(frame[field].dtype) or frame[field].map(
+            lambda value: isinstance(value, bool)
+        ).any():
+            raise ValueError(field + " must be numeric, not boolean.")
         frame[field] = pd.to_numeric(frame[field], errors="coerce")
         valid = frame[field].dropna()
         if (~valid.map(math.isfinite)).any() or (valid < 0).any():
@@ -39,6 +43,10 @@ def build_resource_loading_summary(records: list[dict[str, Any]]) -> dict[str, A
         actual_units=("actual_units", lambda values: values.sum(min_count=1)),
         capacity_units=("capacity_units", "sum"),
     )
+    for field in ("planned_units", "actual_units", "capacity_units"):
+        finite_values = grouped[field].dropna()
+        if (~finite_values.map(math.isfinite)).any():
+            raise ValueError(field + " aggregate exceeds the supported numeric range.")
     # A missing demand/capacity on any contributing record makes the aggregate
     # incomplete rather than silently treating missing records as zero.
     completeness = frame.groupby(["resource_id", "period"], as_index=False).agg(
