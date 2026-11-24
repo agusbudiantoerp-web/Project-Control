@@ -138,3 +138,6 @@ The COO portfolio view includes a currency-separated budget-versus-actual-cost p
 
 
 The Saved Portfolio COO Cockpit includes a Project Director decision matrix and COO management-review brief derived from stored EVM, risk, dated schedule and resource evidence. Missing indicators remain unassessed; recommendations are review prompts, not automatic approvals.
+
+
+The COO portfolio cockpit includes a dated snapshot trend-warning view and a recovery decision review. Trend forecasts require at least three dated observations per metric; missing Monte Carlo or recovery scenario evidence is explicitly surfaced as incomplete.
