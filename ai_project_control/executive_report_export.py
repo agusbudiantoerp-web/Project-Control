@@ -6,10 +6,9 @@ from xml.sax.saxutils import escape
 
 
 def build_executive_report_xlsx(report_text: str) -> bytes:
-    """Return an XLSX workbook containing the report line-by-line."""
+    """Return an XLSX workbook containing the report line-by-line as literal text."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
-    from openpyxl.utils import get_column_letter
 
     if not str(report_text).strip():
         raise ValueError("report_text must not be empty")
@@ -23,6 +22,9 @@ def build_executive_report_xlsx(report_text: str) -> bytes:
     sheet["A2"].font = Font(bold=True)
     for line in str(report_text).splitlines():
         sheet.append([line])
+        # Report content is untrusted text. Force a string cell so values
+        # beginning with '=', '+', '-', or '@' are never evaluated as formulas.
+        sheet.cell(row=sheet.max_row, column=1).data_type = "s"
     sheet.column_dimensions["A"].width = 110
     for row in sheet.iter_rows(min_row=2, max_col=1):
         row[0].alignment = Alignment(wrap_text=True, vertical="top")
@@ -64,7 +66,7 @@ def build_executive_report_pdf(report_text: str) -> bytes:
         leading=20, textColor=colors.HexColor("#17365D"), spaceAfter=10,
     )
     story = []
-    for index, raw_line in enumerate(str(report_text).splitlines()):
+    for raw_line in str(report_text).splitlines():
         line = raw_line.strip()
         if not line:
             story.append(Spacer(1, 3))
