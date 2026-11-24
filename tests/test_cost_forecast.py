@@ -47,3 +47,11 @@ def test_ev_above_bac_requires_review():
 def test_invalid_threshold_rejected():
     with pytest.raises(ValueError):
         build_cost_forecast(evm(), warning_threshold_pct=-1)
+
+
+def test_boolean_financial_values_are_not_treated_as_numeric():
+    data = evm()
+    data["AC"] = True
+    result = build_cost_forecast(data)
+    assert result["status"] == "INSUFFICIENT_DATA"
+    assert "AC" in result["data_gaps"]
