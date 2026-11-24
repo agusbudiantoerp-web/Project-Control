@@ -197,3 +197,30 @@ def test_saved_portfolio_resource_missing_capacity_is_unassessed(tmp_path):
     }])
     result = build_saved_portfolio_report(db)
     assert result["resource_loading"][0]["unassessed_count"] == 1
+
+
+def test_saved_portfolio_financial_position_is_currency_separated(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project IDR", 500, 400, 600, "IDR")
+    add_project(store, "P2", "Project USD", 500, 450, 300, "USD")
+    result = build_saved_portfolio_report(db)
+    finance = result["portfolio_cashflow"]
+    assert finance["project_count_assessed"] == 2
+    assert finance["totals_by_currency"]["IDR"]["actual_cost"] == 600
+    assert finance["totals_by_currency"]["USD"]["actual_cost"] == 300
+    assert finance["projects_over_budget"] == 0
+    assert "Portfolio financial position" in result["executive_report"]
+
+
+def test_saved_portfolio_finance_without_actual_cost_evidence_is_unassessed(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    store.save_dataset("P1", "project_master", [{
+        "project_id": "P1", "project_name": "Project One", "currency": "IDR", "BAC": 1000,
+    }])
+    result = build_saved_portfolio_report(db)
+    finance = result["portfolio_cashflow"]
+    assert finance["project_count_assessed"] == 0
+    assert finance["project_count_unassessed"] == 1
+    assert finance["unassessed_projects"][0]["project_id"] == "P1"
