@@ -84,9 +84,9 @@ def build_executive_summary(
             lines.append(f"- Eksposur biaya risiko P80: {risk_cost:,.2f}.")
 
     if risk_days is not None:
-        lines.append((f"- Risk schedule exposure P80: {risk_days:,.1f} days." if en else f"- Eksposur keterlambatan risiko P80: {risk_days:,.1f} hari."))
-    elif not en:
-        lines.append("- Risk schedule exposure P80: unavailable.")
+        lines.append(f"- Risk schedule exposure P80: {risk_days:,.1f} days.")
+        if not en:
+            lines.append(f"- Eksposur keterlambatan risiko P80: {risk_days:,.1f} hari.")
     if overload is not None:
         lines.append((f"- Overloaded resource days: {int(overload)}." if en else f"- Hari-resource mengalami overload: {int(overload)}."))
 
