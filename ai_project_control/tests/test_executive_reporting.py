@@ -16,6 +16,7 @@ def test_executive_summary_reports_only_available_metrics():
             "Risk schedule days P80": 18,
             "Overloaded resource days": 3,
         },
+        language="en",
     )
     assert "SPI 0.920" in report
     assert "CPI 0.970" in report
@@ -27,7 +28,7 @@ def test_executive_summary_reports_only_available_metrics():
 
 
 def test_executive_summary_does_not_invent_missing_metrics():
-    report = build_executive_summary("P-2", "Road", "2026-11-24", {})
+    report = build_executive_summary("P-2", "Road", "2026-11-24", {}, language="en")
     assert "SPI" in report and "unavailable" in report
     assert "CPI" in report and "unavailable" in report
     assert "Risk schedule exposure P80" not in report
