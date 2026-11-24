@@ -142,3 +142,11 @@ The system is not production-ready until the final test phase passes, critical d
 - COO cockpit exposes cost scenarios, delayed activities, schedule finish dates and missing evidence.
 - Without an as-of date, the outlook is explicitly `NOT_RUN`; missing inputs are not inferred.
 - Added tests for an assessed schedule/cost case and the required as-of date. Execution remains pending.
+
+
+## Project resource loading integration
+
+- Saved portfolio service now calls the existing resource loading summary for each saved project.
+- COO cockpit displays resource/period utilization, overload counts and unassessed counts.
+- Added integration tests for overload and missing capacity; execution remains pending.
+- Per-project resource loading does not substitute for a fully levelled cross-project schedule or resource-constrained critical path.
