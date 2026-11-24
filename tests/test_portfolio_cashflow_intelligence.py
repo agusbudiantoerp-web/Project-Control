@@ -43,3 +43,12 @@ def test_duplicate_projects_and_bad_input_are_rejected():
         ])
     with pytest.raises(TypeError):
         build_portfolio_cashflow_view({})
+
+
+def test_boolean_budget_or_actual_cost_is_unassessed():
+    result = build_portfolio_cashflow_view([
+        {"project_id": "P1", "currency": "IDR", "budget": True, "actual_cost": 10},
+        {"project_id": "P2", "currency": "IDR", "budget": 100, "actual_cost": False},
+    ])
+    assert result["project_count_assessed"] == 0
+    assert result["project_count_unassessed"] == 2
