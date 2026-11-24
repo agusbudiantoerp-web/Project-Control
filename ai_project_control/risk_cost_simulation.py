@@ -114,7 +114,9 @@ def build_risk_cost_simulation(
     p50 = _percentile(totals, 0.50)
     p80 = _percentile(totals, 0.80)
     p90 = _percentile(totals, 0.90)
-    contingency = max(0.0, p80 - base)
+    # Derive contingency from the displayed (rounded) P80 so the published
+    # figures reconcile exactly at the report's two-decimal precision.
+    contingency = max(0.0, round(p80, 2) - base)
     return {
         "status": "ASSESSED",
         "currency": currency,
@@ -126,7 +128,7 @@ def build_risk_cost_simulation(
         "p50_cost": round(p50, 2),
         "p80_cost": round(p80, 2),
         "p90_cost": round(p90, 2),
-        "p80_contingency": round(contingency, 2),
+        "p80_contingency": contingency,
         "probability_over_base": round(sum(value > base for value in totals) / iterations * 100, 2),
         "risk_register": [
             {**row, "expected_cost_impact": round(row["expected_cost_impact"], 2)}
