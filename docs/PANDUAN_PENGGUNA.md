@@ -123,3 +123,16 @@ Halaman ini membaca database lokal dan tidak mengubah dataset. Mesin EVM menjuml
 ## K. Ekspor laporan Financial Control
 
 Setelah Saved Project Financial Control berhasil menghitung data tersimpan, gunakan tombol PDF, Excel atau JSON untuk mengunduh ringkasan yang sama. Periksa nama proyek, periode, mata uang, status validasi, dan keterbatasan sebelum membagikan laporan. File yang diunduh merupakan output analisis, bukan dokumen yang ditandatangani atau persetujuan perubahan anggaran.
+
+
+## L. Saved Portfolio — COO Executive Cockpit
+
+1. Impor Project Master, Progress dan Actual Cost untuk setiap proyek melalui workspace lokal.
+2. Pastikan semua proyek memakai definisi periode dan basis valuasi yang konsisten. Data periode harus berupa delta; snapshot kumulatif perlu dinormalisasi sebelum impor.
+3. Buka **Saved Portfolio — COO Executive Cockpit**.
+4. Isi periode pelaporan bila ingin membatasi perhitungan dan pilih Bahasa Indonesia atau English.
+5. Tekan **Load saved portfolio** untuk melihat jumlah proyek, status penilaian, RED/AMBER, scorecard dan BAC per mata uang.
+6. Buka detail proyek untuk melihat EVM, jumlah sumber data dan validasi. Proyek dengan data tidak cukup atau currency mismatch ditandai perlu pemeriksaan.
+7. Tinjau preview dan unduh laporan PDF, Excel atau JSON.
+
+Cockpit hanya membaca proyek dalam SQLite lokal pada komputer ini. Nilai BAC antar mata uang tidak dijumlahkan. Scorecard SPI/CPI adalah indikator ringkas, bukan pengganti risk review, critical-path analysis atau keputusan pemilik proyek.
