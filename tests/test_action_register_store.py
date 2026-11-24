@@ -11,13 +11,14 @@ def test_action_is_persisted_and_visible_after_reopening_store(tmp_path):
     created = store.create(
         title="Recover critical path", owner="Project Manager",
         due_date=date.today() + timedelta(days=3), project_id="P-01",
-        created_by="Director", priority="P1", action_id="A-01",
+        created_by="Director", priority="P1", action_id="A-01", risk_id="R-01",
     )
     reopened = ActionRegisterStore(path)
     register = reopened.list_project("P-01")
     assert register["summary"]["action_count"] == 1
     assert register["actions"][0]["action_id"] == created["action_id"]
     assert register["actions"][0]["status"] == "OPEN"
+    assert register["actions"][0]["risk_id"] == "R-01"
 
 
 def test_transition_and_audit_event_commit_together(tmp_path):
