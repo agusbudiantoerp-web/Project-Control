@@ -19,6 +19,7 @@ TABLE_KEYS = {
     "actual_cost": ("project_id", "period", "cost_code"),
     "risk": ("project_id", "risk_id"),
     "resources": ("project_id", "resource_id", "period"),
+    "portfolio_snapshots": ("project_id", "snapshot_date"),
 }
 PROJECT_LINKED = tuple(name for name in TABLE_KEYS if name != "project_master")
 NUMERIC_FIELDS = {
@@ -28,6 +29,7 @@ NUMERIC_FIELDS = {
     "actual_cost": ("actual_cost",),
     "risk": ("probability", "impact", "exposure", "cost_impact_min", "cost_impact_most_likely", "cost_impact_max"),
     "resources": ("planned_units", "actual_units", "capacity_units"),
+    "portfolio_snapshots": ("SPI", "CPI", "risk_score"),
 }
 
 
