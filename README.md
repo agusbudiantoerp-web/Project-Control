@@ -123,3 +123,6 @@ The saved COO cockpit now joins the imported risk register with persisted execut
 ## Portfolio health trend monitoring
 
 The COO cockpit can compare the latest two distinct dated `portfolio_snapshots` per project. Save records with `project_id`, `snapshot_date` (YYYY-MM-DD), and available `SPI`, `CPI`, and `risk_score` values. Missing metrics remain unavailable; a single snapshot is marked NO_BASELINE and duplicate project/date records are flagged as conflicts. Trend thresholds are screening indicators, not automated decisions.
+
+
+The saved COO cockpit also reviews cross-project shared-resource demand. It flags overload only when resource ID, period, unit and declared capacity match across at least two projects. Confirm that identical resource IDs refer to the same real-world pool before acting on a flag. Monetary risk exposure is grouped by currency and is meaningful only when impact values are monetary amounts.
