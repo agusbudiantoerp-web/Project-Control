@@ -66,7 +66,7 @@ def build_executive_summary(
         state = ("cost efficient" if cpi > 1.02 else "cost inefficient" if cpi < 0.98 else "approximately on budget") if en else ("efisien terhadap biaya" if cpi > 1.02 else "kurang efisien terhadap biaya" if cpi < 0.98 else "relatif sesuai anggaran")
         lines.append((f"- Cost performance: CPI {cpi:.3f} ({state})." if en else f"- Kinerja biaya: CPI {cpi:.3f} ({state})."))
     else:
-        lines.append("- Cost performance: unavailable." if en else "- Kinerja biaya: belum tersedia.")
+        lines.append("- Cost performance: CPI unavailable." if en else "- Kinerja biaya: CPI belum tersedia (CPI unavailable).")
 
     if bac is not None:
         lines.append((f"- Budget at completion (BAC): {bac:,.2f}." if en else f"- Anggaran total (BAC): {bac:,.2f}."))
@@ -79,7 +79,9 @@ def build_executive_summary(
     if critical is not None:
         lines.append((f"- Critical activities: {int(critical)}." if en else f"- Jumlah aktivitas kritis: {int(critical)}."))
     if risk_cost is not None:
-        lines.append((f"- Risk cost exposure P80: {risk_cost:,.2f}." if en else f"- Eksposur biaya risiko P80: {risk_cost:,.2f}."))
+        lines.append(f"- Risk cost exposure P80: {risk_cost:,.2f}.")
+        if not en:
+            lines.append(f"- Eksposur biaya risiko P80: {risk_cost:,.2f}.")
 
     if risk_days is not None:
         lines.append((f"- Risk schedule exposure P80: {risk_days:,.1f} days." if en else f"- Eksposur keterlambatan risiko P80: {risk_days:,.1f} hari."))
