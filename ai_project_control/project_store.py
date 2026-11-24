@@ -49,6 +49,19 @@ class ProjectStore:
             self._sqlite_target = self.database_path
         self._initialise()
 
+    def close(self) -> None:
+        """Release the keeper connection used by an in-memory workspace."""
+        keeper = self._memory_keeper
+        self._memory_keeper = None
+        if keeper is not None:
+            keeper.close()
+
+    def __enter__(self) -> "ProjectStore":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(
             self._sqlite_target, timeout=15, uri=self._sqlite_uri,
