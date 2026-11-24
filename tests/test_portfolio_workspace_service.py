@@ -145,3 +145,28 @@ def test_saved_portfolio_reports_cross_project_shared_resource_overload(tmp_path
     assert shared["project_count"] == 2
     assert shared["shared_resource_conflict_count"] == 1
     assert shared["shared_resource_conflicts"][0]["overload_units"] == 20
+
+
+def test_saved_portfolio_returns_schedule_cost_outlook_when_as_of_date_supplied(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "activities", [{
+        "project_id": "P1", "activity_id": "A1", "activity_name": "Civil works",
+        "baseline_finish_date": "2026-11-20", "forecast_finish_date": "2026-11-25",
+        "planned_progress_pct": 80, "actual_progress_pct": 70,
+    }])
+    result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
+    outlook = result["schedule_cost_outlooks"][0]
+    assert outlook["status"] == "PARTIALLY_ASSESSED"
+    assert outlook["schedule_forecast"]["delayed_activity_ids"] == ["A1"]
+    assert outlook["cost_forecast"]["status"] == "ASSESSED"
+    assert "Schedule and cost outlook" in result["executive_report"]
+
+
+def test_saved_portfolio_schedule_cost_outlook_requires_as_of_date(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    result = build_saved_portfolio_report(db)
+    assert result["schedule_cost_outlooks"][0]["status"] == "NOT_RUN"
