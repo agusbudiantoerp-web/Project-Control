@@ -93,7 +93,10 @@ def build_risk_cost_simulation(
             "cost_impact_min": low,
             "cost_impact_most_likely": mode,
             "cost_impact_max": high,
-            "expected_cost_impact": probability * mode * (1 if risk_type == "THREAT" else -1),
+            # Triangular expected value is (min + mode + max) / 3.
+            # Use that value for prioritization, not the mode alone.
+            "expected_cost_impact": probability * ((low + mode + high) / 3)
+            * (1 if risk_type == "THREAT" else -1),
         })
 
     ranked = sorted(parsed, key=lambda row: abs(row["expected_cost_impact"]), reverse=True)
