@@ -47,6 +47,17 @@ def build_cost_forecast(evm: dict[str, Any], *, warning_threshold_pct: float = 5
                 "scenarios": [], "warning_threshold_pct": threshold}
     cpi = ev / ac
     spi = ev / pv
+    if not math.isfinite(cpi) or not math.isfinite(spi):
+        gaps = []
+        if not math.isfinite(cpi):
+            gaps.append("CPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
+        if not math.isfinite(spi):
+            gaps.append("SPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
+        return {
+            "status": "INSUFFICIENT_DATA", "currency": currency,
+            "data_gaps": gaps, "scenarios": [],
+            "warning_threshold_pct": threshold,
+        }
     remaining_budget = bac - ev
     if remaining_budget < 0:
         return {"status": "REVIEW_REQUIRED", "currency": currency,
@@ -57,7 +68,11 @@ def build_cost_forecast(evm: dict[str, Any], *, warning_threshold_pct: float = 5
          "AC + (BAC - EV) / CPI"),
         ("BUDGET_RATE", ac + remaining_budget,
          "AC + (BAC - EV); remaining work at original budget rate"),
-        ("CPI_X_SPI", ac + remaining_budget / (cpi * spi) if cpi > 0 and spi > 0 else None,
+        ("CPI_X_SPI", (
+            ac + remaining_budget / (cpi * spi)
+            if cpi > 0 and spi > 0 and math.isfinite(cpi * spi) and cpi * spi > 0
+            else None
+        ),
          "AC + (BAC - EV) / (CPI × SPI)"),
     ]
     scenarios = []
@@ -68,6 +83,10 @@ def build_cost_forecast(evm: dict[str, Any], *, warning_threshold_pct: float = 5
             continue
         variance = eac - bac
         variance_pct = variance / bac * 100
+        if not math.isfinite(variance_pct):
+            scenarios.append({"scenario": name, "EAC": None, "ETC": None, "VAC": None,
+                              "variance_pct": None, "status": "UNASSESSED", "formula": formula})
+            continue
         status = "OVER_BUDGET" if variance_pct > threshold else (
             "UNDER_BUDGET" if variance_pct < -threshold else "WITHIN_THRESHOLD"
         )
