@@ -94,3 +94,34 @@ def test_saved_portfolio_risk_matrix_marks_empty_risk_register(tmp_path):
     result = build_saved_portfolio_report(db)
     assert result["risk_governance"][0]["status"] == "NO_RISKS"
     assert result["risk_exposure_matrices"][0]["status"] == "NO_RISKS"
+
+
+def test_saved_portfolio_uses_explicit_dated_health_snapshots(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "portfolio_snapshots", [
+        {"project_id": "P1", "snapshot_date": "2026-11-01",
+         "SPI": 1.0, "CPI": 1.0, "risk_score": 20},
+        {"project_id": "P1", "snapshot_date": "2026-11-15",
+         "SPI": 0.90, "CPI": 0.98, "risk_score": 32},
+    ])
+    result = build_saved_portfolio_report(db)
+    trend = result["health_monitoring"]
+    assert trend["summary"]["trend_assessed_count"] == 1
+    assert trend["projects"][0]["changes"] == {
+        "SPI": -0.1, "CPI": -0.02, "risk_score": 12.0,
+    }
+    assert "Portfolio health trends" in result["executive_report"]
+
+
+def test_saved_portfolio_does_not_invent_health_baseline(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "portfolio_snapshots", [{
+        "project_id": "P1", "snapshot_date": "2026-11-15",
+        "SPI": 0.9, "CPI": 0.95,
+    }])
+    result = build_saved_portfolio_report(db)
+    assert result["health_monitoring"]["projects"][0]["status"] == "NO_BASELINE"
