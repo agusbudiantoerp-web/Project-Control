@@ -192,3 +192,8 @@ COO Cockpit menampilkan anggaran (BAC atau jumlah BOQ jika BAC tidak tersedia), 
 ## T. COO Decision Brief dan Project Director Priorities
 
 Pada Saved Portfolio COO Cockpit, bagian COO Decision Brief merangkum proyek yang perlu ditinjau berdasarkan SPI, CPI, risk score yang tersedia, keterlambatan aktivitas bertanggal, dan overload resource. Daftar rekomendasi adalah agenda review, bukan instruksi otomatis. Periksa nilai sumber, periode cut-off, baseline yang disetujui, risk owner, resource, HSE, kontrak dan kewenangan biaya sebelum menetapkan tindakan. Jika SPI/CPI/risk score tidak tersedia, proyek ditandai UNASSESSED atau DATA_REVIEW; sistem tidak menganggapnya hijau.
+
+
+## U. Predictive Early Warning dan Recovery Review
+
+Bagian Predictive Early Warning menggunakan `portfolio_snapshots` bertanggal. Forecast trend memerlukan minimal tiga tanggal unik untuk setiap metrik; metrik yang belum cukup historinya tetap `INSUFFICIENT_HISTORY`. Metode yang digunakan adalah regresi linear sederhana 30 hari, bukan model ML atau probabilitas kegagalan. Recovery Review menggabungkan EVM dan Risk Exposure Matrix yang tersedia, lalu secara eksplisit menampilkan input Monte Carlo, scenario comparison, atau resource recovery yang belum tersedia. Rekomendasi adalah agenda validasi, bukan persetujuan tindakan.
