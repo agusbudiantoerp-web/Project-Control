@@ -79,6 +79,14 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
             if table == "project_master" and row.get("project_id") not in (None, ""):
                 project_ids.add(str(row["project_id"]).strip())
 
+            if table == "portfolio_snapshots":
+                try:
+                    from datetime import date
+                    date.fromisoformat(str(row.get("snapshot_date", "")).strip())
+                except (TypeError, ValueError):
+                    issues.append({"severity": "ERROR", "code": "INVALID_SNAPSHOT_DATE",
+                                   "table": table, "record": str(index), "field": "snapshot_date",
+                                   "message": "snapshot_date must be a valid ISO date (YYYY-MM-DD)"})
             for field in NUMERIC_FIELDS.get(table, ()):
                 raw = row.get(field)
                 if raw in (None, ""):
@@ -95,6 +103,14 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                     issues.append({"severity": "ERROR", "code": "PROBABILITY_OUT_OF_RANGE",
                                    "table": table, "record": str(index), "field": field,
                                    "message": "probability must be between 0 and 1"})
+                elif field == "risk_score" and not 0 <= number <= 100:
+                    issues.append({"severity": "ERROR", "code": "RISK_SCORE_OUT_OF_RANGE",
+                                   "table": table, "record": str(index), "field": field,
+                                   "message": "risk_score must be between 0 and 100"})
+                elif field in {"SPI", "CPI"} and number < 0:
+                    issues.append({"severity": "ERROR", "code": "NEGATIVE_PERFORMANCE_INDEX",
+                                   "table": table, "record": str(index), "field": field,
+                                   "message": f"{field} cannot be negative"})
                 elif field == "physical_progress_pct" and not 0 <= number <= 100:
                     issues.append({"severity": "ERROR", "code": "PERCENT_OUT_OF_RANGE",
                                    "table": table, "record": str(index), "field": field,
