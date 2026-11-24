@@ -167,3 +167,12 @@ The system is not production-ready until the final test phase passes, critical d
 - COO cockpit displays project review queues and recommendations.
 - Added tests for priority flags and project-isolated missing EVM evidence; execution remains pending.
 - The decision brief is not an ML probability forecast and does not approve recovery actions, spending, staffing or baseline changes.
+
+
+## Predictive early warning and recovery review
+
+- Portfolio service now runs dated trend extrapolation from stored `portfolio_snapshots`; duplicate/invalid snapshot history is returned as REVIEW_REQUIRED rather than silently forecast.
+- Recovery decision review combines project EVM and risk matrix evidence and lists missing Monte Carlo, scenario-comparison and resource-recovery inputs.
+- COO cockpit exposes trend metric statuses and per-project recovery signals/recommendations.
+- Added integration tests for minimum three-snapshot history, duplicate dates, and partial recovery inputs; execution remains pending.
+- Linear extrapolation is a transparent trend screen, not ML or a calibrated failure probability.
