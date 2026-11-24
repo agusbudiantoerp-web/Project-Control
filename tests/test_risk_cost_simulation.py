@@ -86,3 +86,13 @@ def test_risk_cost_simulation_rejects_boolean_probability_and_base_cost():
         build_risk_cost_simulation(data, 1000, "IDR", iterations=1000)
     with pytest.raises(ValueError, match="not boolean"):
         build_risk_cost_simulation(risks(), True, "IDR", iterations=1000)
+
+
+def test_simulation_rejects_overflowing_total_cost():
+    data = [{
+        "risk_id": "R1", "probability": 1, "cost_impact_min": 1e308,
+        "cost_impact_most_likely": 1e308, "cost_impact_max": 1e308,
+        "risk_type": "THREAT", "currency": "IDR",
+    }]
+    with pytest.raises(ValueError, match="supported numeric range"):
+        build_risk_cost_simulation(data, 1e308, "IDR", iterations=1000)
