@@ -35,6 +35,7 @@ class ProjectStore:
         self.database_path = str(database_path)
         self._sqlite_uri = False
         self._memory_keeper = None
+        self._closed = False
         if self.database_path == ":memory:":
             # Each store operation opens its own connection. A shared-cache
             # URI plus a keeper connection makes the in-memory database live
@@ -47,12 +48,17 @@ class ProjectStore:
             path.parent.mkdir(parents=True, exist_ok=True)
             self.database_path = str(path)
             self._sqlite_target = self.database_path
-        self._initialise()
+        try:
+            self._initialise()
+        except Exception:
+            self.close()
+            raise
 
     def close(self) -> None:
         """Release the keeper connection used by an in-memory workspace."""
         keeper = self._memory_keeper
         self._memory_keeper = None
+        self._closed = True
         if keeper is not None:
             keeper.close()
 
@@ -63,6 +69,8 @@ class ProjectStore:
         self.close()
 
     def _connect(self) -> sqlite3.Connection:
+        if self._closed:
+            raise RuntimeError("ProjectStore is closed")
         connection = sqlite3.connect(
             self._sqlite_target, timeout=15, uri=self._sqlite_uri,
             factory=_ClosingConnection,
