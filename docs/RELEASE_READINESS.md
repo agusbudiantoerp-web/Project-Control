@@ -268,3 +268,14 @@ Compared the following files on `main` and `ai-project-control-integration`:
 - Preserved P80 metrics and their underlying calculations.
 - This is a code change committed to the integration branch; no test result is claimed yet. A fresh CI result for this exact SHA is required.
 - Release remains NOT READY until report-language regression tests, all workflow families on one candidate SHA, Windows acceptance, and the outstanding 13-commit branch reconciliation are completed.
+
+## Bilingual report regression tests — 2026-11-24
+
+- Added Indonesian and English regression cases in `ai_project_control/tests/test_executive_reporting.py`.
+- Indonesian assertions require Indonesian SPI/CPI, P80 cost, P80 schedule and resource-overload labels and reject English duplicates.
+- English assertions require English labels and reject Indonesian duplicates.
+- Existing source-aware tests remain unchanged and continue checking that missing metrics are not invented.
+- Test commit: `e4055637c6cd15b7cb7571999ba1470ba312ff2e`.
+- CI status lookup for this SHA returned an empty status list; no pass is claimed. The AI Project Control CI workflow watches `ai_project_control/**`, so this test change is in its configured push path.
+- Branch compare after the test commit: integration is 739 commits ahead and 13 behind `main`; status remains diverged.
+- Release remains NOT READY until the regression suite and all required workflow families pass on one candidate SHA, and Windows/runtime acceptance and branch reconciliation are complete.
