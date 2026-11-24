@@ -77,4 +77,5 @@ jobs:
             tests/test_portfolio_cashflow_intelligence.py \\
             tests/test_dated_cashflow_forecast.py \\
             tests/test_financial_control_brief.py \\
-            tests/test_financial_workspace_service.py
+            tests/test_financial_workspace_service.py \\
+            tests/test_portfolio_workspace_service.py
