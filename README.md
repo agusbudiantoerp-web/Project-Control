@@ -72,3 +72,8 @@ python -m pytest -q
 ```
 
 A green focused workflow is necessary but not sufficient for production readiness. Complete the integration, security, data migration, deployment and user acceptance checks before operational use.
+
+
+## Dated cash flow forecast
+
+Open the Streamlit page **Dated Cash Flow Forecast** from the sidebar. Supply reconciled opening cash by currency and dated transaction rows. Actual and forecast transactions remain separate; currencies are never silently converted. The forecast is a model from supplied transactions, not a bank balance or inferred payment prediction.
