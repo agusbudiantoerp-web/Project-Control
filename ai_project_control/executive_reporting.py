@@ -88,7 +88,9 @@ def build_executive_summary(
         if not en:
             lines.append(f"- Eksposur keterlambatan risiko P80: {risk_days:,.1f} hari.")
     if overload is not None:
-        lines.append((f"- Overloaded resource days: {int(overload)}." if en else f"- Hari-resource mengalami overload: {int(overload)}."))
+        lines.append(f"- Overloaded resource days: {int(overload)}.")
+        if not en:
+            lines.append(f"- Hari-resource mengalami overload: {int(overload)}.")
 
     lines.extend(["", "## Management attention" if en else "## Perhatian manajemen"])
     attention = []
