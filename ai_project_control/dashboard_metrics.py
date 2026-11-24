@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
 
@@ -42,8 +44,16 @@ def project_summary(df: pd.DataFrame, bac: float) -> dict:
     # A zero/invalid CPI cannot support a CPI-based EAC forecast.
     # Also reject non-finite or non-positive BAC rather than publishing
     # misleading percentages or forecasts from an invalid baseline.
-    valid_bac = pd.notna(bac) and float(bac) > 0 and pd.notna(float(bac))
-    valid_cpi = pd.notna(cpi) and float(cpi) > 0 and pd.notna(float(cpi))
+    valid_bac = (
+        pd.notna(bac)
+        and math.isfinite(float(bac))
+        and float(bac) > 0
+    )
+    valid_cpi = (
+        pd.notna(cpi)
+        and math.isfinite(float(cpi))
+        and float(cpi) > 0
+    )
     eac = float(bac) / float(cpi) if valid_bac and valid_cpi else float("nan")
     etc = eac - ac if pd.notna(eac) else float("nan")
     vac = float(bac) - eac if valid_bac and pd.notna(eac) else float("nan")
