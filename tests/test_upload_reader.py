@@ -76,3 +76,28 @@ def test_rejects_header_count_over_limit_before_reading_rows():
 def test_rejects_blank_header_row():
     with pytest.raises(ValueError, match="No usable header row"):
         read_tabular_upload(Upload("blank.csv", b",,\n1,2,3\n"))
+
+
+def test_normalizes_headers_and_rejects_case_insensitive_duplicates():
+    upload = Upload("bad.csv", b" Project ID ,project id\nP1,P2\n")
+    with pytest.raises(ValueError, match="Duplicate column headers"):
+        read_tabular_upload(upload)
+
+
+def test_rejects_blank_column_header_between_valid_headers():
+    upload = Upload("bad.csv", b"Project ID,,Quantity\nP1,B1,10\n")
+    with pytest.raises(ValueError, match="Blank column headers"):
+        read_tabular_upload(upload)
+
+
+def test_rejects_csv_rows_with_more_values_than_headers():
+    upload = Upload("bad.csv", b"Project ID,BOQ ID\nP1,B1,unexpected\n")
+    with pytest.raises(ValueError, match="more values than the header"):
+        read_tabular_upload(upload)
+
+
+def test_trims_csv_header_whitespace():
+    upload = Upload("ok.csv", b" Project ID , BOQ ID \nP1,B1\n")
+    result = read_tabular_upload(upload)
+    assert result["columns"] == ["Project ID", "BOQ ID"]
+    assert result["rows"][0]["BOQ ID"] == "B1"
