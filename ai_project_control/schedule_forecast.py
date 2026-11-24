@@ -1,13 +1,16 @@
 """Schedule variance and finish-date delay assessment from explicit date/progress inputs."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+import math
 from typing import Any
 
 
 def _date(value: Any, field: str, activity_id: str) -> date | None:
     if value in (None, ""):
         return None
+    if isinstance(value, datetime):
+        return value.date()
     if isinstance(value, date):
         return value
     try:
@@ -19,11 +22,13 @@ def _date(value: Any, field: str, activity_id: str) -> date | None:
 def _percent(value: Any, field: str, activity_id: str) -> float | None:
     if value in (None, ""):
         return None
+    if isinstance(value, bool):
+        raise ValueError(f"Activity {activity_id}: {field} must be numeric, not boolean")
     try:
         number = float(value)
     except (TypeError, ValueError):
         raise ValueError(f"Activity {activity_id}: {field} must be numeric") from None
-    if not 0 <= number <= 100:
+    if not math.isfinite(number) or not 0 <= number <= 100:
         raise ValueError(f"Activity {activity_id}: {field} must be between 0 and 100")
     return number
 
@@ -43,9 +48,22 @@ def assess_schedule_delays(
     """
     if not isinstance(activities, list):
         raise TypeError("activities must be a list")
-    if warning_threshold_days < 0 or progress_warning_threshold_pp < 0:
-        raise ValueError("warning thresholds must be non-negative")
-    if isinstance(as_of_date, date):
+    if (
+        isinstance(warning_threshold_days, bool)
+        or not isinstance(warning_threshold_days, int)
+        or warning_threshold_days < 0
+    ):
+        raise ValueError("warning_threshold_days must be a non-negative integer")
+    if (
+        isinstance(progress_warning_threshold_pp, bool)
+        or not isinstance(progress_warning_threshold_pp, (int, float))
+        or not math.isfinite(float(progress_warning_threshold_pp))
+        or progress_warning_threshold_pp < 0
+    ):
+        raise ValueError("progress_warning_threshold_pp must be finite and non-negative")
+    if isinstance(as_of_date, datetime):
+        as_of = as_of_date.date()
+    elif isinstance(as_of_date, date):
         as_of = as_of_date
     else:
         try:
