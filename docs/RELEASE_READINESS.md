@@ -287,3 +287,12 @@ Compared the following files on `main` and `ai-project-control-integration`:
 - Combined status queries for both commits returned empty status arrays. No CI pass is claimed.
 - Current branch compare: integration is 744 commits ahead and 13 behind `main`, still diverged.
 - Release remains NOT READY. Run targeted tests and all workflow families on one exact candidate SHA before release.
+
+## Test contract correction — 2026-11-24
+
+- Reviewed the bilingual executive report regression suite and found the original English-label assertions invoked the report builder without an explicit language, while its default is Indonesian.
+- Updated the English metrics test and missing-metrics test to pass `language="en"` explicitly. Indonesian tests continue to pass `language="id"`.
+- Test update commit: `e5e05e73548f81a42710b4368c35d7aab155a115`.
+- Combined status lookup for this SHA returned an empty list. No CI success is claimed.
+- Current branch comparison: integration is 746 commits ahead and 13 behind `main`, status `diverged`.
+- Release remains NOT READY pending CI on a single candidate SHA, full branch reconciliation, and Windows/runtime acceptance.
