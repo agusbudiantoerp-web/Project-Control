@@ -4,7 +4,7 @@
 
 - Streamlit application entry point and dependency manifest
 - Project workspace, import/data quality and workspace persistence modules
-- Portfolio command center, portfolio snapshot monitoring and recovery intelligence
+- Portfolio command center, portfolio snapshot monitoring, portfolio-wide risk aggregation by currency, shared-resource conflict checks, COO executive decision brief and recovery intelligence
 - EVM, schedule, cost, resource and risk analytics
 - Monte Carlo schedule/cost risk engines, combined marginal executive outlook and risk exposure matrix
 - Recovery scenario planning, resource recovery estimate and executive decision brief
