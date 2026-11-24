@@ -158,3 +158,12 @@ The system is not production-ready until the final test phase passes, critical d
 - COO cockpit shows assessed/unassessed projects, projects above budget, and per-currency totals.
 - Projects without actual-cost evidence remain unassessed; this view is explicitly not a dated cash forecast.
 - Added integration tests for currency separation and missing actual-cost evidence; execution remains pending.
+
+
+## COO decision brief integration
+
+- Saved portfolio service now derives Project Director priority rows from available EVM, recorded risk score, dated delay and resource loading evidence.
+- COO decision brief consolidates portfolio review flags, cross-project resource conflicts, currency-separated exposure and action register summary.
+- COO cockpit displays project review queues and recommendations.
+- Added tests for priority flags and project-isolated missing EVM evidence; execution remains pending.
+- The decision brief is not an ML probability forecast and does not approve recovery actions, spending, staffing or baseline changes.
