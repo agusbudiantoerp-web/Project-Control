@@ -48,11 +48,11 @@ class ActionRegisterStore:
 
     def create(self, *, title: str, owner: str, due_date: Any, project_id: str,
                created_by: str, priority: str = "P2", description: str = "",
-               action_id: str | None = None) -> dict[str, Any]:
+               action_id: str | None = None, risk_id: str | None = None) -> dict[str, Any]:
         action = create_action(
             title=title, owner=owner, due_date=due_date, project_id=project_id,
             created_by=created_by, priority=priority, description=description,
-            action_id=action_id,
+            action_id=action_id, risk_id=risk_id,
         )
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
