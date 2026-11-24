@@ -176,3 +176,11 @@ The system is not production-ready until the final test phase passes, critical d
 - COO cockpit exposes trend metric statuses and per-project recovery signals/recommendations.
 - Added integration tests for minimum three-snapshot history, duplicate dates, and partial recovery inputs; execution remains pending.
 - Linear extrapolation is a transparent trend screen, not ML or a calibrated failure probability.
+
+
+## CI manifest audit
+
+- Audited all 54 test paths originally listed in the focused workflow against the integration branch.
+- Found one nonexistent path (`tests/test_integrated_forecast.py`) and removed that reference so pytest is not asked to collect a missing file.
+- The associated `ai_project_control/integrated_forecast.py` module imports `core`, which was not found at the repository root during this audit; this module remains an isolated dependency issue to resolve before claiming full repository readiness.
+- The remaining workflow test paths were checked and found in the branch. This is a file-existence audit only; no test execution is implied.
