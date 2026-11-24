@@ -4,7 +4,7 @@ from ai_project_control.project_store import ProjectStore
 
 
 def seed_project(store, project_id="P1"):
-    return store.save_dataset("workspace", "project_master", [{"project_id": project_id, "project_name": "Project"}])
+    return store.save_dataset(project_id, "project_master", [{"project_id": project_id, "project_name": "Project"}])
 
 
 @pytest.fixture
