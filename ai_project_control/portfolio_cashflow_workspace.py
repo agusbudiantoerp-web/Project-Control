@@ -25,7 +25,8 @@ def _sum_complete_amounts(rows: list[dict[str, Any]], field: str) -> float | Non
         if not math.isfinite(value) or value < 0:
             return None
         values.append(value)
-    return sum(values)
+    total = math.fsum(values)
+    return total if math.isfinite(total) else None
 
 
 def build_stored_portfolio_cashflow_view(database_path: str | Path) -> dict[str, Any]:
