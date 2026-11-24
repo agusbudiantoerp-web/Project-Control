@@ -19,6 +19,14 @@ from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 from .coo_portfolio_decision_brief import build_coo_portfolio_decision_brief
 from .portfolio_cashflow_workspace import build_stored_portfolio_cashflow_view
+
+def _performance_display_value(summary: dict[str, Any], projects: list[dict[str, Any]]) -> Any:
+    """Return the assessed score without treating a valid zero as missing."""
+    if not summary.get("assessed_count") or not projects:
+        return "Not assessed"
+    score = projects[0].get("performance_score")
+    return score if score is not None else "Not assessed"
+
 from .portfolio_monitoring import PortfolioMonitoringStore
 from .project_recovery_intelligence import build_project_recovery_intelligence
 from .recovery_execution import RecoveryPlanStore, evaluate_recovery_plan
@@ -718,7 +726,7 @@ def render_project_workspace_dashboard(
     a.metric("Stored records", result["total_records"])
     b.metric("Validation errors", result["validation"]["error_count"])
     c.metric("Validation warnings", result["validation"]["warning_count"])
-    d.metric("Performance", summary["assessed_count"] and result["scorecard"]["projects"][0]["performance_score"] or "Not assessed")
+    d.metric("Performance", _performance_display_value(summary, result["scorecard"]["projects"]))
 
     st.markdown("#### Earned Value Management")
     evm = result["evm"]
