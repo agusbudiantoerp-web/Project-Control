@@ -25,6 +25,7 @@ from .schedule_cost_outlook import build_schedule_cost_outlook
 from .schedule_risk_simulation import simulate_schedule_risk
 from .risk_exposure_matrix import build_risk_exposure_matrix
 from .risk_mitigation_store import RiskMitigationStore
+from .risk_governance_bridge import build_risk_governance_view
 from .recovery_resource_planner import estimate_resource_recovery
 from .recovery_decision_engine import build_recovery_decision_brief
 from .predictive_early_warning import forecast_project_control_trends
@@ -985,6 +986,24 @@ def render_project_workspace_dashboard(
                 st.dataframe(mitigation_events, use_container_width=True, hide_index=True)
         else:
             st.info("Belum ada rencana mitigasi tersimpan untuk proyek ini.")
+
+        risk_governance = build_risk_governance_view(
+            known_risks,
+            ActionRegisterStore(database_path).list_project(project_id)["actions"],
+            saved_mitigations,
+        )
+        gv1, gv2, gv3, gv4 = st.columns(4)
+        gv1.metric("Risks needing governance attention", risk_governance["risks_requiring_attention"])
+        gv2.metric("Overdue linked actions", risk_governance["overdue_action_count"])
+        gv3.metric("Blocked linked actions", risk_governance["blocked_action_count"])
+        gv4.metric("Risks without mitigation", risk_governance["risks_without_mitigation"])
+        st.dataframe(risk_governance["rows"], use_container_width=True, hide_index=True)
+        with st.expander("Risk governance data quality"):
+            st.write("Orphan executive actions: " + str(risk_governance["orphan_action_count"]))
+            st.write("Orphan mitigation records: " + str(risk_governance["orphan_mitigation_count"]))
+            for note in risk_governance["limitations"]:
+                st.caption("• " + note)
+
         st.caption("Residual exposure dihitung dari residual probability × residual impact. Status VERIFIED tetap memerlukan pemeriksaan bukti oleh pejabat berwenang; catatan pengguna bukan autentikasi.")
     except (TypeError, ValueError, OSError) as mitigation_error:
         st.warning("Risk mitigation tracker unavailable: " + str(mitigation_error))
