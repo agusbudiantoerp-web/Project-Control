@@ -60,6 +60,18 @@ def test_invalid_risk_data_is_reported_and_duplicate_keys_rejected():
         )
 
 
+def test_risk_impact_falls_back_when_optional_most_likely_is_null():
+    result = build_portfolio_risk_resource_view(
+        [{
+            "project_id": "P1", "risk_id": "R1", "probability": .5,
+            "cost_impact_most_likely": None, "impact": 40, "currency": "IDR",
+        }],
+        [],
+    )
+    assert result["risk_count_assessed"] == 1
+    assert result["top_risks"][0]["expected_exposure"] == 20
+
+
 def test_empty_portfolio_is_insufficient_data():
     result = build_portfolio_risk_resource_view([], [])
     assert result["status"] == "INSUFFICIENT_DATA"
