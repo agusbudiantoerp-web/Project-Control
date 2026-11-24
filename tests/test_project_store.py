@@ -82,3 +82,12 @@ def test_rejects_duplicate_keys_in_same_import(store):
             {"project_id": "P1", "boq_id": "B1"},
             {"project_id": "P1", "boq_id": "B1"},
         ])
+
+
+def test_in_memory_store_persists_across_operation_connections():
+    memory_store = ProjectStore(":memory:")
+    seed_project(memory_store)
+    memory_store.save_dataset("P1", "boq", [
+        {"project_id": "P1", "boq_id": "B1", "quantity": 7}
+    ])
+    assert memory_store.load_dataset("P1", "boq")[0]["quantity"] == 7
