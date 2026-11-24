@@ -220,3 +220,14 @@ Decision:
 - Latest main commit `0423b83f377d67c5c2682e125d2bf9ab923623cb` adds a COO portfolio decision brief test; that test file is identical on both branches.
 
 Release gate remains closed: no final same-SHA success evidence for all workflow families, clean Windows installation, full UI acceptance, live Telegram delivery, authenticated multi-user deployment, or disaster-recovery drill has been verified.
+
+## Follow-up verification — 2026-11-24
+
+A fresh compare after the audit documentation commit reports:
+- Integration branch is **734 commits ahead** and **13 commits behind** `main`; status remains `diverged`.
+- The audit document update is commit `aeddc0b5f863f5613a50d6eb4f19cd4c3f7c0d03`.
+- Combined commit status for `aeddc0b5f863f5613a50d6eb4f19cd4c3f7c0d03` returned an empty status list. This means no status evidence was returned; it does not mean checks passed.
+- The previously recorded CI successes remain tied to their stated older SHAs. They must not be represented as results for this documentation commit.
+- The branch comparison remains a full-history divergence from merge base `86851692422f3615f933d005a184028bce2ea14f`. The 13 main-only commits still require a controlled semantic reconciliation; no merge, rebase, or cherry-pick was performed in this audit.
+
+Release decision: **NOT READY**. Keep `main` unchanged. Before integration, obtain current CI results for one candidate SHA, reconcile the 13 main-only commits with targeted tests for import/report/dashboard behavior, and complete Windows/runtime acceptance.
