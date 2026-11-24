@@ -36,6 +36,28 @@ if submitted:
                     st.json({"EVM": project["evm"], "Source counts": project["source_counts"], "Validation": project["validation"]})
                 else:
                     st.warning(project.get("error", "Data not assessed"))
+        st.subheader("Cross-project shared resource intelligence")
+        shared = result["portfolio_resource_intelligence"]
+        rcols = st.columns(4)
+        for col, label, value in zip(
+            rcols, ("Projects scanned", "Shared resource periods", "Overloaded periods", "Unassessed resources"),
+            (shared["project_count"], shared["shared_resource_period_count"],
+             shared["shared_resource_conflict_count"], len(shared["unassessed_resources"])),
+        ):
+            col.metric(label, value)
+        if shared["shared_resource_conflicts"]:
+            st.dataframe(shared["shared_resource_conflicts"], use_container_width=True, hide_index=True)
+        else:
+            st.info("No confirmed cross-project resource overloads in the supplied records.")
+        with st.expander("Cross-project risk exposure (currency-separated)"):
+            st.dataframe(
+                [{"Currency": currency, "Expected exposure": amount}
+                 for currency, amount in shared["expected_exposure_by_currency"].items()],
+                use_container_width=True, hide_index=True,
+            )
+            if shared["unassessed_risks"]:
+                st.dataframe(shared["unassessed_risks"], use_container_width=True, hide_index=True)
+        st.caption("Shared capacity is only assessed when resource ID, period, unit and declared capacity match exactly across projects. Risk impact must be monetary to interpret exposure by currency.")
         st.subheader("Portfolio health trends")
         trend = result["health_monitoring"]
         hcols = st.columns(4)
