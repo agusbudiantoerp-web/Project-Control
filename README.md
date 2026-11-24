@@ -28,7 +28,7 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 
 ## Run locally
 
-Windows PowerShell:
+Windows PowerShell (atau klik dua kali `START_AI_PROJECT_CONTROL.bat` dari folder repository):
 
 ```powershell
 py -3.11 -m venv .venv
