@@ -288,6 +288,8 @@ class ProjectStore:
                 ))
             prepared[dataset] = dataset_prepared
 
+        if "project_master" in normalized and not normalized["project_master"]:
+            raise ValueError("project_master cannot be empty in a multi-dataset save")
         validation = validate_project_control_data(normalized)
         if validation["status"] == "INVALID":
             raise ValueError("Multi-dataset validation failed: " + json.dumps(validation["issues"]))
