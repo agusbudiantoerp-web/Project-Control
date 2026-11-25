@@ -6,6 +6,19 @@ import math
 import pandas as pd
 
 
+def _safe_sum(values: pd.Series, field: str, *, min_count: int = 0) -> float:
+    numbers = [float(value) for value in values if pd.notna(value)]
+    if len(numbers) < min_count:
+        return float("nan")
+    try:
+        total = math.fsum(numbers)
+    except OverflowError:
+        raise ValueError(field + " aggregate exceeds the supported numeric range.") from None
+    if not math.isfinite(total):
+        raise ValueError(field + " aggregate exceeds the supported numeric range.")
+    return total
+
+
 def build_resource_loading_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate planned/actual units against declared capacity by resource and period.
 
@@ -39,9 +52,9 @@ def build_resource_loading_summary(records: list[dict[str, Any]]) -> dict[str, A
         if (~valid.map(math.isfinite)).any() or (valid < 0).any():
             raise ValueError(field + " must contain finite, non-negative values.")
     grouped = frame.groupby(["resource_id", "period"], as_index=False, dropna=False).agg(
-        planned_units=("planned_units", "sum"),
-        actual_units=("actual_units", lambda values: values.sum(min_count=1)),
-        capacity_units=("capacity_units", "sum"),
+        planned_units=("planned_units", lambda values: _safe_sum(values, "planned_units")),
+        actual_units=("actual_units", lambda values: _safe_sum(values, "actual_units", min_count=1)),
+        capacity_units=("capacity_units", lambda values: _safe_sum(values, "capacity_units")),
     )
     for field in ("planned_units", "actual_units", "capacity_units"):
         finite_values = grouped[field].dropna()
