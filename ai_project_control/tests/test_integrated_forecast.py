@@ -94,3 +94,25 @@ def test_integrated_forecast_includes_reconciled_cashflow_when_project_master_is
     assert result["cashflow_stats"]["BAC"] == pytest.approx(100000)
     assert result["cashflow_stats"]["actual_to_date"] == pytest.approx(40000)
     assert not result["cashflow"].empty
+
+
+def test_integrated_forecast_supports_package_import_from_repository_root():
+    from ai_project_control.integrated_forecast import (
+        build_integrated_forecast as package_build_integrated_forecast,
+    )
+
+    activities = pd.DataFrame([
+        {
+            "activity_id": "A1",
+            "activity_name": "Package import smoke test",
+            "duration_days": 3,
+            "predecessor_ids": "",
+            "planned_start": "2026-01-01",
+            "planned_finish": "2026-01-03",
+        }
+    ])
+    result = package_build_integrated_forecast(
+        activities, status_date="2026-01-01", simulations=100, seed=11
+    )
+    assert result["cpm_project_duration_days"] == pytest.approx(3)
+    assert result["critical_activity_ids"] == ["A1"]
