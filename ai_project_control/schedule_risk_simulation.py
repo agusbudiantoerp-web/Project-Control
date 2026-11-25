@@ -48,6 +48,8 @@ def _topological_order(activities: list[dict[str, Any]]) -> tuple[list[str], dic
         predecessors = row.get("predecessors", [])
         if not isinstance(predecessors, list) or any(not isinstance(x, str) for x in predecessors):
             raise ValueError(f"{aid}: predecessors must be a list of activity IDs")
+        if len(predecessors) != len(set(predecessors)):
+            raise ValueError(f"{aid}: duplicate predecessor reference")
         records[aid] = {**row, "activity_id": aid, "predecessors": predecessors}
 
     for aid, row in records.items():
