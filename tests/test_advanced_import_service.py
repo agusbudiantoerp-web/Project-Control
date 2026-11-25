@@ -106,3 +106,18 @@ def test_multi_project_xer_without_task_project_ids_is_rejected():
             multi, project_id="P1", project_name="Plant Upgrade",
             currency="IDR", source_project_id="P6-1",
         )
+
+
+def test_xer_import_cannot_change_existing_project_currency(tmp_path):
+    store = ProjectStore(tmp_path / "workspace.sqlite3")
+    store.save_dataset("P1", "project_master", [{
+        "project_id": "P1", "project_name": "Plant Upgrade", "currency": "IDR",
+    }])
+    with pytest.raises(ValueError, match="does not match"):
+        import_xer_to_workspace(
+            store, SINGLE_PROJECT_XER,
+            project_id="P1", project_name="Plant Upgrade",
+            currency="USD", source_project_id="P6-1",
+        )
+    assert store.load_dataset("P1", "wbs") == []
+    assert store.load_dataset("P1", "activities") == []
