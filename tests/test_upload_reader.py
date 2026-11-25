@@ -101,3 +101,35 @@ def test_trims_csv_header_whitespace():
     result = read_tabular_upload(upload)
     assert result["columns"] == ["Project ID", "BOQ ID"]
     assert result["rows"][0]["BOQ ID"] == "B1"
+
+
+def test_xlsx_rejects_values_beyond_declared_headers():
+    pytest.importorskip("openpyxl")
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Project ID", "BOQ ID"])
+    sheet.append(["P1", "B1", "unexpected"])
+    stream = BytesIO()
+    workbook.save(stream)
+
+    with pytest.raises(ValueError, match="beyond the header columns"):
+        read_tabular_upload(Upload("bad.xlsx", stream.getvalue()))
+
+
+def test_xlsx_skips_fully_blank_rows():
+    pytest.importorskip("openpyxl")
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Project ID", "BOQ ID"])
+    sheet.append([None, None])
+    sheet.append(["P1", "B1"])
+    stream = BytesIO()
+    workbook.save(stream)
+
+    result = read_tabular_upload(Upload("ok.xlsx", stream.getvalue()))
+    assert result["row_count"] == 1
+    assert result["rows"][0]["Project ID"] == "P1"
