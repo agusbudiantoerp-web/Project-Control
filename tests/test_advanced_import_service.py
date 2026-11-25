@@ -159,3 +159,54 @@ def test_xer_import_rejects_missing_wbs_parent_links():
             invalid, project_id="P1", project_name="Plant Upgrade",
             currency="IDR", source_project_id="P6-1",
         )
+
+
+def test_gemini_drawing_response_becomes_pending_review_rows(monkeypatch):
+    import ai_project_control.advanced_import_service as service
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "candidates": [{
+                    "content": {"parts": [{
+                        "text": '[{"item_code":"C-01","description":"Concrete slab",'
+                                '"unit":"m3","quantity":"12.5","confidence":"High"}]'
+                    }]}
+                }]
+            }
+
+    def fake_post(*args, **kwargs):
+        assert kwargs["headers"]["x-goog-api-key"] == "test-key"
+        assert kwargs["timeout"] == 120.0
+        return Response()
+
+    monkeypatch.setattr(service.requests, "post", fake_post)
+    rows = service.analyze_drawing_page_with_gemini(b"png-bytes", "test-key")
+    assert rows[0]["quantity"] == 12.5
+    assert rows[0]["confidence"] == "High"
+    assert rows[0]["review_status"] == "PENDING_REVIEW"
+
+
+def test_gemini_invalid_quantity_remains_blank_for_human_review(monkeypatch):
+    import ai_project_control.advanced_import_service as service
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "candidates": [{
+                    "content": {"parts": [{
+                        "text": '[{"description":"Unknown quantity","unit":"m","quantity":"unknown"}]'
+                    }]}
+                }]
+            }
+
+    monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: Response())
+    rows = service.analyze_drawing_page_with_gemini(b"png-bytes", "test-key")
+    assert rows[0]["quantity"] is None
+    assert rows[0]["review_status"] == "PENDING_REVIEW"
