@@ -32,6 +32,9 @@ def build_portfolio_risk_resource_view(
         impact_raw = next((item.get(field) for field in (
             "cost_impact_most_likely", "impact", "exposure"
         ) if item.get(field) not in (None, "")), None)
+        if isinstance(item.get("probability"), bool) or isinstance(impact_raw, bool):
+            unassessed_risks.append({"project_id": project_id, "risk_id": risk_id, "reason": "Probability or impact must not be boolean"})
+            continue
         try:
             probability = float(item.get("probability"))
             impact = float(impact_raw)
@@ -45,7 +48,11 @@ def build_portfolio_risk_resource_view(
             unassessed_risks.append({"project_id": project_id, "risk_id": risk_id, "reason": "Currency missing; monetary exposure not aggregated"})
             continue
         exposure = probability * impact
-        currency_totals[currency] += exposure
+        next_currency_total = currency_totals[currency] + exposure
+        if not math.isfinite(exposure) or not math.isfinite(next_currency_total):
+            unassessed_risks.append({"project_id": project_id, "risk_id": risk_id, "reason": "Currency exposure total exceeds supported numeric range"})
+            continue
+        currency_totals[currency] = next_currency_total
         risk_rows.append({
             "project_id": project_id, "risk_id": risk_id,
             "description": str(item.get("description", item.get("risk_description", ""))),
@@ -67,6 +74,9 @@ def build_portfolio_risk_resource_view(
         unit = str(item.get("unit", "")).strip()
         if not all((project_id, resource_id, period, unit)):
             unassessed_resources.append({"project_id": project_id, "resource_id": resource_id, "reason": "Project, resource, period or unit missing"})
+            continue
+        if isinstance(item.get("planned_units"), bool) or isinstance(item.get("capacity_units"), bool):
+            unassessed_resources.append({"project_id": project_id, "resource_id": resource_id, "reason": "Demand/capacity must not be boolean"})
             continue
         try:
             demand = float(item.get("planned_units"))
@@ -98,7 +108,16 @@ def build_portfolio_risk_resource_view(
         for row in rows:
             by_project[row["project_id"]] += row["demand"]
         capacity = next(iter(capacities))
-        total = sum(by_project.values())
+        try:
+            total = math.fsum(by_project.values())
+        except OverflowError:
+            total = math.inf
+        if not math.isfinite(total) or any(not math.isfinite(value) for value in by_project.values()):
+            unassessed_resources.append({
+                "resource_id": resource_id, "period": period,
+                "reason": "Shared resource demand exceeds supported numeric range",
+            })
+            continue
         conflicts.append({
             "resource_id": resource_id, "period": period, "unit": unit,
             "projects": sorted(by_project),
