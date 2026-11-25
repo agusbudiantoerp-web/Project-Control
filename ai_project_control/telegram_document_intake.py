@@ -43,6 +43,8 @@ def fetch_latest_telegram_pdf(
         raise ValueError("timeout must be a finite positive number")
     if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 1:
         raise ValueError("max_bytes must be a positive integer")
+    if max_bytes > MAX_TELEGRAM_PDF_BYTES:
+        raise ValueError("max_bytes cannot exceed the 20 MB Telegram PDF intake limit")
 
     base = f"https://api.telegram.org/bot{token}"
     params: dict[str, Any] = {"timeout": 0, "allowed_updates": '["message"]'}
@@ -113,7 +115,13 @@ def fetch_latest_telegram_pdf(
         file_response.raise_for_status()
         file_payload = file_response.json()
         file_path = file_payload.get("result", {}).get("file_path")
-        if not isinstance(file_path, str) or not file_path or ".." in file_path.split("/"):
+        if (
+            not isinstance(file_path, str)
+            or not file_path
+            or file_path.startswith("/")
+            or any(part in {"", ".", ".."} for part in file_path.split("/"))
+            or any(character in file_path for character in ("\\\\", "?", "#", "\\r", "\\n"))
+        ):
             raise RuntimeError("Telegram file path is invalid")
         download_response = requests.get(
             f"https://api.telegram.org/file/bot{token}/{file_path}",
