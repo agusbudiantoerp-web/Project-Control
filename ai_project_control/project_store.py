@@ -153,6 +153,41 @@ class ProjectStore:
             raise ValueError(f"Missing key fields for {dataset}: {', '.join(fields)}")
         return json.dumps(values, ensure_ascii=False, separators=(",", ":"))
 
+    def validate_candidate_dataset(
+        self,
+        project_id: str,
+        dataset: str,
+        rows: list[dict[str, Any]],
+        *,
+        mode: str = "upsert",
+    ) -> dict[str, Any]:
+        """Validate a proposed dataset against the complete project workspace without writing."""
+        project_id = str(project_id).strip()
+        if not project_id:
+            raise ValueError("project_id is required")
+        if dataset not in TABLE_KEYS:
+            raise ValueError(f"Unsupported dataset: {dataset}")
+        if mode not in {"upsert", "replace"}:
+            raise ValueError("mode must be 'upsert' or 'replace'")
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise TypeError("rows must be a list of dictionaries")
+        for index, row in enumerate(rows):
+            if str(row.get("project_id", "")).strip() != project_id:
+                raise ValueError(f"Row {index} does not belong to project '{project_id}'")
+
+        candidate = self.load_project_workspace(project_id)
+        if mode == "replace":
+            candidate[dataset] = [dict(row) for row in rows]
+        else:
+            merged = {
+                self._record_key(dataset, row): dict(row)
+                for row in candidate[dataset]
+            }
+            for row in rows:
+                merged[self._record_key(dataset, row)] = dict(row)
+            candidate[dataset] = list(merged.values())
+        return validate_project_control_data(candidate)
+
     def save_dataset(
         self,
         project_id: str,
