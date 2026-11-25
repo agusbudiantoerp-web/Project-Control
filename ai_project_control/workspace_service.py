@@ -10,6 +10,7 @@ from .project_store import ProjectStore
 from .evm_engine import calculate_evm
 from .schedule_engine import calculate_critical_path
 from .schedule_forecast import assess_schedule_delays
+from .schedule_baseline_service import compare_schedule_to_baseline
 
 
 def build_workspace_overview(database_path: str | Path, project_id: str) -> dict[str, Any]:
@@ -39,11 +40,39 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
         workspace["activities"],
         as_of_date=__import__("datetime").date.today(),
     )
+    approved_baselines = [
+        baseline for baseline in workspace.get("schedule_baselines", [])
+        if str(baseline.get("status", "")).upper() == "APPROVED"
+    ]
+    approved_baselines.sort(
+        key=lambda item: (
+            int(item.get("version", 0) or 0),
+            str(item.get("approved_at", "")),
+            str(item.get("baseline_id", "")),
+        )
+    )
+    active_baseline = approved_baselines[-1] if approved_baselines else None
+    schedule_variance = (
+        compare_schedule_to_baseline(active_baseline, workspace["activities"])
+        if active_baseline else {
+            "status": "NO_APPROVED_BASELINE",
+            "baseline_activity_count": 0,
+            "current_activity_count": len(workspace["activities"]),
+            "added_activity_ids": [],
+            "removed_activity_ids": [],
+            "changed_activities": [],
+            "added_count": 0,
+            "removed_count": 0,
+            "changed_count": 0,
+        }
+    )
     return {
         "project": project,
         "evm": evm,
         "schedule": schedule,
         "schedule_forecast": schedule_forecast,
+        "active_schedule_baseline": active_baseline,
+        "schedule_variance": schedule_variance,
         "dataset_counts": {name: len(workspace[name]) for name in TABLE_KEYS},
         "total_records": sum(len(rows) for rows in workspace.values()),
         "validation": store.validate_workspace(project_id),
