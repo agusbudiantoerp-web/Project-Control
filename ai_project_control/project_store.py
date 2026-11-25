@@ -145,7 +145,10 @@ class ProjectStore:
     @staticmethod
     def _record_key(dataset: str, row: dict[str, Any]) -> str:
         fields = TABLE_KEYS[dataset]
-        values = [str(row.get(field, "")).strip() for field in fields]
+        identity_fields = fields
+        if dataset == "progress" and str(row.get("boq_id", "") or "").strip():
+            identity_fields = (*fields, "boq_id")
+        values = [str(row.get(field, "")).strip() for field in identity_fields]
         if any(not value for value in values):
             raise ValueError(f"Missing key fields for {dataset}: {', '.join(fields)}")
         return json.dumps(values, ensure_ascii=False, separators=(",", ":"))
