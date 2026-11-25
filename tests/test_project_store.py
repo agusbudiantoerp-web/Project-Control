@@ -244,3 +244,11 @@ def test_workspace_metadata_persists_and_protects_schema_version(tmp_path):
     assert store.get_metadata("telegram_update_offset:123") == "42"
     with pytest.raises(ValueError, match="reserved"):
         store.set_metadata("schema_version", "999")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file permission semantics only")
+def test_workspace_database_and_new_parent_directory_are_private(tmp_path):
+    database = tmp_path / "private_workspace" / "workspace.sqlite3"
+    ProjectStore(database)
+    assert stat.S_IMODE(database.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(database.stat().st_mode) == 0o600
