@@ -351,6 +351,8 @@ def analyze_drawing_page_with_gemini(
     if not isinstance(model, str) or not model.strip():
         raise ValueError("Gemini model name is required")
     model_name = model.strip()
+    if not bytes(image_bytes).startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+        raise ValueError("Drawing page must be a PNG image.")
     if not re.fullmatch(r"[A-Za-z0-9._-]+", model_name):
         raise ValueError("Gemini model name contains unsupported characters")
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(float(timeout)) or timeout <= 0:
