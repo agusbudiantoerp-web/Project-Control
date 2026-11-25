@@ -6,6 +6,7 @@ explicit user action. Credentials are read from environment variables.
 from __future__ import annotations
 
 import json
+import math
 import os
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -47,26 +48,42 @@ def send_telegram_message(
     timeout: float = 10.0,
 ) -> dict[str, Any]:
     """Send one message to a configured Telegram chat; credentials are never returned."""
-    token = bot_token or os.getenv("TELEGRAM_BOT_TOKEN", "")
-    destination = chat_id or os.getenv("TELEGRAM_CHAT_ID", "")
-    if not token.strip() or not destination.strip():
+    token = bot_token if bot_token is not None else os.getenv("TELEGRAM_BOT_TOKEN", "")
+    destination = chat_id if chat_id is not None else os.getenv("TELEGRAM_CHAT_ID", "")
+    if not isinstance(token, str) or not isinstance(destination, str):
+        raise ValueError("Telegram credentials must be text values.")
+    token = token.strip()
+    destination = destination.strip()
+    if not token or not destination:
         raise ValueError("Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID before sending.")
+    if any(character.isspace() for character in token):
+        raise ValueError("TELEGRAM_BOT_TOKEN contains invalid whitespace.")
     if not isinstance(message, str) or not message.strip():
         raise ValueError("message must be a non-empty string.")
     if len(message) > 4096:
         raise ValueError("Telegram message exceeds 4096 characters.")
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not math.isfinite(float(timeout))
+        or timeout <= 0
+    ):
+        raise ValueError("timeout must be a finite positive number.")
 
     payload = json.dumps({
         "chat_id": destination,
         "text": message,
         "disable_web_page_preview": True,
     }).encode("utf-8")
-    request = Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    try:
+        request = Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+    except ValueError:
+        raise RuntimeError("Telegram request could not be prepared; check bot configuration.") from None
     try:
         with urlopen(request, timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
