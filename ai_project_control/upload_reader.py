@@ -40,7 +40,14 @@ def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) ->
     extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if extension not in {"csv", "xlsx"}:
         raise ValueError("Only .csv and .xlsx files are supported; .xls is not supported.")
-    raw = uploaded_file.read()
+    if hasattr(uploaded_file, "seek"):
+        uploaded_file.seek(0)
+    try:
+        raw = uploaded_file.read()
+    finally:
+        # Keep the upload reusable for preview, mapping and persistence reruns.
+        if hasattr(uploaded_file, "seek"):
+            uploaded_file.seek(0)
     if not isinstance(raw, (bytes, bytearray)):
         raise TypeError("Uploaded file must provide bytes from read().")
     if len(raw) > MAX_UPLOAD_BYTES:
