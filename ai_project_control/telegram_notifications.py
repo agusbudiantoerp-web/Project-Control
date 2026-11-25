@@ -10,6 +10,19 @@ import math
 import os
 from typing import Any
 from urllib.error import HTTPError, URLError
+
+
+def _telegram_text_units(message: str) -> int:
+    """Count UTF-16 code units conservatively for Telegram's text limit."""
+    return len(message.encode("utf-16-le")) // 2
+
+
+def _truncate_telegram_text(message: str, limit: int, suffix: str) -> str:
+    suffix_units = _telegram_text_units(suffix)
+    budget = max(0, limit - suffix_units)
+    encoded = message.encode("utf-16-le")[: budget * 2]
+    prefix = encoded.decode("utf-16-le", errors="ignore")
+    return prefix + suffix
 from urllib.request import Request, urlopen
 
 
@@ -38,9 +51,9 @@ def format_escalation_message(result: dict[str, Any]) -> str:
         lines.append(f"\nCatatan: {len(rows) - 20} eskalasi lainnya tidak ditampilkan.")
     lines.append("\nPesan ini merupakan bahan tinjauan; bukan persetujuan atau perubahan status otomatis.")
     message = "\n".join(lines)
-    if len(message) > 3900:
+    if _telegram_text_units(message) > 3900:
         suffix = "\n… pesan dipotong agar sesuai batas Telegram."
-        message = message[:3900 - len(suffix)] + suffix
+        message = _truncate_telegram_text(message, 3900, suffix)
     return message
 
 
@@ -61,7 +74,7 @@ def send_telegram_message(
         raise ValueError("TELEGRAM_BOT_TOKEN contains invalid whitespace.")
     if not isinstance(message, str) or not message.strip():
         raise ValueError("message must be a non-empty string.")
-    if len(message) > 4096:
+    if _telegram_text_units(message) > 4096:
         raise ValueError("Telegram message exceeds 4096 characters.")
     if (
         isinstance(timeout, bool)
