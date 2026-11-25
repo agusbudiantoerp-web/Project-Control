@@ -26,6 +26,12 @@
 - No automatic approval, baseline change, dispatch, procurement or Telegram delivery is performed without configured credentials and explicit operations.
 - No system-wide test result is claimed before the planned test phase.
 
+## Primary application UI smoke-test coverage
+
+- Added `tests/test_primary_app_smoke.py` using Streamlit `AppTest` to launch the root application and all eight primary operational pages with an isolated temporary SQLite workspace per test.
+- The smoke checks assert that each page starts without an uncaught Streamlit exception; they do not prove full user journeys, successful imports, external API delivery, or calculation correctness.
+- The test file is included in the focused GitHub Actions command and the full `pytest` suite. A passing run on the current branch head is still required before release claims.
+
 ## Final test phase — execute only after implementation freeze
 
 1. Verify branch head, file inventory and dependency installation.
