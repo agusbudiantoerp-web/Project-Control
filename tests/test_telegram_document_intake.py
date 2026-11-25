@@ -116,6 +116,6 @@ def test_rejects_unsafe_telegram_file_paths(monkeypatch, unsafe_path):
         return responses.pop(0)
 
     monkeypatch.setattr(intake.requests, "get", fake_get)
-    with pytest.raises(RuntimeError, match="file path is invalid"):
+    with pytest.raises(RuntimeError, match="Telegram PDF download failed"):
         intake.fetch_latest_telegram_pdf("token", "123")
     assert len(calls) == 2
