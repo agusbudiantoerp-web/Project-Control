@@ -16,7 +16,7 @@ from ai_project_control.risk_mitigation_store import RiskMitigationStore
 from ai_project_control.portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 from ai_project_control.schedule_cost_outlook import build_schedule_cost_outlook
 from ai_project_control.resource_loading_summary import build_resource_loading_summary
-from ai_project_control.portfolio_cashflow_intelligence import build_portfolio_cashflow_view
+from ai_project_control.portfolio_cashflow_workspace import build_stored_portfolio_cashflow_view
 from ai_project_control.project_director_decision_matrix import build_decision_matrix
 from ai_project_control.coo_portfolio_decision_brief import build_coo_portfolio_decision_brief
 from ai_project_control.recovery_decision_engine import build_recovery_decision_brief
@@ -41,7 +41,6 @@ def build_saved_portfolio_report(
     health_snapshots: list[dict[str, Any]] = []
     schedule_cost_outlooks: list[dict[str, Any]] = []
     resource_loading_results: list[dict[str, Any]] = []
-    project_finance_records: list[dict[str, Any]] = []
     decision_records: list[dict[str, Any]] = []
     recovery_decisions: list[dict[str, Any]] = []
     for project_id in store.list_project_ids():
@@ -113,30 +112,23 @@ def build_saved_portfolio_report(
 
         health_snapshots.extend(workspace["portfolio_snapshots"])
         try:
-            actual_cost_total = (
-                sum(float(row["actual_cost"]) for row in workspace["actual_cost"])
-                if workspace["actual_cost"] else None
-            )
-        except (TypeError, ValueError, KeyError):
-            actual_cost_total = None
-        budget_value = project.get("BAC")
-        if budget_value in (None, "") and workspace["boq"]:
-            try:
-                budget_value = sum(float(row["amount"]) for row in workspace["boq"] if row.get("amount") not in (None, ""))
-            except (TypeError, ValueError, KeyError):
-                budget_value = None
-        project_finance_records.append({
-            "project_id": project_id, "project_name": name,
-            "currency": currency, "budget": budget_value,
-            "actual_cost": actual_cost_total,
-        })
-        resource_loading = build_resource_loading_summary(workspace["resources"])
+            resource_loading = build_resource_loading_summary(workspace["resources"])
+            resource_rows = resource_loading["rows"].to_dict(orient="records")
+            resource_reason = None
+        except (TypeError, ValueError) as exc:
+            resource_loading = {
+                "status": "REVIEW_REQUIRED", "overloaded_count": 0,
+                "unassessed_count": len(workspace["resources"]),
+            }
+            resource_rows = []
+            resource_reason = str(exc)
         resource_loading_results.append({
             "project_id": project_id, "project_name": name,
             "status": resource_loading["status"],
             "overloaded_count": resource_loading["overloaded_count"],
             "unassessed_count": resource_loading["unassessed_count"],
-            "rows": resource_loading["rows"].to_dict(orient="records"),
+            "rows": resource_rows,
+            "reason": resource_reason,
         })
         risks = workspace["risk"]
         valid_risk_scores = []
@@ -167,15 +159,37 @@ def build_saved_portfolio_report(
         })
         actions = action_store.list_project(project_id)["actions"]
         mitigations = mitigation_store.list_project(project_id)
-        governance = build_risk_governance_view(
-            risks, actions, mitigations, as_of_date=as_of_date
-        )
-        matrix = build_risk_exposure_matrix(
-            risks, activities=workspace["activities"], wbs=workspace["wbs"]
-        )
+        try:
+            governance = build_risk_governance_view(
+                risks, actions, mitigations, as_of_date=as_of_date
+            )
+        except (TypeError, ValueError) as exc:
+            governance = {
+                "status": "REVIEW_REQUIRED", "risk_count": len(risks),
+                "risks_requiring_attention": 0, "overdue_action_count": 0,
+                "blocked_action_count": 0, "risks_without_mitigation": 0,
+                "orphan_action_count": 0, "orphan_mitigation_count": 0,
+                "rows": [], "reason": str(exc),
+            }
+        try:
+            matrix = build_risk_exposure_matrix(
+                risks, activities=workspace["activities"], wbs=workspace["wbs"]
+            )
+            matrix_error = None
+        except (TypeError, ValueError) as exc:
+            matrix = {
+                "status": "REVIEW_REQUIRED", "risk_count": len(risks),
+                "priority_summary": {"CRITICAL": 0, "HIGH": 0, "MODERATE": 0, "LOW": 0},
+                "critical_activity_risk_count": 0,
+                "unlinked_activity_count": 0, "unlinked_wbs_count": 0,
+                "matrix": {}, "risks": [], "caveats": [],
+            }
+            matrix_error = str(exc)
+        if matrix_error:
+            matrix["reason"] = matrix_error
         recovery_brief = build_recovery_decision_brief(
             evm=evm if isinstance(evm, dict) else None,
-            risk_exposure=matrix,
+            risk_exposure=matrix if matrix.get("status") != "REVIEW_REQUIRED" else None,
         )
         recovery_decisions.append({
             "project_id": project_id, "project_name": name, **recovery_brief,
@@ -200,7 +214,15 @@ def build_saved_portfolio_report(
             "reason": str(exc),
             "limitations": ["Predictive trend assessment was not run because snapshot data failed validation."],
         }
-    portfolio_cashflow = build_portfolio_cashflow_view(project_finance_records)
+    try:
+        portfolio_cashflow = build_stored_portfolio_cashflow_view(database_path)
+    except (TypeError, ValueError, OSError) as exc:
+        portfolio_cashflow = {
+            "status": "REVIEW_REQUIRED", "project_count_assessed": 0,
+            "project_count_unassessed": 0, "projects_over_budget": 0,
+            "totals_by_currency": {}, "projects": [],
+            "unassessed_projects": [], "reason": str(exc),
+        }
     portfolio_resource_intelligence = build_stored_portfolio_risk_resource_view(database_path)
     decision_matrix = build_decision_matrix(decision_records)
     decision_source_by_id = {row["project_id"]: row for row in decision_records}
