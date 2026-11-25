@@ -84,3 +84,16 @@ def test_verified_mitigation_requires_evidence(tmp_path):
             residual_probability=.1, residual_impact=5,
             evidence="", updated_by="User",
         )
+
+
+def test_in_memory_mitigation_store_closes_explicitly():
+    store = RiskMitigationStore(":memory:")
+    store.save(
+        project_id="P", risk_id="R", mitigation_action="Act",
+        owner="Owner", due_date="2026-12-01", status="PLANNED",
+        residual_probability=.2, residual_impact=10, updated_by="User",
+    )
+    assert len(store.list_project("P")) == 1
+    store.close()
+    with pytest.raises(RuntimeError, match="RiskMitigationStore is closed"):
+        store.list_project("P")
