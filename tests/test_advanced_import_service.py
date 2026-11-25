@@ -406,7 +406,7 @@ def test_gemini_rejects_oversized_description_and_invalid_confidence(monkeypatch
         )
         with pytest.raises(RuntimeError):
             import_service.analyze_drawing_page_with_gemini(
-                b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+                b"\x89PNG\r\n\x1a\nfake-png", "test-key"
             )
 
 
@@ -425,7 +425,7 @@ def test_gemini_handles_huge_numeric_quantity_as_unavailable(monkeypatch):
 
     monkeypatch.setattr(import_service.requests, "post", lambda *args, **kwargs: Response())
     rows = import_service.analyze_drawing_page_with_gemini(
-        b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+        b"\x89PNG\r\n\x1a\nfake-png", "test-key"
     )
     assert rows[0]["quantity"] is None
     assert rows[0]["review_status"] == "PENDING_REVIEW"
