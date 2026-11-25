@@ -91,6 +91,7 @@ jobs:
             tests/test_financial_workspace_service.py \
             tests/test_portfolio_workspace_service.py \
             tests/test_workspace_backup.py \
+            tests/test_backup_workspace_script.py \
             tests/test_project_workspace_page.py \
             tests/test_workspace_dashboard_display.py
       - name: Run complete repository test suite
