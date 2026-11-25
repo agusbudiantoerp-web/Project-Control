@@ -528,3 +528,12 @@ Implementation changes have been committed and selected files/workflows have bee
 - Added regression coverage that ensures WBS records belonging to another source project are not included when importing the selected P6 project from a multi-project XER.
 - These tests protect the mapping between the imported activity schedule and WBS hierarchy; execution on the current branch head remains pending.
 
+
+
+## BOQ amount consistency — 2026-11-25
+
+- Cross-dataset validation now checks a priced BOQ row's arithmetic when quantity, unit_rate and amount are all supplied: amount must match quantity × unit_rate.
+- The comparison permits an absolute rounding difference of 0.01 currency unit or a relative difference of 1e-6 (0.0001%), whichever is more permissive.
+- Rows with missing unit_rate or amount remain valid unpriced BOQ/takeoff drafts; they are not treated as a priced estimate and must not be summed into a cost baseline until rates and amounts are supplied.
+- Added regression tests for a correct priced row, a mismatched amount and rounding tolerance. Execution on the current branch head remains pending.
+
