@@ -98,6 +98,8 @@ def simulate_schedule_risk(
         raise TypeError("activities and risks must be lists")
     if not isinstance(iterations, int) or isinstance(iterations, bool) or not 1000 <= iterations <= 200000:
         raise ValueError("iterations must be an integer from 1000 to 200000")
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValueError("seed must be an integer")
     try:
         if isinstance(project_start_date, datetime):
             start = project_start_date.date()
