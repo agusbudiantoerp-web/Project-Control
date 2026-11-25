@@ -150,8 +150,27 @@ def prepare_xer_workspace_import(
     for relation in tables.get("TASKPRED", []):
         successor = str(relation.get("task_id", "")).strip()
         predecessor = str(relation.get("pred_task_id", "")).strip()
-        if successor in task_ids and predecessor in task_ids:
-            predecessor_map.setdefault(successor, []).append(code_by_id[predecessor])
+        if successor not in task_ids or predecessor not in task_ids:
+            continue
+        relation_type = str(relation.get("pred_type") or "PR_FS").strip().upper()
+        if relation_type not in {"PR_FS", "FS"}:
+            raise ValueError(
+                f"P6 relationship {predecessor} → {successor} uses unsupported type "
+                f"{relation_type}; only Finish-to-Start relationships are imported."
+            )
+        raw_lag = relation.get("lag_hr_cnt", "0")
+        try:
+            lag_hours = float(raw_lag or 0)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"P6 relationship {predecessor} → {successor} has an invalid lag."
+            ) from None
+        if not math.isfinite(lag_hours) or abs(lag_hours) > 1e-9:
+            raise ValueError(
+                f"P6 relationship {predecessor} → {successor} has a non-zero lag; "
+                "lags are not supported by the workspace CPM engine."
+            )
+        predecessor_map.setdefault(successor, []).append(code_by_id[predecessor])
 
     activities = []
     for index, row in enumerate(selected_tasks, 1):
