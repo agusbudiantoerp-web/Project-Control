@@ -442,6 +442,12 @@ def test_list_project_wbs_ids_reads_project_store_records(tmp_path):
     store.save_dataset("P1", "wbs", [
         {"project_id": "P1", "wbs_id": "W-02"},
         {"project_id": "P1", "wbs_id": "W-01"},
-        {"project_id": "P1", "wbs_id": ""},
     ])
+    # Simulate a legacy/corrupt row written outside the validated ProjectStore API.
+    with store._connect() as db:
+        db.execute(
+            "INSERT INTO project_records(project_id, dataset, record_key, payload_json, updated_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("P1", "wbs", '["P1",""]', '{"project_id":"P1","wbs_id":""}', "legacy"),
+        )
     assert list_project_wbs_ids(store, "P1") == ["W-01", "W-02"]
