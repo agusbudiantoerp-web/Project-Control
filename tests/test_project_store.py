@@ -166,3 +166,40 @@ def test_rejects_older_schema_without_claiming_migration(tmp_path):
 
     with pytest.raises(RuntimeError, match="older than this application"):
         ProjectStore(database)
+
+
+def test_multi_dataset_save_is_atomic_when_one_dataset_is_invalid(tmp_path):
+    database = tmp_path / "atomic.sqlite3"
+    store = ProjectStore(database)
+    seed_project(store)
+    with pytest.raises(ValueError, match="validation failed|Multi-dataset validation failed"):
+        store.save_datasets("P1", {
+            "boq": [{
+                "project_id": "P1", "boq_id": "B1", "quantity": 10,
+            }],
+            "risk": [{
+                "project_id": "P1", "risk_id": "R1", "probability": 2, "impact": 100,
+            }],
+        })
+    assert store.load_dataset("P1", "boq") == []
+    assert store.load_dataset("P1", "risk") == []
+
+
+def test_multi_dataset_save_commits_new_project_and_related_data_together(tmp_path):
+    store = ProjectStore(tmp_path / "atomic-new.sqlite3")
+    result = store.save_datasets("P2", {
+        "project_master": [{
+            "project_id": "P2", "project_name": "XER Import", "currency": "IDR",
+        }],
+        "wbs": [{
+            "project_id": "P2", "wbs_id": "W1", "wbs_name": "Civil",
+        }],
+        "activities": [{
+            "project_id": "P2", "activity_id": "A1", "duration_days": 5,
+            "predecessors": [],
+        }],
+    })
+    assert set(result) == {"project_master", "wbs", "activities"}
+    assert store.list_project_ids() == ["P2"]
+    assert len(store.load_dataset("P2", "wbs")) == 1
+    assert len(store.load_dataset("P2", "activities")) == 1
