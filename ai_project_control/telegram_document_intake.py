@@ -164,8 +164,6 @@ def fetch_latest_telegram_pdf(
         raise RuntimeError(f"Telegram PDF exceeds the 20 MB intake limit (configured limit: {max_bytes} bytes)")
     if not isinstance(raw, (bytes, bytearray)) or not raw.startswith(b"%PDF-"):
         raise RuntimeError("Telegram document is not a valid PDF file")
-    if len(raw) > max_bytes:
-        raise RuntimeError(f"Telegram PDF exceeds the 20 MB intake limit (configured limit: {max_bytes} bytes)")
     return {
         "status": "PDF_READY",
         "update_id": selected["update_id"],
