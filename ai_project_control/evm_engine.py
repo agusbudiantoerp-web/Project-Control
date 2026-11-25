@@ -56,15 +56,20 @@ def calculate_evm(
     if not isinstance(progress_mode, str) or progress_mode not in {"period_deltas", "cumulative_snapshots"}:
         raise ValueError("progress_mode must be 'period_deltas' or 'cumulative_snapshots'")
 
+    cutoff_key = None
+    if as_of_period is not None:
+        cutoff_key = str(as_of_period).strip()
+        if len(cutoff_key) == 7 and cutoff_key[4] == "-":
+            cutoff_key += "\\uffff"
     progress = [
         dict(row) for row in progress_rows
         if str(row.get("project_id", "")).strip() == project_id
-        and (as_of_period is None or str(row.get("period", "")) <= as_of_period)
+        and (cutoff_key is None or str(row.get("period", "")).strip() <= cutoff_key)
     ]
     costs = [
         dict(row) for row in actual_cost_rows
         if str(row.get("project_id", "")).strip() == project_id
-        and (as_of_period is None or str(row.get("period", "")) <= as_of_period)
+        and (cutoff_key is None or str(row.get("period", "")).strip() <= cutoff_key)
     ]
     progress_mode_gap = None
     if progress_mode == "cumulative_snapshots" and progress:
