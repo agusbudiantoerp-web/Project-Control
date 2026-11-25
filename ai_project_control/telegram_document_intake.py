@@ -128,8 +128,8 @@ def fetch_latest_telegram_pdf(
             timeout=float(timeout),
             stream=True,
         )
-        download_response.raise_for_status()
         try:
+            download_response.raise_for_status()
             headers = getattr(download_response, "headers", {}) or {}
             try:
                 content_length = headers.get("Content-Length")
