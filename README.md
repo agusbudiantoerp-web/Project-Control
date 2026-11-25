@@ -73,7 +73,7 @@ Focused tests are configured in `.github/workflows/project-control-focused-tests
 Run locally after installing requirements:
 
 ```powershell
-python -m compileall -q ai_project_control
+python -m compileall -q app.py ai_project_control pages
 python -m pytest -q
 ```
 
