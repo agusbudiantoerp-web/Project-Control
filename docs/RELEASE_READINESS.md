@@ -337,7 +337,7 @@ Additional defensive changes recorded during the implementation audit:
 
 ### Verification boundary
 
-The above changes have been committed to the integration branch and their file contents were re-read through the repository API. GitHub Actions has executed the focused project-control suite successfully on commit 97e995f (464 passed, 11 warnings). The recovery test workflow also completed successfully on that commit. Subsequent commits added primary-app/page smoke tests and further Telegram message-length coverage; their CI runs are still pending, so this result is not a pass claim for the latest branch head. The remaining release gate is to obtain green CI on the frozen final SHA, review any warnings, and perform representative end-to-end data and local Windows launch/restore checks.
+The implementation files were re-read through the repository API. GitHub Actions completed the focused project-control suite successfully on the latest implementation SHA 6bd0aef: **468 passed, 11 warnings**. The suite includes smoke tests for the repository-root Streamlit app, the P6/drawing intake page, and the backup/restore page. The recovery test workflow also completed successfully on 6bd0aef. The AI Project Control CI and automated module tests completed successfully on 00bb1df; subsequent changes to the application package were not made after that CI run. The 11 warnings are recorded in the CI output and should be reviewed before production use. Remaining acceptance checks are a real-project end-to-end walkthrough and local Windows launch/restore on the operator's machine.
 
 ### Integration boundary
 
