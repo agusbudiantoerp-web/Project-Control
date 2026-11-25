@@ -158,3 +158,14 @@ def test_progress_activity_must_match_linked_boq_activity():
         }],
     })
     assert any(issue["code"] == "PROGRESS_ACTIVITY_BOQ_MISMATCH" for issue in result["issues"])
+
+
+def test_store_allows_single_dataset_change_write_then_flags_missing_baseline_in_workspace(tmp_path):
+    store = ProjectStore(tmp_path / "change-link-check.sqlite3")
+    store.save_dataset("P3", "project_master", [{"project_id": "P3"}])
+    store.save_dataset("P3", "schedule_changes", [{
+        "project_id": "P3", "change_id": "CR-3", "baseline_id": "BL-MISSING",
+        "status": "PENDING",
+    }])
+    validation = store.validate_workspace("P3")
+    assert any(issue["code"] == "UNKNOWN_CHANGE_BASELINE" for issue in validation["issues"])
