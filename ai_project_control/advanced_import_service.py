@@ -262,7 +262,10 @@ def prepare_xer_workspace_import(
             "source_format": "PRIMAVERA_P6_XER",
         })
 
-    wbs_ids = {row["wbs_id"] for row in wbs_rows}
+    wbs_id_values = [row["wbs_id"] for row in wbs_rows]
+    if len(wbs_id_values) != len(set(wbs_id_values)):
+        raise ValueError("Selected P6 project contains duplicate WBS IDs")
+    wbs_ids = set(wbs_id_values)
     parent_by_wbs = {
         row["wbs_id"]: row["parent_wbs_id"]
         for row in wbs_rows
@@ -329,6 +332,14 @@ def import_xer_to_workspace(
         raw, project_id=project_id, project_name=project_name,
         currency=currency, source_project_id=source_project_id,
     )
+    if mode not in {"upsert", "replace"}:
+        raise ValueError("XER import mode must be upsert or replace")
+    existing_wbs = store.load_dataset(project_id, "wbs")
+    if mode == "replace" and existing_wbs and not prepared["wbs"]:
+        raise ValueError(
+            "Replace was blocked because the selected XER contains no WBS rows; "
+            "the existing WBS dataset was left unchanged."
+        )
     existing = store.load_dataset(project_id, "project_master")
     master = dict(existing[0]) if existing else {}
     existing_currency = str(master.get("currency", "")).strip().upper()
