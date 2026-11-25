@@ -1,15 +1,15 @@
 """Portfolio COO cockpit reading all projects saved in the local workspace."""
 import json
-import os
 import streamlit as st
 
 from ai_project_control.portfolio_workspace_service import build_saved_portfolio_report
 from ai_project_control.executive_report_export import build_executive_report_pdf, build_executive_report_xlsx
+from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(page_title="Saved Portfolio COO Cockpit", page_icon="🏢", layout="wide")
 st.title("Saved Portfolio — COO Executive Cockpit")
 st.caption("Ringkasan lintas proyek yang sudah tersimpan dalam workspace SQLite lokal.")
-database_path = os.getenv("PROJECT_CONTROL_DB", ".project_control/project_control.sqlite3")
+database_path = get_workspace_database_path()
 with st.form("portfolio_cockpit_form"):
     period = st.text_input("As-of period (optional)", placeholder="YYYY-MM")
     language = st.selectbox("Report language", ["id", "en"], format_func=lambda x: "Bahasa Indonesia" if x == "id" else "English")
