@@ -510,3 +510,13 @@ Implementation changes have been committed and selected files/workflows have bee
 - Regression tests assert response closure after both successful PDF retrieval and rejection of a non-PDF payload; existing size-limit tests assert closure on both declared and streamed oversize cases.
 - These are committed source-level regression tests. They have not yet been executed by a passing CI run on the current branch head.
 
+
+
+## Gemini drawing response bounds — 2026-11-25
+
+- Drawing-analysis responses are requested as streamed HTTP bodies and capped at `MAX_GEMINI_RESPONSE_CHARS` while reading, before JSON parsing.
+- A declared Content-Length above the configured response limit is rejected before reading the body. The stream counter remains the enforcement path when the header is missing or unusable.
+- The provider response is closed in a `finally` block for success and failure paths.
+- Added regression coverage for successful streamed JSON, oversized declared Content-Length and oversized streamed content.
+- Test cases are committed; a passing full CI run on the latest branch head and a live Gemini API check are still required.
+
