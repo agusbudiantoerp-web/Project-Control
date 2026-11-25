@@ -55,3 +55,12 @@ def test_boolean_financial_values_are_not_treated_as_numeric():
     result = build_cost_forecast(data)
     assert result["status"] == "INSUFFICIENT_DATA"
     assert "AC" in result["data_gaps"]
+
+
+def test_overflowing_cpi_or_spi_makes_cost_forecast_unassessed():
+    data = {"PV": 1e-308, "EV": 1e308, "AC": 1e-308,
+            "BAC": 1e308, "currency": "IDR"}
+    result = build_cost_forecast(data)
+    assert result["status"] == "INSUFFICIENT_DATA"
+    assert "CPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE" in result["data_gaps"]
+    assert "SPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE" in result["data_gaps"]
