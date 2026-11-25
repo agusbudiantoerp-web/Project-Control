@@ -56,3 +56,15 @@ def test_missing_action_raises_key_error(tmp_path):
     store = ActionRegisterStore(tmp_path / "actions.sqlite3")
     with pytest.raises(KeyError, match="not found"):
         store.transition("UNKNOWN", new_status="IN_PROGRESS", changed_by="PM")
+
+
+def test_in_memory_action_store_persists_across_connections_and_closes():
+    store = ActionRegisterStore(":memory:")
+    store.create(
+        title="Test memory action", owner="PM", due_date=date.today(),
+        project_id="P-MEM", created_by="Director", action_id="A-MEM",
+    )
+    assert store.list_project("P-MEM")["summary"]["action_count"] == 1
+    store.close()
+    with pytest.raises(RuntimeError, match="ActionRegisterStore is closed"):
+        store.list_project("P-MEM")
