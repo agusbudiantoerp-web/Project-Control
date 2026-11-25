@@ -41,18 +41,21 @@ def build_cost_forecast(evm: dict[str, Any], *, warning_threshold_pct: float = 5
     if gaps:
         return {"status": "INSUFFICIENT_DATA", "currency": currency, "data_gaps": gaps,
                 "scenarios": [], "warning_threshold_pct": threshold}
-    if bac <= 0 or ac <= 0 or pv <= 0:
+    if bac <= 0 or pv <= 0:
         return {"status": "INSUFFICIENT_DATA", "currency": currency,
-                "data_gaps": ["BAC_PV_AND_AC_MUST_BE_POSITIVE"],
+                "data_gaps": ["BAC_AND_PV_MUST_BE_POSITIVE"],
                 "scenarios": [], "warning_threshold_pct": threshold}
-    cpi = ev / ac
+    # AC=0 is valid evidence (for example, work not yet invoiced), but CPI
+    # cannot be calculated from it. Keep the budget-rate scenario available
+    # while marking CPI-based scenarios as unassessed.
+    cpi = ev / ac if ac > 0 else None
     spi = ev / pv
-    if not math.isfinite(cpi) or not math.isfinite(spi):
-        gaps = []
-        if not math.isfinite(cpi):
-            gaps.append("CPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
-        if not math.isfinite(spi):
-            gaps.append("SPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
+    gaps = []
+    if cpi is not None and not math.isfinite(cpi):
+        gaps.append("CPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
+    if not math.isfinite(spi):
+        gaps.append("SPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE")
+    if gaps:
         return {
             "status": "INSUFFICIENT_DATA", "currency": currency,
             "data_gaps": gaps, "scenarios": [],
@@ -64,13 +67,13 @@ def build_cost_forecast(evm: dict[str, Any], *, warning_threshold_pct: float = 5
                 "data_gaps": ["EV_EXCEEDS_BAC"], "scenarios": [],
                 "warning_threshold_pct": threshold}
     candidates = [
-        ("CPI", ac + remaining_budget / cpi if cpi > 0 else None,
+        ("CPI", ac + remaining_budget / cpi if cpi is not None and cpi > 0 else None,
          "AC + (BAC - EV) / CPI"),
         ("BUDGET_RATE", ac + remaining_budget,
          "AC + (BAC - EV); remaining work at original budget rate"),
         ("CPI_X_SPI", (
             ac + remaining_budget / (cpi * spi)
-            if cpi > 0 and spi > 0 and math.isfinite(cpi * spi) and cpi * spi > 0
+            if cpi is not None and cpi > 0 and spi > 0 and math.isfinite(cpi * spi) and cpi * spi > 0
             else None
         ),
          "AC + (BAC - EV) / (CPI × SPI)"),
@@ -98,7 +101,7 @@ def build_cost_forecast(evm: dict[str, Any], *, warning_threshold_pct: float = 5
     assessed = [row for row in scenarios if row["EAC"] is not None]
     return {
         "status": "ASSESSED" if assessed else "INSUFFICIENT_DATA",
-        "currency": currency, "cpi": round(cpi, 4), "spi": round(spi, 4),
+        "currency": currency, "cpi": round(cpi, 4) if cpi is not None else None, "spi": round(spi, 4),
         "remaining_budgeted_work": round(remaining_budget, 2),
         "warning_threshold_pct": threshold, "scenarios": scenarios,
         "limitations": [
