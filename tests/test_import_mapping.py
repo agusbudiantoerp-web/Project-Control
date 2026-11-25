@@ -84,3 +84,17 @@ def test_rejects_invalid_portfolio_snapshot_date_and_risk_score():
     codes = {issue["code"] for issue in result["validation"]["issues"]}
     assert "INVALID_SNAPSHOT_DATE" in codes
     assert "RISK_SCORE_OUT_OF_RANGE" in codes
+
+
+def test_rejects_one_source_column_mapped_to_multiple_targets():
+    with pytest.raises(ValueError, match="cannot be mapped to multiple"):
+        map_import_rows(
+            "boq",
+            [{"Project ID": "P1", "Shared": "B1"}],
+            {"project_id": "Project ID", "boq_id": "Shared", "quantity": "Shared"},
+        )
+
+
+def test_rejects_empty_source_column_mapping():
+    with pytest.raises(ValueError, match="non-empty column name"):
+        map_import_rows("boq", [], {"project_id": ""})
