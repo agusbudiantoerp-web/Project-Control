@@ -120,7 +120,7 @@ def fetch_latest_telegram_pdf(
             or not file_path
             or file_path.startswith("/")
             or any(part in {"", ".", ".."} for part in file_path.split("/"))
-            or any(character in file_path for character in ("\\\\", "?", "#", "\\r", "\\n"))
+            or any(character in file_path for character in ("\\", "?", "#", "\\r", "\\n"))
         ):
             raise RuntimeError("Telegram file path is invalid")
         download_response = requests.get(
@@ -135,7 +135,7 @@ def fetch_latest_telegram_pdf(
     if not isinstance(raw, (bytes, bytearray)) or not raw.startswith(b"%PDF-"):
         raise RuntimeError("Telegram document is not a valid PDF file")
     if len(raw) > max_bytes:
-        raise RuntimeError("Telegram PDF exceeds the 20 MB intake limit")
+        raise RuntimeError(f"Telegram PDF exceeds the configured {max_bytes}-byte intake limit")
     return {
         "status": "PDF_READY",
         "update_id": selected["update_id"],
