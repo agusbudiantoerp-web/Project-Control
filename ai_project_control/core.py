@@ -1194,7 +1194,17 @@ def takeoff_to_boq_draft(takeoff: pd.DataFrame):
         wbs_id='' if pd.isna(wbs_value) else str(wbs_value).strip()
         raw_quantity=r.get('quantity')
         quantity=None
-        if raw_quantity not in (None,'') and not pd.isna(raw_quantity):
+        missing_quantity = raw_quantity is None or (
+            isinstance(raw_quantity, str) and not raw_quantity.strip()
+        )
+        if not missing_quantity:
+            try:
+                missing_quantity = bool(pd.isna(raw_quantity))
+            except (TypeError, ValueError):
+                missing_quantity = False
+        if not missing_quantity:
+            if isinstance(raw_quantity, (bool, np.bool_)):
+                raise ValueError(f"Takeoff row {i} quantity must be numeric, not boolean.")
             try:
                 quantity=float(raw_quantity)
             except (TypeError,ValueError):
