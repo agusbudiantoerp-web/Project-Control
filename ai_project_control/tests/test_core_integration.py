@@ -775,3 +775,20 @@ def test_drawing_takeoff_rejects_invalid_quantities(quantity):
     takeoff = pd.DataFrame([{"item_code": "C-01", "quantity": quantity}])
     with pytest.raises(ValueError, match="quantity"):
         takeoff_to_boq_draft(takeoff)
+
+
+def test_drawing_takeoff_allows_missing_quantity_for_manual_measurement():
+    from core import takeoff_to_boq_draft
+
+    draft = takeoff_to_boq_draft(pd.DataFrame([{
+        "item_code": "C-02", "quantity": pd.NA,
+    }]))
+    assert pd.isna(draft.loc[0, "budget_quantity"])
+    assert draft.loc[0, "review_status"] == "Pending Review"
+
+
+def test_drawing_takeoff_rejects_boolean_quantity():
+    from core import takeoff_to_boq_draft
+
+    with pytest.raises(ValueError, match="not boolean"):
+        takeoff_to_boq_draft(pd.DataFrame([{"item_code": "C-03", "quantity": True}]))
