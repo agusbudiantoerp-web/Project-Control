@@ -196,7 +196,7 @@ def test_gemini_drawing_response_becomes_pending_review_rows(monkeypatch):
         return Response()
 
     monkeypatch.setattr(service.requests, "post", fake_post)
-    rows = service.analyze_drawing_page_with_gemini(b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key")
+    rows = service.analyze_drawing_page_with_gemini(b"\x89PNG\r\n\x1a\nfake-png", "test-key")
     assert rows[0]["quantity"] == 12.5
     assert rows[0]["confidence"] == "High"
     assert rows[0]["review_status"] == "PENDING_REVIEW"
@@ -219,7 +219,7 @@ def test_gemini_invalid_quantity_remains_blank_for_human_review(monkeypatch):
             }
 
     monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: Response())
-    rows = service.analyze_drawing_page_with_gemini(b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key")
+    rows = service.analyze_drawing_page_with_gemini(b"\x89PNG\r\n\x1a\nfake-png", "test-key")
     assert rows[0]["quantity"] is None
     assert rows[0]["review_status"] == "PENDING_REVIEW"
 
@@ -268,4 +268,4 @@ def test_gemini_rejects_takeoff_response_over_review_limit(monkeypatch):
 
     monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: Response())
     with pytest.raises(RuntimeError, match="review limit"):
-        analyze_drawing_page_with_gemini(b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key")
+        analyze_drawing_page_with_gemini(b"\x89PNG\r\n\x1a\nfake-png", "test-key")
