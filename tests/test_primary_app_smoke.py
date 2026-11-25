@@ -6,3 +6,21 @@ def test_primary_workspace_app_renders_without_uncaught_exception(tmp_path, monk
     monkeypatch.setenv("PROJECT_CONTROL_DB", str(tmp_path / "workspace.sqlite3"))
     app = AppTest.from_file("app.py", default_timeout=45).run()
     assert not app.exception, "\n".join(str(error.message) for error in app.exception)
+
+
+def test_primary_xer_and_drawing_intake_page_starts_without_exception(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROJECT_CONTROL_DB", str(tmp_path / "workspace.sqlite3"))
+    app = AppTest.from_file(
+        "pages/08_Primavera_XER_Drawing_BOQ_Intake.py",
+        default_timeout=45,
+    ).run()
+    assert not app.exception, "\\n".join(str(error.message) for error in app.exception)
+
+
+def test_primary_backup_and_restore_page_starts_without_exception(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROJECT_CONTROL_DB", str(tmp_path / "workspace.sqlite3"))
+    app = AppTest.from_file(
+        "pages/07_Workspace_Backup_Audit.py",
+        default_timeout=45,
+    ).run()
+    assert not app.exception, "\\n".join(str(error.message) for error in app.exception)
