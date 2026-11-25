@@ -81,6 +81,18 @@ def import_uploaded_dataset(
             "saved_count": 0,
         }
 
+    workspace_validation = store.validate_candidate_dataset(
+        project_id, dataset, rows, mode=mode
+    )
+    if workspace_validation["status"] == "INVALID":
+        return {
+            "status": "VALIDATION_FAILED",
+            "file": parsed["filename"],
+            "dataset": dataset,
+            "validation": workspace_validation,
+            "saved_count": 0,
+        }
+
     saved = store.save_dataset(project_id, dataset, rows, mode=mode)
     return {
         "status": "COMMITTED",
