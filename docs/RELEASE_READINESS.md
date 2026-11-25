@@ -557,11 +557,12 @@ Implementation commits in this continuation include:
 
 ## Latest CI evidence — 2026-11-25
 
-Commit under test: `452e26d2031e7887107369a6e4c7915afbac713c`
+Commit under test: `e1ce5ca20ae675f1c5d3a29d5b83e8473ebbaaea`
 
 - Root primary-workspace focused suite: **521 passed**.
 - Root primary-workspace complete suite: **530 passed**.
 - Python compilation of `app.py`, `ai_project_control` and `pages`: success.
+- Headless Streamlit HTTP health smoke (`/_stcore/health`): success.
 - Legacy integrated engine CI: **179 passed, 3 warnings**.
 - Legacy deterministic engine CI: **179 passed, 3 warnings**.
 - Windows backup/restore acceptance: **14 passed**.
@@ -570,8 +571,8 @@ Commit under test: `452e26d2031e7887107369a6e4c7915afbac713c`
 - All three GitHub Actions workflows and both jobs in the focused workflow completed successfully for this commit.
 
 Run references:
-- Focused + full + Windows acceptance: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45563880260
-- Legacy integrated engine CI: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45563880268
-- Legacy deterministic engine CI: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45563880226
+- Focused + full + Windows acceptance: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45564173063
+- Legacy integrated engine CI: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45564173131
+- Legacy deterministic engine CI: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45564173140
 
-**Scope boundary:** CI does not perform a real Streamlit browser acceptance test, register and execute the Windows scheduled task on the user's computer, send a live Telegram message, call a real Gemini API key, or validate a hosted multi-user deployment. Restore tests run against temporary test databases; the operator still needs a documented off-device backup and an actual restore drill. PR #3 remains draft and must not be merged until the remaining release gates are reviewed.
+**Scope boundary:** the Streamlit smoke check validates startup and its HTTP health endpoint, not interactive browser acceptance. CI does not register and execute the Windows scheduled task on the user's computer, send a live Telegram message, call a real Gemini API key, or validate a hosted multi-user deployment. Restore tests run against temporary test databases; the operator still needs a documented off-device backup and an actual restore drill. PR #3 remains draft and must not be merged until the remaining release gates are reviewed.
