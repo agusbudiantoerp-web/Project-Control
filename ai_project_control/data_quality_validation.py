@@ -291,6 +291,10 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
         if activity and boq:
             activity_wbs = str(activity.get("wbs_id", "") or "").strip()
             boq_wbs = str(boq.get("wbs_id", "") or "").strip()
+            boq_activity_id = str(boq.get("activity_id", "") or "").strip()
+            if boq_activity_id and activity_id and boq_activity_id != activity_id:
+                add_link_issue("PROGRESS_ACTIVITY_BOQ_MISMATCH", "progress", index, "boq_id",
+                               f"Progress activity {activity_id} does not match BOQ {boq_id} activity {boq_activity_id}")
             if activity_wbs and boq_wbs and activity_wbs != boq_wbs:
                 add_link_issue("PROGRESS_ACTIVITY_BOQ_WBS_MISMATCH", "progress", index, "boq_id",
                                f"Progress activity {activity_id} and BOQ {boq_id} belong to different WBS elements")
@@ -357,7 +361,7 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
     for index, row in enumerate(normalized["schedule_changes"]):
         pid = str(row.get("project_id", "")).strip()
         baseline_id = str(row.get("baseline_id", "") or "").strip()
-        if baseline_id and normalized["schedule_baselines"] and baseline_id not in baselines_by_project.get(pid, {}):
+        if baseline_id and baseline_id not in baselines_by_project.get(pid, {}):
             add_link_issue("UNKNOWN_CHANGE_BASELINE", "schedule_changes", index, "baseline_id",
                            f"Schedule change references unknown baseline {baseline_id} in project {pid}")
         status = str(row.get("status", "PENDING") or "PENDING").strip().upper()
