@@ -224,3 +224,13 @@ Durasi P6 dikonversi dari jam ke hari nominal 8 jam. Kalender kerja, hari libur,
 Hasil Gemini bukan quantity takeoff final. Model tidak dapat menggantikan pemeriksaan skala, dimensi, revisi gambar, metode ukur, spesifikasi, dan persetujuan quantity surveyor. Halaman PDF yang dipilih dikirim ke Google hanya setelah persetujuan eksplisit.
 
 Launcher V1 di `ai_project_control` tetap tersedia sebagai aplikasi kompatibilitas dan memakai database terpisah di `%LOCALAPPDATA%\\AIProjectControl\\project_control.db`. Data V1 tidak otomatis tersinkron dengan workspace utama yang memakai `.project_control/project_control.sqlite3` atau path `PROJECT_CONTROL_DB`.
+
+
+### Mengirim gambar melalui Telegram
+
+1. Atur `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` pada environment/secrets aplikasi.
+2. Kirim file PDF sebagai **Document** ke private chat bot yang sesuai dengan chat ID yang diizinkan.
+3. Pada halaman Drawing Intake, buka panel **Ambil PDF gambar dari Telegram** dan tekan **Fetch latest Telegram PDF**.
+4. Pilih halaman PDF yang diterima, periksa preview lokal, lalu ikuti persetujuan Gemini dan verifikasi quantity surveyor seperti langkah di atas.
+
+Intake ini memakai polling `getUpdates`, bukan webhook. Jika bot masih memiliki webhook aktif, polling tidak akan berjalan. Aplikasi hanya mengambil PDF dari chat ID yang dikonfigurasi; dokumen lain diabaikan. File disimpan sementara dalam session aplikasi, bukan pada ProjectStore. Pengiriman ke Gemini tetap memerlukan persetujuan terpisah.
