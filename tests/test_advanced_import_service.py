@@ -219,3 +219,41 @@ def test_xer_import_rejects_cyclic_activity_dependencies():
             cyclic, project_id="P1", project_name="Plant Upgrade",
             currency="IDR", source_project_id="P6-1",
         )
+
+
+def test_gemini_rejects_model_name_with_path_or_url_characters():
+    with pytest.raises(ValueError, match="unsupported characters"):
+        analyze_drawing_page_with_gemini(b"png", "test-key", model="../other/model")
+
+
+def test_gemini_rejects_non_string_or_oversized_response_text(monkeypatch):
+    import ai_project_control.advanced_import_service as service
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": "x" * 1_000_001}]}}]}
+
+    monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: Response())
+    with pytest.raises(RuntimeError, match="drawing analysis failed"):
+        analyze_drawing_page_with_gemini(b"png", "test-key")
+
+
+def test_gemini_rejects_takeoff_response_over_review_limit(monkeypatch):
+    import json
+    import ai_project_control.advanced_import_service as service
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{
+                "text": json.dumps([{"description": "Item"}] * 501)
+            }]}}]}
+
+    monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: Response())
+    with pytest.raises(RuntimeError, match="review limit"):
+        analyze_drawing_page_with_gemini(b"png", "test-key")
