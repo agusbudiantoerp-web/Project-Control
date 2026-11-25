@@ -277,7 +277,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                             use_container_width=True,
                             hide_index=True,
                             num_rows="dynamic",
-                            key=f"pc_gemini_editor_{file_signature[:10]}_{page_number}",
+                            key=f"pc_gemini_editor_{target_project}_{file_signature[:10]}_{page_number}",
                         )
                         st.warning(
                             "Semua kuantitas adalah draft. Periksa dimensi, skala, satuan, metode ukur, "
