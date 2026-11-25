@@ -128,3 +128,17 @@ def test_negative_or_overflowing_evm_source_amounts_remain_unassessed():
     )
     assert overflow["PV"] is None
     assert overflow["status"] == "INSUFFICIENT_DATA"
+
+
+def test_overflowing_evm_indices_are_unassessed():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1e308},
+        [{"project_id": "P1", "period": "2026-01",
+          "planned_value": 1e-308, "earned_value": 1e308}],
+        [{"project_id": "P1", "period": "2026-01", "actual_cost": 1e-308}],
+    )
+    assert result["SPI"] is None
+    assert result["CPI"] is None
+    assert result["EAC"] is None
+    assert "SPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE" in result["data_gaps"]
+    assert "CPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE" in result["data_gaps"]
