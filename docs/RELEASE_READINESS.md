@@ -414,3 +414,9 @@ Implementation changes have been committed and selected files/workflows have bee
 
 - The XER parser now caps the source file at 30 MB, table count at 100, rows per table at 100,000, fields per table at 300, and individual line length at 1,000,000 characters.
 - The parser rejects over-wide rows rather than silently dropping extra values. P6 import still supports only Finish-to-Start relationships in the primary intake path and converts P6 hours to nominal 8-hour days; calendars, lag, constraints, resource leveling and other relationship types require Primavera review.
+
+
+### Telegram message-size handling
+
+- Executive escalation messages are truncated using a UTF-16 code-unit budget below Telegram's 4,096-unit ceiling, preserving a safe suffix and avoiding a split surrogate pair.
+- The transport adapter also validates the UTF-16 length before sending. Regression coverage includes emoji-heavy messages.
