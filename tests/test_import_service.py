@@ -72,3 +72,39 @@ def test_unknown_dataset_and_invalid_mode_rejected(store):
         import_uploaded_dataset(store, "P1", "unknown", upload)
     with pytest.raises(ValueError):
         import_uploaded_dataset(store, "P1", "boq", upload, mode="delete")
+
+
+def test_import_uses_explicit_selected_xlsx_worksheet(store):
+    openpyxl = pytest.importorskip("openpyxl")
+    workbook = openpyxl.Workbook()
+    first = workbook.active
+    first.title = "Instructions"
+    first.append(["Notes"])
+    first.append(["Do not import this sheet"])
+    selected = workbook.create_sheet("BOQ Data")
+    selected.append(["Project ID", "BOQ ID", "Quantity"])
+    selected.append(["P1", "B-SELECTED", 15])
+    stream = BytesIO()
+    workbook.save(stream)
+
+    upload = Upload("multi-sheet.xlsx", stream.getvalue())
+    result = import_uploaded_dataset(
+        store, "P1", "boq", upload, sheet_name="BOQ Data"
+    )
+    assert result["status"] == "COMMITTED"
+    saved = store.load_dataset("P1", "boq")
+    assert [row["boq_id"] for row in saved] == ["B-SELECTED"]
+
+
+def test_import_rejects_source_column_reused_for_multiple_fields(store):
+    upload = Upload("boq.csv", b"Project ID,Shared\\nP1,B1\\n")
+    with pytest.raises(ValueError, match="cannot be mapped to multiple"):
+        import_uploaded_dataset(
+            store, "P1", "boq", upload,
+            mapping={
+                "project_id": "Project ID",
+                "boq_id": "Shared",
+                "quantity": "Shared",
+            },
+        )
+    assert store.load_dataset("P1", "boq") == []
