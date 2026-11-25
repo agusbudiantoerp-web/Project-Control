@@ -342,3 +342,11 @@ The above changes have been committed to the integration branch and their file c
 ### Integration boundary
 
 The integration branch remains divergent from main. Main-only commits and file-level differences must be reconciled deliberately; do not merge, reset or overwrite the larger integrated application with main as a shortcut. Local SQLite remains a single-user/local-first store, not a production multi-user database. Monte Carlo cost and schedule percentiles remain separate marginal distributions, not a correlated joint forecast.
+
+
+## Telegram inbound drawing PDF
+
+- Added explicit `getUpdates` polling for PDF documents from one configured chat ID, with update offset, file-size limit, PDF signature check and safe generic errors.
+- PDF bytes are held in Streamlit session state only; the selected page is sent to Gemini only after a separate consent checkbox and Analyze action.
+- Polling requires no active Telegram webhook. The same token/chat configuration supports outbound executive reports and inbound PDF intake.
+- Tests cover authorized-chat filtering, offset handling, PDF signature validation and credential validation. Not yet executed.
