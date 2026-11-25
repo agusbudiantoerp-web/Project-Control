@@ -1081,7 +1081,10 @@ def predict_project_trend(project, activities, boq, progress, actual_cost):
       "trend_slope_pct_per_day":float(slope*100),"trend_finish_forecast":finish_forecast,
       "trend_EAC":float(eac) if pd.notna(eac) else np.nan,
       "method":"Linear trend on cumulative earned-value progress; minimum 3 reporting periods"}
-    return result,MAX_DRAWING_PDF_BYTES = 50 * 1024 * 1024
+    return result,history
+
+
+MAX_DRAWING_PDF_BYTES = 50 * 1024 * 1024
 MAX_DRAWING_PDF_PAGES = 500
 MAX_DRAWING_IMAGE_BYTES = 12 * 1024 * 1024
 MAX_DRAWING_TAKEOFF_ITEMS = 500
