@@ -474,7 +474,7 @@ def test_gemini_streamed_response_is_bounded_and_closed(monkeypatch):
     response = StreamResponse()
     monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: response)
     rows = service.analyze_drawing_page_with_gemini(
-        b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+        bytes.fromhex("89504e470d0a1a0a") + b"fake-png", "test-key"
     )
     assert rows[0]["quantity"] == 2
     assert response.closed
@@ -504,7 +504,7 @@ def test_gemini_rejects_oversized_stream_before_json_parse_and_closes(monkeypatc
     monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: response)
     with pytest.raises(RuntimeError, match="Gemini drawing analysis failed"):
         service.analyze_drawing_page_with_gemini(
-            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+            bytes.fromhex("89504e470d0a1a0a") + b"fake-png", "test-key"
         )
     assert not response.iterated
     assert response.closed
@@ -536,7 +536,7 @@ def test_gemini_stops_reading_when_stream_exceeds_response_limit(monkeypatch):
     monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: response)
     with pytest.raises(RuntimeError, match="Gemini drawing analysis failed"):
         service.analyze_drawing_page_with_gemini(
-            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+            bytes.fromhex("89504e470d0a1a0a") + b"fake-png", "test-key"
         )
     assert response.chunks_read == 1
     assert response.closed
