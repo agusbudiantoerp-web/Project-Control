@@ -105,6 +105,8 @@ def prepare_xer_workspace_import(
     project_currency = str(currency).strip().upper()
     if not target_id or not target_name or not project_currency:
         raise ValueError("Target Project ID, project name and currency are required")
+    if len(project_currency) != 3 or not project_currency.isalpha():
+        raise ValueError("Project currency must be a three-letter ISO currency code")
 
     tables = parse_xer_tables(raw)
     task_rows = tables.get("TASK", [])
