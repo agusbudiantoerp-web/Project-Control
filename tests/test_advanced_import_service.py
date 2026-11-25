@@ -451,3 +451,32 @@ def test_list_project_wbs_ids_reads_project_store_records(tmp_path):
             ("P1", "wbs", '["P1",""]', '{"project_id":"P1","wbs_id":""}', "legacy"),
         )
     assert list_project_wbs_ids(store, "P1") == ["W-01", "W-02"]
+
+
+def test_xer_import_preserves_negative_relationship_lag():
+    source = SINGLE_PROJECT_XER.replace(
+        b"%F\tproj_id\ttask_id\tpred_task_id\n%R\tP6-1\tT2\tT1",
+        b"%F\tproj_id\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n"
+        b"%R\tP6-1\tT2\tT1\tPR_FS\t-8",
+    )
+    prepared = prepare_xer_workspace_import(
+        source, project_id="P1", project_name="Plant Upgrade",
+        currency="IDR", source_project_id="P6-1",
+    )
+    relation = prepared["activities"][1]["relationship_details"][0]
+    assert relation["type"] == "FS"
+    assert relation["source_lag_hours"] == -8
+    assert relation["lag_days"] == -1
+
+
+def test_xer_import_rejects_unsupported_relationship_type():
+    source = SINGLE_PROJECT_XER.replace(
+        b"%F\tproj_id\ttask_id\tpred_task_id\n%R\tP6-1\tT2\tT1",
+        b"%F\tproj_id\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n"
+        b"%R\tP6-1\tT2\tT1\tPR_XX\t0",
+    )
+    with pytest.raises(ValueError, match="unsupported type"):
+        prepare_xer_workspace_import(
+            source, project_id="P1", project_name="Plant Upgrade",
+            currency="IDR", source_project_id="P6-1",
+        )
