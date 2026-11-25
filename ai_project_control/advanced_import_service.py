@@ -367,7 +367,13 @@ def analyze_drawing_page_with_gemini(
     model_name = model.strip()
     if not re.fullmatch(r"[A-Za-z0-9._-]+", model_name):
         raise ValueError("Gemini model name contains unsupported characters")
-    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(float(timeout)) or timeout <= 0:
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
+        raise ValueError("timeout must be a finite positive number")
+    try:
+        numeric_timeout = float(timeout)
+    except (OverflowError, TypeError, ValueError):
+        raise ValueError("timeout must be a finite positive number") from None
+    if not math.isfinite(numeric_timeout) or numeric_timeout <= 0:
         raise ValueError("timeout must be a finite positive number")
 
     if not bytes(image_bytes).startswith(b"\x89PNG\r\n\x1a\n"):
@@ -399,7 +405,7 @@ def analyze_drawing_page_with_gemini(
                 }],
                 "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
             },
-            timeout=float(timeout),
+            timeout=numeric_timeout,
         )
         response.raise_for_status()
         payload = response.json()
@@ -421,10 +427,21 @@ def analyze_drawing_page_with_gemini(
         raise RuntimeError(
             f"Gemini returned more than the {MAX_DRAWING_TAKEOFF_ITEMS} item review limit"
         )
+    def bounded_text(item: dict[str, Any], key: str, limit: int) -> str:
+        value = item.get(key, "")
+        if value is None:
+            return ""
+        if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+            raise RuntimeError(f"Gemini returned an invalid {key} value in item {index}")
+        text_value = str(value).strip()
+        if len(text_value) > limit:
+            raise RuntimeError(f"Gemini {key} exceeds the {limit}-character review limit in item {index}")
+        return text_value
+
     rows = []
     for index, item in enumerate(data, 1):
         if not isinstance(item, dict):
-            continue
+            raise RuntimeError(f"Gemini item {index} must be a JSON object")
         raw_quantity = item.get("quantity")
         quantity = None
         if raw_quantity not in (None, "") and not isinstance(raw_quantity, bool):
@@ -438,14 +455,14 @@ def analyze_drawing_page_with_gemini(
         if confidence not in {"High", "Medium", "Low"}:
             confidence = "Low"
         rows.append({
-            "item_code": str(item.get("item_code") or f"TAKEOFF-{index:03d}").strip(),
-            "discipline": str(item.get("discipline", "")).strip(),
-            "description": str(item.get("description", "")).strip(),
-            "unit": str(item.get("unit", "")).strip(),
+            "item_code": bounded_text(item, "item_code", 120) or f"TAKEOFF-{index:03d}",
+            "discipline": bounded_text(item, "discipline", 80),
+            "description": bounded_text(item, "description", 1000),
+            "unit": bounded_text(item, "unit", 40),
             "quantity": quantity,
-            "measurement_method": str(item.get("measurement_method", "")).strip(),
+            "measurement_method": bounded_text(item, "measurement_method", 1000),
             "confidence": confidence,
-            "assumptions": str(item.get("assumptions", "")).strip(),
+            "assumptions": bounded_text(item, "assumptions", 2000),
             "review_status": "PENDING_REVIEW",
         })
     return rows
