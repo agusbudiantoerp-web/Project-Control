@@ -234,3 +234,22 @@ Launcher V1 di `ai_project_control` tetap tersedia sebagai aplikasi kompatibilit
 4. Pilih halaman PDF yang diterima, periksa preview lokal, lalu ikuti persetujuan Gemini dan verifikasi quantity surveyor seperti langkah di atas.
 
 Intake ini memakai polling `getUpdates`, bukan webhook. Jika bot masih memiliki webhook aktif, polling tidak akan berjalan. Aplikasi hanya mengambil PDF dari chat ID yang dikonfigurasi; dokumen lain diabaikan. File disimpan sementara dalam session aplikasi, bukan pada ProjectStore. Pengiriman ke Gemini tetap memerlukan persetujuan terpisah.
+
+
+## AI Project Advisor — Groq / Gemini
+
+1. Buka **AI Project Advisor — Groq / Gemini** dari sidebar.
+2. Pilih Project ID yang sudah tersimpan pada Project Workspace.
+3. Periksa metrik EVM, status jadwal, risiko dan tindakan yang ditampilkan pada bagian **Evidence sent to the AI provider**.
+4. Pilih Groq atau Gemini dan model yang tersedia pada akun provider.
+5. Centang persetujuan pengiriman data setelah memastikan informasi tersebut boleh dibagikan kepada provider eksternal.
+6. Tekan **Generate AI project analysis**. Hasil dapat diunduh sebagai Markdown.
+
+Konfigurasikan `GROQ_API_KEY` atau `GEMINI_API_KEY` melalui environment variable atau Streamlit secrets. API key tidak disimpan ke ProjectStore dan dikirim melalui header permintaan. Jangan gunakan data rahasia atau data klien tanpa izin organisasi. AI dapat salah menafsirkan konteks; verifikasi fakta, hipotesis dan rekomendasi sebelum mengambil keputusan. Advisor tidak mengubah baseline, anggaran, jadwal atau status tindakan.
+
+
+## Validasi hubungan impor
+
+Urutan impor yang disarankan: Project Master → WBS → Activities → BOQ → Resources → Progress → Actual Cost → Risk dan register lainnya. Isi `activity_id`, `wbs_id`, dan `boq_id` bila tersedia di sumber. Sistem memeriksa referensi silang terhadap data proyek yang sudah tersimpan sebelum impor CSV/XLSX dikomit. Bila hubungan tidak cocok, impor ditolak dan data lama tetap dipertahankan.
+
+Untuk progres, gunakan satu tingkat pencatatan per aktivitas dan periode: satu baris total aktivitas, atau beberapa baris rincian BOQ. Jangan mencampur keduanya. Bila memakai rincian BOQ, kombinasi Activity ID + BOQ ID + periode harus unik. Lihat `docs/PROJECT_DATA_IMPORT_WORKFLOW.md` untuk aturan lengkap.
