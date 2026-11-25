@@ -3,6 +3,7 @@ import sqlite3
 import pytest
 
 from ai_project_control.project_store import ProjectStore
+import ai_project_control.workspace_backup as workspace_backup
 from ai_project_control.workspace_backup import build_workspace_backup
 from ai_project_control.workspace_restore import (
     restore_workspace_backup,
@@ -115,3 +116,11 @@ def test_restore_rejects_future_schema_without_touching_destination(tmp_path):
     connection.close()
     with pytest.raises(ValueError, match="schema version 999"):
         validate_workspace_backup(future.read_bytes())
+
+
+def test_backup_refuses_snapshot_larger_than_supported_restore_limit(tmp_path, monkeypatch):
+    db = tmp_path / "workspace.sqlite3"
+    ProjectStore(db)
+    monkeypatch.setattr(workspace_backup, "MAX_WORKSPACE_BACKUP_BYTES", 1)
+    with pytest.raises(ValueError, match="250 MB backup limit"):
+        build_workspace_backup(db)
