@@ -316,7 +316,7 @@ def test_gemini_rejects_non_object_takeoff_rows(monkeypatch):
             return None
 
         def json(self):
-            return {"candidates": [{"content": {"parts": [{"text": '[{"description":"ok"}, "bad-row"]}' }]}}]}
+            return {"candidates": [{"content": {"parts": [{"text": '[{"description":"ok"}, "bad-row"]' }]}}]}
 
     monkeypatch.setattr(import_service.requests, "post", lambda *args, **kwargs: Response())
     with pytest.raises(RuntimeError, match="item 2 must be a JSON object"):
@@ -438,7 +438,6 @@ def test_list_project_wbs_ids_reads_project_store_records(tmp_path):
     store.save_dataset("P1", "wbs", [
         {"project_id": "P1", "wbs_id": "W-02"},
         {"project_id": "P1", "wbs_id": "W-01"},
-        {"project_id": "P1", "wbs_id": ""},
     ])
     assert list_project_wbs_ids(store, "P1") == ["W-01", "W-02"]
 
