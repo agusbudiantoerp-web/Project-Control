@@ -45,29 +45,30 @@ def _select_record_window(rows: list[dict[str, Any]], mode: str, label: str) -> 
         return rows
     if mode != "cumulative_snapshot":
         raise ValueError(f"{label}_record_mode must be period_delta or cumulative_snapshot")
-    identity_fields = ("activity_id", "activity_code", "wbs_id", "cost_code",
-                       "resource_id", "record_id", "id")
-    latest_by_entity: dict[tuple[str, str], str] = {}
+    def identity(row: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+        # EVM progress is keyed by activity + BOQ; a single activity may
+        # legitimately report multiple BOQ items in the same period.
+        for fields in (("activity_id", "boq_id"), ("task_id", "rsrc_id")):
+            if all(row.get(field) not in (None, "") for field in fields):
+                return tuple((field, str(row[field]).strip()) for field in fields)
+        for field in ("record_id", "transaction_id", "id", "activity_id",
+                      "cost_code", "resource_id", "task_id"):
+            if row.get(field) not in (None, ""):
+                return ((field, str(row[field]).strip()),)
+        return (("__unidentified__", "__all__"),)
+
+    latest_by_entity: dict[tuple[tuple[str, str], ...], str] = {}
     for row in rows:
         period = str(row.get("period", "")).strip()
         if not period:
             return []
-        identity = next(
-            ((field, str(row.get(field)).strip()) for field in identity_fields
-             if row.get(field) not in (None, "")),
-            ("__unidentified__", "__all__"),
-        )
-        previous = latest_by_entity.get(identity)
+        key = identity(row)
+        previous = latest_by_entity.get(key)
         if previous is None or period > previous:
-            latest_by_entity[identity] = period
+            latest_by_entity[key] = period
     return [
         row for row in rows
-        if str(row.get("period", "")).strip()
-        == latest_by_entity[next(
-            ((field, str(row.get(field)).strip()) for field in identity_fields
-             if row.get(field) not in (None, "")),
-            ("__unidentified__", "__all__"),
-        )]
+        if str(row.get("period", "")).strip() == latest_by_entity[identity(row)]
     ]
 
 
