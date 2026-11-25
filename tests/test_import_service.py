@@ -108,3 +108,15 @@ def test_import_rejects_source_column_reused_for_multiple_fields(store):
             },
         )
     assert store.load_dataset("P1", "boq") == []
+
+
+@pytest.mark.parametrize("mode", ["upsert", "replace"])
+def test_empty_upload_never_commits_or_clears_existing_dataset(store, mode):
+    store.save_dataset("P1", "boq", [
+        {"project_id": "P1", "boq_id": "KEEP", "quantity": 3}
+    ])
+    upload = Upload("empty-data.csv", b"Project ID,BOQ ID,Quantity\\n")
+    result = import_uploaded_dataset(store, "P1", "boq", upload, mode=mode)
+    assert result["status"] == "EMPTY_DATASET"
+    assert result["saved_count"] == 0
+    assert [row["boq_id"] for row in store.load_dataset("P1", "boq")] == ["KEEP"]
