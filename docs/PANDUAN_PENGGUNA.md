@@ -15,7 +15,7 @@ git checkout ai-project-control-integration
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -r ai_project_control/requirements.txt
 ```
 
 Jika PowerShell memblokir aktivasi virtual environment, jalankan perintah berikut hanya untuk sesi terminal saat ini, lalu ulangi aktivasi:
@@ -50,9 +50,9 @@ Database lokal dibuat pada `.project_control/project_control.sqlite3`. Jangan me
 11. Gunakan Portfolio Command Center dan Portfolio-wide Risk & Shared Resource Intelligence untuk memeriksa paparan risiko per mata uang dan konflik kapasitas resource lintas proyek. Pastikan resource ID, periode, unit, dan kapasitas benar-benar merujuk pada pool yang sama.
 12. Tinjau COO Executive Portfolio Decision Brief sebagai daftar isu yang memerlukan perhatian manajemen. Rekomendasi merupakan bahan review, bukan persetujuan otomatis.
 13. Gunakan Portfolio Cost & Cashflow Intelligence untuk membandingkan budget dan actual cost per mata uang. Remaining budget bukan saldo kas; pastikan sumber BAC/BOQ dan actual cost telah tervalidasi.
-13. Simpan snapshot KPI historis secara berkala. Setelah tersedia minimal tiga tanggal untuk suatu indikator, jalankan early warning dari histori tersimpan.
-14. Jika histori mencukupi, jalankan evaluasi baseline ML KPI dan bandingkan MAE dengan persistence baseline. Model hanya dievaluasi dalam memori; belum disimpan atau dipakai otomatis untuk keputusan.
-15. Ekspor laporan untuk review dan persetujuan manajemen.
+14. Simpan snapshot KPI historis secara berkala. Setelah tersedia minimal tiga tanggal untuk suatu indikator, jalankan early warning dari histori tersimpan.
+15. Jika histori mencukupi, jalankan evaluasi baseline ML KPI dan bandingkan MAE dengan persistence baseline. Model hanya dievaluasi dalam memori; belum disimpan atau dipakai otomatis untuk keputusan.
+16. Ekspor laporan untuk review dan persetujuan manajemen.
 
 ## D. Data historis
 
