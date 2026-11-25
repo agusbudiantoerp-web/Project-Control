@@ -120,15 +120,34 @@ def fetch_latest_telegram_pdf(
             or not file_path
             or file_path.startswith("/")
             or any(part in {"", ".", ".."} for part in file_path.split("/"))
-            or any(character in file_path for character in ("\\\\", "?", "#", "\\r", "\\n"))
+            or chr(92) in file_path
+            or any(character in file_path for character in ("?", "#", "\\r", "\\n"))
         ):
             raise RuntimeError("Telegram file path is invalid")
         download_response = requests.get(
             f"https://api.telegram.org/file/bot{token}/{file_path}",
             timeout=float(timeout),
+            stream=True,
         )
         download_response.raise_for_status()
-        raw = download_response.content
+        headers = getattr(download_response, "headers", {}) or {}
+        content_length = headers.get("Content-Length") or headers.get("content-length")
+        if content_length is not None:
+            try:
+                if int(content_length) > max_bytes:
+                    raise RuntimeError("Telegram PDF exceeds the configured download limit")
+            except (TypeError, ValueError):
+                raise RuntimeError("Telegram returned an invalid PDF content length") from None
+        chunks: list[bytes] = []
+        downloaded = 0
+        for chunk in download_response.iter_content(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+            downloaded += len(chunk)
+            if downloaded > max_bytes:
+                raise RuntimeError("Telegram PDF exceeds the configured download limit")
+            chunks.append(chunk)
+        raw = b"".join(chunks)
     except (requests.RequestException, ValueError, TypeError, RuntimeError, AttributeError):
         raise RuntimeError("Telegram PDF download failed; check bot access and file availability.") from None
 
