@@ -53,3 +53,12 @@ def test_rejects_boolean_resource_units_and_aggregate_overflow():
             {"resource_id": "R", "period": "P1", "planned_units": 1e308, "capacity_units": 1e308},
             {"resource_id": "R", "period": "P1", "planned_units": 1e308, "capacity_units": 1e308},
         ])
+
+
+def test_overflowing_utilization_ratio_is_unassessed():
+    result = build_resource_loading_summary([{
+        "resource_id": "R", "period": "P1",
+        "planned_units": 1e308, "capacity_units": 1e-308,
+    }])
+    assert result["rows"].iloc[0]["status"] == "UNASSESSED"
+    assert result["unassessed_count"] == 1
