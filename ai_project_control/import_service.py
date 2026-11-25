@@ -36,6 +36,14 @@ def import_uploaded_dataset(
     if hasattr(uploaded_file, "seek"):
         uploaded_file.seek(0)
     parsed = read_tabular_upload(uploaded_file, sheet_name=sheet_name)
+    if not parsed["rows"]:
+        return {
+            "status": "EMPTY_DATASET",
+            "file": parsed["filename"],
+            "dataset": dataset,
+            "saved_count": 0,
+            "message": "No data rows were found; the existing workspace dataset was left unchanged.",
+        }
     suggestion = suggest_column_mapping(dataset, parsed["columns"])
     if mapping is None:
         if suggestion["ambiguous"] or suggestion["missing_required"]:
