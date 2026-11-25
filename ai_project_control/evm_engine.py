@@ -45,11 +45,30 @@ def _select_record_window(rows: list[dict[str, Any]], mode: str, label: str) -> 
         return rows
     if mode != "cumulative_snapshot":
         raise ValueError(f"{label}_record_mode must be period_delta or cumulative_snapshot")
-    periods = [str(row.get("period", "")).strip() for row in rows]
-    if not periods or any(not period for period in periods):
-        return []
-    latest_period = max(periods)
-    return [row for row in rows if str(row.get("period", "")).strip() == latest_period]
+    identity_fields = ("activity_id", "activity_code", "wbs_id", "cost_code",
+                       "resource_id", "record_id", "id")
+    latest_by_entity: dict[tuple[str, str], str] = {}
+    for row in rows:
+        period = str(row.get("period", "")).strip()
+        if not period:
+            return []
+        identity = next(
+            ((field, str(row.get(field)).strip()) for field in identity_fields
+             if row.get(field) not in (None, "")),
+            ("__unidentified__", "__all__"),
+        )
+        previous = latest_by_entity.get(identity)
+        if previous is None or period > previous:
+            latest_by_entity[identity] = period
+    return [
+        row for row in rows
+        if str(row.get("period", "")).strip()
+        == latest_by_entity[next(
+            ((field, str(row.get(field)).strip()) for field in identity_fields
+             if row.get(field) not in (None, "")),
+            ("__unidentified__", "__all__"),
+        )]
+    ]
 
 
 def calculate_evm(
@@ -159,7 +178,7 @@ def calculate_evm(
         },
         "limitations": [
             "Record modes are explicit: period_delta sums rows through the cutoff; cumulative_snapshot sums only rows from the latest available period.",
-            "Snapshot mode requires a nonblank period on every selected source row; missing periods leave the metric unavailable.",
+            "Snapshot mode keeps the latest row per identifiable activity/cost/resource key; rows without an identity are treated as one series. Every row needs a nonblank period.",
             "EAC is a simple CPI-based forecast and does not model remaining schedule, risk, commitments or change orders.",
             "Missing PV, EV, AC or BAC is not treated as zero.",
         ],
