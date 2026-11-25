@@ -135,7 +135,7 @@ def test_boq_amount_must_match_quantity_times_unit_rate():
         "project_master": [{"project_id": "P1"}],
         "boq": [{
             "project_id": "P1", "boq_id": "B1",
-            "quantity": 12.5, "unit_rate": 250000, "amount": 3000000,
+            "quantity": 12.5, "unit_rate": 250000, "amount": 3125000,
         }],
     })
     assert result["status"] == "VALID"
