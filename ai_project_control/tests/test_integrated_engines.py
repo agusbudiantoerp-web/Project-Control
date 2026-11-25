@@ -297,3 +297,49 @@ def test_xer_cpm_rejects_non_finite_hours_duration_and_lag():
     rel=pd.DataFrame([{"task_id":"2","pred_task_id":"1","pred_type":"PR_FS","lag_hr_cnt":float("inf")}])
     with pytest.raises(ValueError,match="Invalid relationship lag"):
         calculate_xer_cpm({"TASK":task,"TASKPRED":rel})
+
+
+def test_cpm_maps_metadata_after_normalizing_activity_ids_and_allows_minimal_import():
+    frame = pd.DataFrame([
+        {"activity_id": " A ", "activity_name": "Excavation", "wbs_id": "W1",
+         "duration_days": 2, "predecessor_ids": ""},
+        {"activity_id": "B", "activity_name": "Hauling", "wbs_id": "W1",
+         "duration_days": 3, "predecessor_ids": "A"},
+    ])
+    result, stats = calculate_cpm(frame)
+    rows = result.set_index("activity_id")
+    assert rows.loc["A", "activity_name"] == "Excavation"
+    assert rows.loc["A", "wbs_id"] == "W1"
+    assert stats["project_duration"] == 5
+
+    minimal, _ = calculate_cpm(pd.DataFrame([
+        {"activity_id": "X", "duration_days": 1},
+    ]))
+    assert minimal.iloc[0]["activity_name"] == "X"
+    assert pd.isna(minimal.iloc[0]["wbs_id"])
+
+
+def test_xer_cpm_rejects_boolean_or_non_numeric_hours_per_day():
+    task = pd.DataFrame([
+        {"task_id": "1", "task_code": "A", "task_name": "Alpha",
+         "target_drtn_hr_cnt": 8}
+    ])
+    for value in [True, "eight", 0, float("inf")]:
+        with pytest.raises(ValueError, match="hours_per_day"):
+            calculate_xer_cpm({"TASK": task}, hours_per_day=value)
+
+
+def test_xer_cpm_normalizes_task_ids_before_relationship_join():
+    task = pd.DataFrame([
+        {"task_id": " 1 ", "task_code": "A", "task_name": "Alpha",
+         "target_drtn_hr_cnt": 8},
+        {"task_id": "2", "task_code": "B", "task_name": "Beta",
+         "target_drtn_hr_cnt": 8},
+    ])
+    rel = pd.DataFrame([
+        {"task_id": "2", "pred_task_id": "1", "pred_type": "PR_FS",
+         "lag_hr_cnt": 0}
+    ])
+    result, stats = calculate_xer_cpm({"TASK": task, "TASKPRED": rel})
+    assert stats["project_duration_days"] == 2
+    assert result.loc[result["task_id"] == "2", "early_start_day"].iloc[0] == 1
