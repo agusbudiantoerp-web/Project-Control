@@ -238,6 +238,22 @@ def prepare_xer_workspace_import(
         })
 
     wbs_ids = {row["wbs_id"] for row in wbs_rows}
+    parent_by_wbs = {
+        row["wbs_id"]: row["parent_wbs_id"]
+        for row in wbs_rows
+    }
+    for wbs_id, parent_id in parent_by_wbs.items():
+        if parent_id in {"", "0"}:
+            continue
+        if parent_id not in wbs_ids:
+            raise ValueError(f"P6 WBS {wbs_id} references missing parent WBS {parent_id}")
+        visited = {wbs_id}
+        current = parent_id
+        while current:
+            if current in visited:
+                raise ValueError(f"P6 WBS hierarchy contains a cycle at {current}")
+            visited.add(current)
+            current = parent_by_wbs.get(current, "")
     if wbs_ids:
         missing_wbs = sorted({
             row["wbs_id"] for row in activities
