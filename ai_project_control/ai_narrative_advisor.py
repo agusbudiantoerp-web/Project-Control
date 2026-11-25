@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import math
+import re
 import requests
 
 
@@ -39,6 +41,14 @@ def generate_narrative_advice(
 ) -> dict:
     """Call one configured provider. Never silently switch providers or expose secrets."""
     provider_key = str(provider).strip().lower()
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
+        return {"ok": False, "provider": provider, "error": "Timeout harus berupa angka positif."}
+    try:
+        numeric_timeout = float(timeout)
+    except (TypeError, ValueError, OverflowError):
+        return {"ok": False, "provider": provider, "error": "Timeout harus berupa angka positif."}
+    if not math.isfinite(numeric_timeout) or numeric_timeout <= 0:
+        return {"ok": False, "provider": provider, "error": "Timeout harus berupa angka positif."}
     context = _project_context(metrics, findings, action_plan)
     prompt = (
         "You are a senior project-controls advisor. Produce: (1) executive assessment, "
@@ -49,11 +59,13 @@ def generate_narrative_advice(
     )
     try:
         if provider_key == "groq":
-            if not groq_api_key:
+            if not isinstance(groq_api_key, str) or not groq_api_key.strip():
                 return {"ok": False, "provider": "Groq", "error": "GROQ_API_KEY belum dikonfigurasi pada environment atau Streamlit secrets."}
+            if not isinstance(groq_model, str) or not re.fullmatch(r"[A-Za-z0-9._:-]+", groq_model.strip()):
+                return {"ok": False, "provider": "Groq", "error": "Nama model Groq tidak valid."}
             response = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {groq_api_key}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {groq_api_key.strip()}", "Content-Type": "application/json"},
                 json={
                     "model": groq_model,
                     "messages": [
@@ -62,18 +74,19 @@ def generate_narrative_advice(
                     ],
                     "temperature": 0.2,
                 },
-                timeout=timeout,
+                timeout=numeric_timeout,
             )
             response.raise_for_status()
             data = response.json()
             answer = data["choices"][0]["message"]["content"]
         elif provider_key == "gemini":
-            if not gemini_api_key:
+            if not isinstance(gemini_api_key, str) or not gemini_api_key.strip():
                 return {"ok": False, "provider": "Gemini", "error": "GEMINI_API_KEY belum dikonfigurasi pada environment atau Streamlit secrets."}
+            if not isinstance(gemini_model, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", gemini_model.strip()):
+                return {"ok": False, "provider": "Gemini", "error": "Nama model Gemini tidak valid."}
             response = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent",
-                params={"key": gemini_api_key},
-                headers={"Content-Type": "application/json"},
+                f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model.strip()}:generateContent",
+                headers={"Content-Type": "application/json", "x-goog-api-key": gemini_api_key.strip()},
                 json={
                     "systemInstruction": {"parts": [{"text": "You provide evidence-grounded project controls decision support. Never invent project facts."}]},
                     "contents": [{"role": "user", "parts": [{"text": prompt}]}],
