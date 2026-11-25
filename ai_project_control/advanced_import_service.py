@@ -27,6 +27,16 @@ MAX_DRAWING_TAKEOFF_ITEMS = 500
 MAX_GEMINI_RESPONSE_CHARS = 1_000_000
 
 
+def list_project_wbs_ids(store: ProjectStore, project_id: str) -> list[str]:
+    """Return normalized WBS IDs from the list-of-records ProjectStore API."""
+    rows = store.load_dataset(str(project_id).strip(), "wbs")
+    return sorted({
+        str(row.get("wbs_id", "")).strip()
+        for row in rows
+        if isinstance(row, dict) and str(row.get("wbs_id", "")).strip()
+    })
+
+
 def parse_xer_tables(raw: bytes) -> dict[str, list[dict[str, str]]]:
     """Parse the tab-delimited %T/%F/%R tables from a Primavera P6 XER file."""
     if not isinstance(raw, (bytes, bytearray)):
