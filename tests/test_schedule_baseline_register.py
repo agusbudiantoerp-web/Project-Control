@@ -170,3 +170,16 @@ def test_store_allows_single_dataset_change_write_then_flags_missing_baseline_in
     }])
     validation = store.validate_workspace("P3")
     assert any(issue["code"] == "UNKNOWN_CHANGE_BASELINE" for issue in validation["issues"])
+
+
+def test_atomic_multi_dataset_save_checks_links_to_existing_workspace_records(tmp_path):
+    store = ProjectStore(tmp_path / "atomic-cross-link.sqlite3")
+    store.save_dataset("P4", "project_master", [{"project_id": "P4"}])
+    with pytest.raises(ValueError, match="UNKNOWN_CHANGE_BASELINE"):
+        store.save_datasets("P4", {
+            "schedule_changes": [{
+                "project_id": "P4", "change_id": "CR-4",
+                "baseline_id": "BL-NOT-IMPORTED", "status": "PENDING",
+            }],
+        })
+    assert store.load_dataset("P4", "schedule_changes") == []
