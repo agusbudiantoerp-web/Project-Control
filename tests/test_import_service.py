@@ -120,3 +120,34 @@ def test_empty_upload_never_commits_or_clears_existing_dataset(store, mode):
     assert result["status"] == "EMPTY_DATASET"
     assert result["saved_count"] == 0
     assert [row["boq_id"] for row in store.load_dataset("P1", "boq")] == ["KEEP"]
+
+
+def test_import_rejects_cross_dataset_activity_link_before_persisting(store):
+    store.save_dataset("P1", "activities", [{
+        "project_id": "P1", "activity_id": "A1", "duration_days": 3,
+    }])
+    upload = Upload(
+        "boq-linked.csv",
+        b"Project ID,BOQ ID,Activity ID,Quantity\\nP1,B1,UNKNOWN-ACTIVITY,10\\n",
+    )
+    result = import_uploaded_dataset(store, "P1", "boq", upload)
+    assert result["status"] == "VALIDATION_FAILED"
+    assert any(issue["code"] == "UNKNOWN_BOQ_ACTIVITY"
+               for issue in result["validation"]["issues"])
+    assert store.load_dataset("P1", "boq") == []
+
+
+def test_import_upsert_validates_merged_workspace_not_only_uploaded_rows(store):
+    store.save_dataset("P1", "activities", [{
+        "project_id": "P1", "activity_id": "A1", "wbs_id": "W1",
+    }])
+    store.save_dataset("P1", "wbs", [{
+        "project_id": "P1", "wbs_id": "W1",
+    }])
+    upload = Upload(
+        "boq-valid.csv",
+        b"Project ID,BOQ ID,Activity ID,WBS ID,Quantity\\nP1,B1,A1,W1,10\\n",
+    )
+    result = import_uploaded_dataset(store, "P1", "boq", upload, mode="upsert")
+    assert result["status"] == "COMMITTED"
+    assert store.load_dataset("P1", "boq")[0]["activity_id"] == "A1"
