@@ -8,6 +8,8 @@ from typing import Any
 from .data_quality_validation import TABLE_KEYS
 from .portfolio_executive_report import build_portfolio_executive_report
 from .workspace_service import build_workspace_overview
+from .project_store import ProjectStore
+from .schedule_baseline_service import create_schedule_baseline, approve_schedule_baseline
 from .streamlit_recovery_scenario_planner import render_recovery_scenario_planner
 from .resource_loading_summary import build_resource_loading_summary
 from .manpower_equipment_planner import build_manpower_equipment_plan
@@ -777,6 +779,76 @@ def render_project_workspace_dashboard(
     except (TypeError, ValueError) as exc:
         st.error("Cost forecast data needs correction: " + str(exc))
 
+
+    st.markdown("#### Approved Schedule Baseline & Change Control")
+    baseline_rows = result["workspace"].get("schedule_baselines", [])
+    change_rows = result["workspace"].get("schedule_changes", [])
+    active_baseline = result.get("active_schedule_baseline")
+    variance = result.get("schedule_variance", {})
+    if active_baseline:
+        st.caption(
+            f"Active approved baseline: {active_baseline.get('baseline_id')} "
+            f"| Version {active_baseline.get('version', 1)} "
+            f"| Approved by {active_baseline.get('approved_by') or 'Not recorded'}"
+        )
+        v1, v2, v3, v4 = st.columns(4)
+        v1.metric("Schedule variance", variance.get("status", "Not assessed"))
+        v2.metric("Added activities", variance.get("added_count", 0))
+        v3.metric("Removed activities", variance.get("removed_count", 0))
+        v4.metric("Changed activities", variance.get("changed_count", 0))
+        if variance.get("changed_activities"):
+            st.dataframe(variance["changed_activities"], use_container_width=True, hide_index=True)
+    else:
+        st.info("Belum ada approved schedule baseline. Draft tidak digunakan sebagai pembanding resmi.")
+
+    with st.expander("Capture and approve schedule baseline", expanded=False):
+        st.caption("Baseline menyimpan snapshot jadwal saat ini. Draft harus ditinjau dan disetujui sebelum dipakai sebagai pembanding.")
+        with st.form("pc_capture_schedule_baseline_form"):
+            baseline_id_input = st.text_input("Baseline ID", key="pc_baseline_id")
+            baseline_name_input = st.text_input("Baseline name", key="pc_baseline_name")
+            baseline_creator_input = st.text_input("Prepared by", key="pc_baseline_creator")
+            capture_baseline = st.form_submit_button("Capture current schedule as draft")
+        if capture_baseline:
+            try:
+                new_baseline = create_schedule_baseline(
+                    project_id, baseline_id_input, result["workspace"]["activities"],
+                    baseline_name=baseline_name_input, created_by=baseline_creator_input,
+                    version=max([int(row.get("version", 0) or 0) for row in baseline_rows] + [0]) + 1,
+                )
+                ProjectStore(database_path).save_dataset(
+                    project_id, "schedule_baselines", [new_baseline], mode="upsert"
+                )
+                st.success("Draft baseline saved. Review and approve it before treating it as the control baseline.")
+                st.rerun()
+            except (TypeError, ValueError, OSError) as baseline_error:
+                st.error("Baseline was not saved: " + str(baseline_error))
+
+        draft_baselines = [
+            row for row in baseline_rows if str(row.get("status", "")).upper() == "DRAFT"
+        ]
+        if draft_baselines:
+            draft_ids = [str(row.get("baseline_id")) for row in draft_baselines]
+            with st.form("pc_approve_schedule_baseline_form"):
+                selected_draft = st.selectbox("Draft baseline to approve", draft_ids)
+                approver = st.text_input("Approved by", key="pc_baseline_approver")
+                approve_baseline = st.form_submit_button("Approve selected baseline")
+            if approve_baseline:
+                try:
+                    selected_record = next(row for row in draft_baselines
+                                           if str(row.get("baseline_id")) == selected_draft)
+                    approved_record = approve_schedule_baseline(selected_record, approver)
+                    ProjectStore(database_path).save_dataset(
+                        project_id, "schedule_baselines", [approved_record], mode="upsert"
+                    )
+                    st.success("Baseline approved and recorded.")
+                    st.rerun()
+                except (TypeError, ValueError, OSError, StopIteration) as approval_error:
+                    st.error("Baseline approval failed: " + str(approval_error))
+
+    if change_rows:
+        st.markdown("**Schedule change register**")
+        st.dataframe(change_rows, use_container_width=True, hide_index=True)
+    st.caption("Schedule variance is a comparison to the latest approved baseline; it does not automatically approve scope, budget, or contract changes.")
 
     st.markdown("#### Schedule & Critical Path")
     schedule = result["schedule"]
