@@ -328,7 +328,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                 raw_quantity = row.get("quantity")
                                 try:
                                     quantity = float(raw_quantity)
-                                except (TypeError, ValueError):
+                                except (OverflowError, TypeError, ValueError):
                                     errors.append(f"Baris {index + 1}: quantity harus diisi angka.")
                                     continue
                                 if isinstance(raw_quantity, bool) or not math.isfinite(quantity) or quantity < 0:
@@ -375,5 +375,10 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                     st.error("PDF drawing preview requires PyMuPDF. Install dependencies from the root requirements.txt.")
                 except (RuntimeError, ValueError, OSError, sqlite3.Error) as exc:
                     st.error("Drawing takeoff could not be prepared: " + str(exc))
+                except Exception:
+                    st.error(
+                        "Drawing intake failed unexpectedly. No BOQ records were confirmed as saved; "
+                        "check the application logs before retrying."
+                    )
         else:
             st.info("Upload PDF atau ambil PDF dari Telegram untuk memilih halaman dan meninjau hasil takeoff.")
