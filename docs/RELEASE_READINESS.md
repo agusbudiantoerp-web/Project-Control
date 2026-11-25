@@ -553,3 +553,25 @@ Implementation commits in this continuation include:
 - The failure was `test_list_project_wbs_ids_reads_project_store_records`: its fixture attempted to insert a blank WBS key through the validated ProjectStore API, which correctly rejects missing natural keys. The test now seeds a simulated legacy/corrupt row directly into SQLite after valid rows are saved, preserving the intended helper behavior test without weakening production validation.
 - Follow-up work also rejects duplicate cumulative EVM snapshots for the same activity-period, exposes the EVM reporting cut-off and progress convention on the primary Project Workspace dashboard, and adds a persisted-workspace service regression test.
 - The fix commit is `38eab5ba9ee26cd171ec5755c00936c1bf8b9c56`. CI for this new head must be observed before treating the fix as verified.
+
+
+## Latest CI evidence — 2026-11-25
+
+Commit under test: `452e26d2031e7887107369a6e4c7915afbac713c`
+
+- Root primary-workspace focused suite: **521 passed**.
+- Root primary-workspace complete suite: **530 passed**.
+- Python compilation of `app.py`, `ai_project_control` and `pages`: success.
+- Legacy integrated engine CI: **179 passed, 3 warnings**.
+- Legacy deterministic engine CI: **179 passed, 3 warnings**.
+- Windows backup/restore acceptance: **14 passed**.
+- Windows backup utility `py_compile`: success.
+- Windows PowerShell parser validation for `INSTALL_DAILY_BACKUP_TASK.ps1`: success.
+- All three GitHub Actions workflows and both jobs in the focused workflow completed successfully for this commit.
+
+Run references:
+- Focused + full + Windows acceptance: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45563880260
+- Legacy integrated engine CI: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45563880268
+- Legacy deterministic engine CI: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45563880226
+
+**Scope boundary:** CI does not perform a real Streamlit browser acceptance test, register and execute the Windows scheduled task on the user's computer, send a live Telegram message, call a real Gemini API key, or validate a hosted multi-user deployment. Restore tests run against temporary test databases; the operator still needs a documented off-device backup and an actual restore drill. PR #3 remains draft and must not be merged until the remaining release gates are reviewed.
