@@ -15,6 +15,7 @@ from ai_project_control.advanced_import_service import (
     prepare_xer_workspace_import,
 )
 from ai_project_control.project_store import ProjectStore
+from ai_project_control.telegram_document_intake import fetch_latest_telegram_pdf
 from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(page_title="P6 XER & Drawing BOQ Intake", page_icon="📐", layout="wide")
@@ -150,9 +151,62 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
         st.warning("Buat atau impor Project Master terlebih dahulu sebelum menyimpan draft BOQ.")
     else:
         target_project = st.selectbox("Project tujuan draft BOQ", project_ids, key="pc_drawing_project")
-        pdf_upload = st.file_uploader("Upload PDF gambar teknik", type=["pdf"], key="pc_drawing_pdf")
+
+        with st.expander("Ambil PDF gambar dari Telegram", expanded=False):
+            telegram_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+            telegram_chat = os.getenv("TELEGRAM_CHAT_ID", "")
+            if not telegram_token:
+                try:
+                    telegram_token = str(st.secrets.get("TELEGRAM_BOT_TOKEN", ""))
+                except Exception:
+                    telegram_token = ""
+            if not telegram_chat:
+                try:
+                    telegram_chat = str(st.secrets.get("TELEGRAM_CHAT_ID", ""))
+                except Exception:
+                    telegram_chat = ""
+            st.caption(
+                "Kirim PDF sebagai Document ke private chat bot, lalu tekan Fetch. "
+                "Polling getUpdates memerlukan bot tanpa webhook aktif."
+            )
+            telegram_pdf_key = "pc_telegram_pdf_intake"
+            telegram_offset_key = "pc_telegram_update_offset"
+            if not telegram_token or not telegram_chat:
+                st.warning("Konfigurasikan TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID terlebih dahulu.")
+            if st.button(
+                "Fetch latest Telegram PDF",
+                disabled=not (telegram_token and telegram_chat),
+                key="pc_telegram_fetch_pdf",
+            ):
+                try:
+                    fetched = fetch_latest_telegram_pdf(
+                        telegram_token, telegram_chat,
+                        offset=st.session_state.get(telegram_offset_key),
+                    )
+                    if fetched["next_offset"] is not None:
+                        st.session_state[telegram_offset_key] = fetched["next_offset"]
+                    if fetched["status"] == "PDF_READY":
+                        st.session_state[telegram_pdf_key] = fetched
+                        st.success("PDF diterima dari Telegram: " + fetched["file_name"])
+                    else:
+                        st.info("Tidak ada PDF baru dari chat Telegram yang diizinkan.")
+                except (TypeError, ValueError, RuntimeError) as telegram_error:
+                    st.error("Telegram PDF intake failed: " + str(telegram_error))
+
+        pdf_upload = st.file_uploader("Upload PDF gambar teknik (atau gunakan PDF dari Telegram)", type=["pdf"], key="pc_drawing_pdf")
+        telegram_pdf = st.session_state.get("pc_telegram_pdf_intake")
         if pdf_upload is not None:
             pdf_bytes = pdf_upload.getvalue()
+            pdf_file_name = pdf_upload.name
+        elif telegram_pdf and telegram_pdf.get("status") == "PDF_READY":
+            pdf_bytes = telegram_pdf["bytes"]
+            pdf_file_name = telegram_pdf["file_name"]
+            st.caption("Using Telegram document: " + pdf_file_name)
+        else:
+            pdf_bytes = None
+            pdf_file_name = ""
+
+        if pdf_bytes is not None:
             if len(pdf_bytes) > 20 * 1024 * 1024:
                 st.error("PDF melebihi batas 20 MB.")
             else:
@@ -173,7 +227,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                         page = document.load_page(int(page_number) - 1)
                         pixmap = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
                         image_bytes = pixmap.tobytes("png")
-                    st.image(image_bytes, caption=f"Preview halaman {page_number}", use_container_width=True)
+                    st.image(image_bytes, caption=f"Preview halaman {page_number} — {pdf_file_name}", use_container_width=True)
 
                     api_key = os.getenv("GEMINI_API_KEY", "")
                     if not api_key:
@@ -294,4 +348,4 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                 except (RuntimeError, ValueError, OSError, sqlite3.Error) as exc:
                     st.error("Drawing takeoff could not be prepared: " + str(exc))
         else:
-            st.info("Upload PDF gambar untuk memilih halaman dan meninjau hasil takeoff.")
+            st.info("Upload PDF atau ambil PDF dari Telegram untuk memilih halaman dan meninjau hasil takeoff.")
