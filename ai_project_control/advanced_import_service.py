@@ -240,6 +240,13 @@ def import_xer_to_workspace(
     )
     existing = store.load_dataset(project_id, "project_master")
     master = dict(existing[0]) if existing else {}
+    existing_currency = str(master.get("currency", "")).strip().upper()
+    incoming_currency = prepared["project_master"][0]["currency"]
+    if existing_currency and existing_currency != incoming_currency:
+        raise ValueError(
+            f"Project currency is already {existing_currency}; XER import currency "
+            f"{incoming_currency} does not match. Use a new Project ID or reconcile currency first."
+        )
     master.update(prepared["project_master"][0])
     datasets = {
         "project_master": [master],
