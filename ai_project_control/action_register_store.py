@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -15,12 +16,33 @@ from .executive_action_register import (
 )
 
 
+class _ClosingConnection(sqlite3.Connection):
+    """Close SQLite handles after transaction context exit."""
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            return super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self.close()
+
+
 class ActionRegisterStore:
     def __init__(self, database_path: str | Path):
         self.database_path = str(database_path)
-        if self.database_path != ":memory:":
-            Path(self.database_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as db:
+        self._sqlite_uri = False
+        self._memory_anchor = None
+        self._closed = False
+        if self.database_path == ":memory:":
+            self._sqlite_target = f"file:action_register_{uuid.uuid4().hex}?mode=memory&cache=shared"
+            self._sqlite_uri = True
+            self._memory_anchor = sqlite3.connect(self._sqlite_target, uri=True, timeout=15)
+        else:
+            path = Path(self.database_path).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.database_path = str(path)
+            self._sqlite_target = self.database_path
+        try:
+            with self._connect() as db:
             db.execute("""
                 CREATE TABLE IF NOT EXISTS executive_actions (
                     action_id TEXT PRIMARY KEY,
@@ -38,10 +60,31 @@ class ActionRegisterStore:
                 )
             """)
             db.execute("CREATE INDEX IF NOT EXISTS idx_exec_actions_project ON executive_actions(project_id)")
-            db.execute("CREATE INDEX IF NOT EXISTS idx_exec_events_action ON executive_action_events(action_id)")
+                db.execute("CREATE INDEX IF NOT EXISTS idx_exec_events_action ON executive_action_events(action_id)")
+        except Exception:
+            self.close()
+            raise
+
+    def close(self) -> None:
+        anchor = self._memory_anchor
+        self._memory_anchor = None
+        self._closed = True
+        if anchor is not None:
+            anchor.close()
+
+    def __enter__(self) -> "ActionRegisterStore":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
 
     def _connect(self) -> sqlite3.Connection:
-        db = sqlite3.connect(self.database_path, timeout=15, isolation_level=None)
+        if self._closed:
+            raise RuntimeError("ActionRegisterStore is closed")
+        db = sqlite3.connect(
+            self._sqlite_target, timeout=15, isolation_level=None,
+            uri=self._sqlite_uri, factory=_ClosingConnection,
+        )
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys = ON")
         return db
