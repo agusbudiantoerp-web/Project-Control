@@ -275,27 +275,27 @@ def test_gemini_rejects_takeoff_response_over_review_limit(monkeypatch):
 
 def test_xer_parser_enforces_table_limit(monkeypatch):
     monkeypatch.setattr(import_service, "MAX_XER_TABLES", 1)
-    raw = b"%T\\tONE\\n%F\\tid\\n%R\\t1\\n%T\\tTWO\\n%F\\tid\\n%R\\t2\\n"
+    raw = b"%T\tONE\n%F\tid\n%R\t1\n%T\tTWO\n%F\tid\n%R\t2\n"
     with pytest.raises(ValueError, match="table limit"):
         import_service.parse_xer_tables(raw)
 
 
 def test_xer_parser_enforces_field_limit(monkeypatch):
     monkeypatch.setattr(import_service, "MAX_XER_FIELDS", 1)
-    raw = b"%T\\tTASK\\n%F\\tid\\tname\\n%R\\t1\\tA\\n"
+    raw = b"%T\tTASK\n%F\tid\tname\n%R\t1\tA\n"
     with pytest.raises(ValueError, match="field limit"):
         import_service.parse_xer_tables(raw)
 
 
 def test_xer_parser_enforces_row_limit(monkeypatch):
     monkeypatch.setattr(import_service, "MAX_XER_ROWS_PER_TABLE", 1)
-    raw = b"%T\\tTASK\\n%F\\tid\\n%R\\t1\\n%R\\t2\\n"
+    raw = b"%T\tTASK\n%F\tid\n%R\t1\n%R\t2\n"
     with pytest.raises(ValueError, match="row limit"):
         import_service.parse_xer_tables(raw)
 
 
 def test_xer_parser_enforces_line_length_limit(monkeypatch):
     monkeypatch.setattr(import_service, "MAX_XER_LINE_CHARS", 6)
-    raw = b"%T\\tTASK\\n"
+    raw = b"%T\tTASK\n"
     with pytest.raises(ValueError, match="line length"):
         import_service.parse_xer_tables(raw)
