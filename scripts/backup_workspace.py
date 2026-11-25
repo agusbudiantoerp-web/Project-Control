@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timedelta, timezone
 import os
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -70,7 +71,7 @@ def create_backup(destination: Path, retention_days: int) -> Path:
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
     removed = 0
     for old in destination.glob("ai_project_control_*.sqlite3"):
-        if old == target or not old.is_file():
+        if old == target or not old.is_file() or not re.fullmatch(r"ai_project_control_\\d{8}T\\d{12}Z\\.sqlite3", old.name):
             continue
         modified = datetime.fromtimestamp(old.stat().st_mtime, timezone.utc)
         if modified < cutoff:
