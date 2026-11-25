@@ -23,8 +23,10 @@ st.caption(
 )
 
 def _text_cell(value) -> str:
-    text = str(value or "").strip()
-    return "" if text.lower() in {"<na>", "nan", "none"} else text
+    if value is None:
+        return ""
+    text = str(value).strip()
+    return "" if text.lower() in {"", "<na>", "nan", "none"} else text
 
 
 database_path = get_workspace_database_path()
