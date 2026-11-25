@@ -98,3 +98,18 @@ def test_rejects_one_source_column_mapped_to_multiple_targets():
 def test_rejects_empty_source_column_mapping():
     with pytest.raises(ValueError, match="non-empty column name"):
         map_import_rows("boq", [], {"project_id": ""})
+
+
+def test_maps_project_evm_record_modes_from_master_import():
+    result = suggest_column_mapping("project_master", [
+        "Project ID", "Progress Mode", "Actual Cost Mode"
+    ])
+    assert result["mapping"]["progress_record_mode"] == "Progress Mode"
+    assert result["mapping"]["actual_cost_record_mode"] == "Actual Cost Mode"
+    mapped = map_import_rows("project_master", [{
+        "Project ID": "P1",
+        "Progress Mode": "cumulative_snapshot",
+        "Actual Cost Mode": "period_delta",
+    }], result["mapping"])
+    assert mapped["rows"][0]["progress_record_mode"] == "cumulative_snapshot"
+    assert mapped["rows"][0]["actual_cost_record_mode"] == "period_delta"
