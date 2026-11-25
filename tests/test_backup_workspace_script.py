@@ -25,7 +25,7 @@ def test_backup_script_creates_integrity_checked_timestamped_copy(tmp_path, monk
     target = module.create_backup(tmp_path / "backups", 30)
 
     assert target.is_file()
-    assert target.read_bytes().startswith(b"SQLite format 3\\x00")
+    assert target.read_bytes().startswith(b"SQLite format 3\x00")
     with sqlite3.connect(target) as connection:
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("SELECT COUNT(*) FROM project_records").fetchone()[0] == 1
