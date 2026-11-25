@@ -1,0 +1,333 @@
+from ai_project_control.portfolio_workspace_service import build_saved_portfolio_report
+from ai_project_control.project_store import ProjectStore
+
+
+def add_project(store, project_id, name, pv, ev, ac, currency="IDR"):
+    store.save_dataset(project_id, "project_master", [{
+        "project_id": project_id, "project_name": name, "currency": currency, "BAC": 1000,
+    }])
+    if pv is not None:
+        store.save_dataset(project_id, "progress", [{
+            "project_id": project_id, "activity_id": "A1", "period": "2026-10",
+            "planned_value": pv, "earned_value": ev,
+        }])
+    if ac is not None:
+        store.save_dataset(project_id, "actual_cost", [{
+            "project_id": project_id, "period": "2026-10",
+            "cost_code": "C1", "actual_cost": ac,
+        }])
+
+
+def test_saved_portfolio_discovers_projects_and_scores_them(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    add_project(store, "P2", "Project Two", 500, 500, 400)
+    result = build_saved_portfolio_report(db, as_of_period="2026-10")
+    assert result["project_count"] == 2
+    assert result["scorecard"]["summary"]["assessed_count"] == 2
+    assert result["scorecard"]["summary"]["budget_by_currency"] == {"IDR": 2000}
+    assert "Project One" in result["executive_report"]
+
+
+def test_saved_portfolio_marks_missing_data_unassessed(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", None, None, None)
+    result = build_saved_portfolio_report(db)
+    assert result["scorecard"]["summary"]["insufficient_data_count"] == 1
+    assert result["scorecard"]["projects"][0]["status"] == "INSUFFICIENT_DATA"
+
+
+def test_saved_portfolio_does_not_combine_currencies(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project IDR", 500, 400, 500, "IDR")
+    add_project(store, "P2", "Project USD", 500, 450, 450, "USD")
+    result = build_saved_portfolio_report(db)
+    assert result["scorecard"]["summary"]["budget_by_currency"] == {"IDR": 1000, "USD": 1000}
+
+
+def test_saved_portfolio_empty_workspace_is_valid_empty_result(tmp_path):
+    result = build_saved_portfolio_report(tmp_path / "empty.sqlite3")
+    assert result["project_count"] == 0
+    assert result["scorecard"]["summary"]["project_count"] == 0
+
+
+def test_saved_portfolio_integrates_risk_governance_and_exposure(tmp_path):
+    from ai_project_control.action_register_store import ActionRegisterStore
+    from ai_project_control.risk_mitigation_store import RiskMitigationStore
+
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "risk", [{
+        "project_id": "P1", "risk_id": "R1", "description": "Critical path equipment delay",
+        "probability": 0.8, "impact": 10, "activity_id": "A1", "wbs_id": "W1",
+        "category": "SCHEDULE",
+    }])
+    store.save_dataset("P1", "activities", [{
+        "project_id": "P1", "activity_id": "A1", "duration_days": 5, "predecessors": [],
+    }])
+    store.save_dataset("P1", "wbs", [{
+        "project_id": "P1", "wbs_id": "W1", "wbs_name": "Construction",
+    }])
+    actions = ActionRegisterStore(db)
+    actions.create(title="Expedite equipment", owner="Procurement", due_date="2026-11-01",
+                   project_id="P1", created_by="PM", risk_id="R1", priority="P1")
+    mitigations = RiskMitigationStore(db)
+    mitigations.save(project_id="P1", risk_id="R1", mitigation_action="Expedite vendor",
+                     owner="Procurement", due_date="2026-11-30", status="IN_PROGRESS",
+                     residual_probability=0.4, residual_impact=5, updated_by="PM")
+    result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
+    assert result["risk_governance_summary"]["risk_count"] == 1
+    assert result["risk_governance_summary"]["risks_requiring_attention"] == 1
+    assert result["risk_governance"][0]["rows"][0]["linked_action_count"] == 1
+    assert result["risk_exposure_matrices"][0]["risks"][0]["priority"] == "CRITICAL"
+    assert "Risk governance" in result["executive_report"]
+
+
+def test_saved_portfolio_risk_matrix_marks_empty_risk_register(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    result = build_saved_portfolio_report(db)
+    assert result["risk_governance"][0]["status"] == "NO_RISKS"
+    assert result["risk_exposure_matrices"][0]["status"] == "NO_RISKS"
+
+
+def test_saved_portfolio_uses_explicit_dated_health_snapshots(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "portfolio_snapshots", [
+        {"project_id": "P1", "snapshot_date": "2026-11-01",
+         "SPI": 1.0, "CPI": 1.0, "risk_score": 20},
+        {"project_id": "P1", "snapshot_date": "2026-11-15",
+         "SPI": 0.90, "CPI": 0.98, "risk_score": 32},
+    ])
+    result = build_saved_portfolio_report(db)
+    trend = result["health_monitoring"]
+    assert trend["summary"]["trend_assessed_count"] == 1
+    assert trend["projects"][0]["changes"] == {
+        "SPI": -0.1, "CPI": -0.02, "risk_score": 12.0,
+    }
+    assert "Portfolio health trends" in result["executive_report"]
+
+
+def test_saved_portfolio_does_not_invent_health_baseline(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "portfolio_snapshots", [{
+        "project_id": "P1", "snapshot_date": "2026-11-15",
+        "SPI": 0.9, "CPI": 0.95,
+    }])
+    result = build_saved_portfolio_report(db)
+    assert result["health_monitoring"]["projects"][0]["status"] == "NO_BASELINE"
+
+
+def test_saved_portfolio_reports_cross_project_shared_resource_overload(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500, "IDR")
+    add_project(store, "P2", "Project Two", 500, 450, 450, "IDR")
+    store.save_dataset("P1", "resources", [{
+        "project_id": "P1", "resource_id": "EX-01", "period": "2026-12",
+        "unit": "hours", "planned_units": 70, "capacity_units": 100,
+    }])
+    store.save_dataset("P2", "resources", [{
+        "project_id": "P2", "resource_id": "EX-01", "period": "2026-12",
+        "unit": "hours", "planned_units": 50, "capacity_units": 100,
+    }])
+    result = build_saved_portfolio_report(db)
+    shared = result["portfolio_resource_intelligence"]
+    assert shared["project_count"] == 2
+    assert shared["shared_resource_conflict_count"] == 1
+    assert shared["shared_resource_conflicts"][0]["overload_units"] == 20
+
+
+def test_saved_portfolio_returns_schedule_cost_outlook_when_as_of_date_supplied(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "activities", [{
+        "project_id": "P1", "activity_id": "A1", "activity_name": "Civil works",
+        "baseline_finish_date": "2026-11-20", "forecast_finish_date": "2026-11-25",
+        "planned_progress_pct": 80, "actual_progress_pct": 70,
+    }])
+    result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
+    outlook = result["schedule_cost_outlooks"][0]
+    assert outlook["status"] == "ASSESSED"
+    assert outlook["schedule_forecast"]["delayed_activity_ids"] == ["A1"]
+    assert outlook["cost_forecast"]["status"] == "ASSESSED"
+    assert "Schedule and cost outlook" in result["executive_report"]
+
+
+def test_saved_portfolio_schedule_cost_outlook_requires_as_of_date(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    result = build_saved_portfolio_report(db)
+    assert result["schedule_cost_outlooks"][0]["status"] == "NOT_RUN"
+
+
+def test_saved_portfolio_integrates_project_resource_loading(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "resources", [{
+        "project_id": "P1", "resource_id": "EX-01", "period": "2026-12",
+        "planned_units": 120, "capacity_units": 100, "unit": "hours",
+    }])
+    result = build_saved_portfolio_report(db)
+    loading = result["resource_loading"][0]
+    assert loading["overloaded_count"] == 1
+    assert loading["rows"][0]["status"] == "OVERLOADED"
+    assert "Resource loading" in result["executive_report"]
+
+
+def test_saved_portfolio_resource_missing_capacity_is_unassessed(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "resources", [{
+        "project_id": "P1", "resource_id": "TEAM-01", "period": "2026-12",
+        "planned_units": 20, "capacity_units": None, "unit": "hours",
+    }])
+    result = build_saved_portfolio_report(db)
+    assert result["resource_loading"][0]["unassessed_count"] == 1
+
+
+def test_saved_portfolio_financial_position_is_currency_separated(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project IDR", 500, 400, 600, "IDR")
+    add_project(store, "P2", "Project USD", 500, 450, 300, "USD")
+    result = build_saved_portfolio_report(db)
+    finance = result["portfolio_cashflow"]
+    assert finance["project_count_assessed"] == 2
+    assert finance["totals_by_currency"]["IDR"]["actual_cost"] == 600
+    assert finance["totals_by_currency"]["USD"]["actual_cost"] == 300
+    assert finance["projects_over_budget"] == 0
+    assert "Portfolio financial position" in result["executive_report"]
+
+
+def test_saved_portfolio_finance_without_actual_cost_evidence_is_unassessed(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    store.save_dataset("P1", "project_master", [{
+        "project_id": "P1", "project_name": "Project One", "currency": "IDR", "BAC": 1000,
+    }])
+    result = build_saved_portfolio_report(db)
+    finance = result["portfolio_cashflow"]
+    assert finance["project_count_assessed"] == 0
+    assert finance["project_count_unassessed"] == 1
+    assert finance["unassessed_projects"][0]["project_id"] == "P1"
+
+
+def test_saved_portfolio_integrates_coo_decision_brief_and_priorities(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 300, 600)
+    store.save_dataset("P1", "risk", [{
+        "project_id": "P1", "risk_id": "R1", "description": "Major execution risk",
+        "probability": 0.9, "impact": 100, "risk_score": 85,
+    }])
+    result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
+    brief = result["coo_decision_brief"]
+    assert brief["status"] == "ASSESSED"
+    assert brief["projects_requiring_review"] == 1
+    assert "P1_PRIORITY" in brief["projects_for_review"][0]["flags"]
+    assert result["decision_matrix"]["summary"]["p1_count"] == 1
+    assert "COO decision brief" in result["executive_report"]
+
+
+def test_saved_portfolio_coo_decision_does_not_reuse_previous_project_evm(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project With EVM", 500, 300, 600)
+    store.save_dataset("P2", "project_master", [{
+        "project_id": "P2", "project_name": "Project Missing EVM",
+        "currency": "IDR", "BAC": 1000,
+    }])
+    result = build_saved_portfolio_report(db)
+    decisions = {row["project_id"]: row for row in result["decision_matrix"]["decisions"]}
+    assert decisions["P1"]["SPI"] == 0.6
+    assert decisions["P2"]["SPI"] is None
+    assert decisions["P2"]["CPI"] is None
+    assert decisions["P2"]["priority"] == "UNASSESSED"
+
+
+def test_saved_portfolio_decision_rows_keep_project_evidence_after_priority_sort(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Lower Priority Project", 500, 490, 490)
+    add_project(store, "P2", "Higher Priority Project", 500, 250, 700)
+    result = build_saved_portfolio_report(db)
+    decisions = result["decision_matrix"]["decisions"]
+    assert decisions[0]["project_id"] == "P2"
+    assert decisions[0]["SPI"] == 0.5
+    assert decisions[1]["project_id"] == "P1"
+    assert decisions[1]["SPI"] == 0.98
+
+
+def test_saved_portfolio_integrates_recovery_decision_review(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project Recovery", 500, 300, 650)
+    store.save_dataset("P1", "risk", [{
+        "project_id": "P1", "risk_id": "R1", "description": "Critical risk",
+        "probability": 0.9, "impact": 100, "risk_score": 90,
+    }])
+    result = build_saved_portfolio_report(db, as_of_date="2026-11-24")
+    recovery = result["recovery_decisions"][0]
+    assert recovery["status"] == "PARTIALLY_ASSESSED"
+    assert recovery["signal_count"] >= 2
+    assert "MONTE_CARLO_OUTLOOK" in recovery["missing_inputs"]
+    assert "Recovery decision review" in result["executive_report"]
+
+
+def test_saved_portfolio_predictive_warning_requires_three_snapshots(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project Trend", 500, 400, 500)
+    store.save_dataset("P1", "portfolio_snapshots", [
+        {"project_id": "P1", "snapshot_date": "2026-11-01", "SPI": 1.02, "CPI": 1.0, "risk_score": 20},
+        {"project_id": "P1", "snapshot_date": "2026-11-10", "SPI": 0.99, "CPI": 0.99, "risk_score": 30},
+        {"project_id": "P1", "snapshot_date": "2026-11-20", "SPI": 0.94, "CPI": 0.97, "risk_score": 45},
+    ])
+    result = build_saved_portfolio_report(db)
+    warning = result["predictive_early_warning"]
+    assert warning["status"] == "ASSESSED"
+    assert warning["projects"][0]["project_id"] == "P1"
+    spi = next(row for row in warning["projects"][0]["metrics"] if row["metric"] == "SPI")
+    assert spi["status"] == "CURRENTLY_ADVERSE"
+
+
+def test_saved_portfolio_duplicate_snapshot_dates_are_review_required_for_prediction(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project Trend", 500, 400, 500)
+    store.save_dataset("P1", "portfolio_snapshots", [
+        {"project_id": "P1", "snapshot_date": "2026-11-01", "SPI": 1.0},
+        {"project_id": "P1", "snapshot_date": "2026-11-01", "SPI": 0.9},
+    ])
+    result = build_saved_portfolio_report(db)
+    assert result["predictive_early_warning"]["status"] == "REVIEW_REQUIRED"
+
+
+def test_saved_portfolio_keeps_coo_report_available_for_incomplete_risk_rows(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "risk", [{
+        "project_id": "P1", "risk_id": "R1",
+        "description": "Risk record awaiting probability and impact assessment",
+    }])
+    result = build_saved_portfolio_report(db)
+    assert result["project_count"] == 1
+    assert result["risk_exposure_matrices"][0]["status"] == "REVIEW_REQUIRED"
+    assert result["recovery_decisions"][0]["status"] == "PARTIALLY_ASSESSED"
+    assert "RISK_REGISTER" in result["recovery_decisions"][0]["missing_inputs"]
+    assert result["risk_governance_summary"]["risk_count"] == 1

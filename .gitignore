@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local workspace data and secrets
+.streamlit/
+secrets.toml
+*.secret
+.project_control/
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
+
+# Generated outputs
+*.xlsx
+*.pdf
+*.csv
+!tests/fixtures/**/*.csv

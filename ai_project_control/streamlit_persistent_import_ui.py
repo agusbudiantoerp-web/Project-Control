@@ -7,16 +7,19 @@ from typing import Any
 from .data_quality_validation import TABLE_KEYS
 from .import_mapping import suggest_column_mapping
 from .project_store import ProjectStore
+from .workspace_config import get_workspace_database_path
 from .upload_reader import read_tabular_upload
 from .import_service import import_uploaded_dataset
 
 
-def render_persistent_import_ui(database_path: str | Path = ".project_control/project_control.sqlite3") -> dict[str, Any] | None:
+def render_persistent_import_ui(database_path: str | Path | None = None) -> dict[str, Any] | None:
     """Render persistent import workflow; replace requires an explicit choice."""
     try:
         import streamlit as st
     except ImportError as exc:
         raise RuntimeError("Streamlit is required to render this component.") from exc
+    if database_path is None:
+        database_path = get_workspace_database_path()
 
     st.subheader("Project Data Import & Storage")
     project_id = st.text_input("Project ID", key="pc_persist_project_id").strip()
@@ -28,11 +31,26 @@ def render_persistent_import_ui(database_path: str | Path = ".project_control/pr
 
     try:
         parsed = read_tabular_upload(uploaded)
+        selected_sheet = None
+        if parsed["extension"] == "xlsx" and len(parsed["available_sheets"]) > 1:
+            selected_sheet = st.selectbox(
+                "Worksheet",
+                options=parsed["available_sheets"],
+                index=0,
+                key=f"pc_persist_sheet_{parsed['filename']}_{project_id}_{dataset}",
+            )
+            if selected_sheet != parsed["sheet_name"]:
+                uploaded.seek(0)
+                parsed = read_tabular_upload(uploaded, sheet_name=selected_sheet)
     except Exception as exc:
         st.error(f"File could not be read: {exc}")
         return {"status": "READ_ERROR", "message": str(exc)}
 
-    st.caption(f"{parsed['filename']} · {parsed['row_count']} rows")
+    st.caption(
+        f"{parsed['filename']}"
+        + (f" · worksheet: {parsed['sheet_name']}" if parsed["sheet_name"] else "")
+        + f" · {parsed['row_count']} rows"
+    )
     st.dataframe(parsed["preview"], use_container_width=True)
     suggestion = suggest_column_mapping(dataset, parsed["columns"])
     if suggestion["ambiguous"]:
@@ -52,6 +70,19 @@ def render_persistent_import_ui(database_path: str | Path = ".project_control/pr
         if selected != "— not mapped —":
             mapping[target] = selected
 
+    missing_mappings = [field for field in TABLE_KEYS[dataset] if field not in mapping]
+    reused_sources = sorted({
+        source for source in mapping.values()
+        if list(mapping.values()).count(source) > 1
+    })
+    if missing_mappings:
+        st.warning("Required fields still need a source column: " + ", ".join(missing_mappings))
+    if reused_sources:
+        st.warning(
+            "A source column is selected for more than one field: "
+            + ", ".join(reused_sources)
+        )
+
     mode_label = st.radio(
         "Import mode",
         ["Upsert (update/add records)", "Replace this dataset"],
@@ -59,28 +90,49 @@ def render_persistent_import_ui(database_path: str | Path = ".project_control/pr
         key="pc_persist_mode",
     )
     mode = "replace" if mode_label.startswith("Replace") else "upsert"
+    confirm_replace = True
+    replace_nonce_key = f"pc_persist_replace_nonce_{project_id}_{dataset}"
+    replace_nonce = st.session_state.get(replace_nonce_key, 0)
     if mode == "replace":
         st.warning("Replace will remove existing records for this project and dataset before saving the uploaded rows.")
+        confirm_replace = st.checkbox(
+            "I confirm that I want to replace this project's entire selected dataset.",
+            key=f"pc_persist_confirm_replace_{project_id}_{dataset}_{replace_nonce}",
+        )
 
-    if not st.button("Validate and save dataset", key="pc_persist_submit"):
+    if not st.button(
+        "Validate and save dataset",
+        key="pc_persist_submit",
+        disabled=(
+            not confirm_replace
+            or bool(missing_mappings)
+            or bool(reused_sources)
+        ),
+    ):
         return {"status": "READY_FOR_REVIEW", "suggestion": suggestion}
 
     try:
+        # The preview parser may consume the upload stream; rewind before import.
         uploaded.seek(0)
         store = ProjectStore(database_path)
         result = import_uploaded_dataset(
             store, project_id, dataset, uploaded,
-            mapping=mapping, mode=mode,
+            mapping=mapping, sheet_name=selected_sheet, mode=mode,
         )
     except Exception as exc:
         st.error(f"Import was not committed: {exc}")
         return {"status": "IMPORT_ERROR", "message": str(exc)}
 
     if result["status"] == "COMMITTED":
+        if mode == "replace":
+            st.session_state[replace_nonce_key] = replace_nonce + 1
         st.success(f"Saved {result['saved_count']} records to project {project_id}.")
         st.json(result["persistence"])
     else:
-        st.error(f"Import stopped: {result['status']}")
+        if result["status"] == "EMPTY_DATASET":
+            st.warning(result.get("message", "No data rows were imported."))
+        else:
+            st.error(f"Import stopped: {result['status']}")
         if "validation" in result:
             st.dataframe(result["validation"]["issues"], use_container_width=True)
         if "suggestion" in result:

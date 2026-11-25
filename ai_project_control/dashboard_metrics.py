@@ -1,0 +1,172 @@
+"""Earned value, schedule, and risk metrics for the project controls dashboard."""
+
+from __future__ import annotations
+
+import math
+
+import pandas as pd
+
+
+def load_timeseries(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    df["period_label"] = pd.to_datetime(df["period_label"], format="%Y-%m")
+    return df.sort_values("period").reset_index(drop=True)
+
+
+def actuals_only(df: pd.DataFrame) -> pd.DataFrame:
+    """Rows up to and including the current status date (where EV/AC are known)."""
+    return df.dropna(subset=["earned_value_cum", "actual_cost_cum"]).copy()
+
+
+def add_performance_indices(df: pd.DataFrame) -> pd.DataFrame:
+    """Attach SPI/CPI/SV/CV computed at each reported period (cumulative basis)."""
+    out = df.copy()
+    out["sv"] = out["earned_value_cum"] - out["planned_value_cum"]
+    out["cv"] = out["earned_value_cum"] - out["actual_cost_cum"]
+    # Guard zero PV/AC the same way project_summary guards zero (bac - ac) for
+    # tcpi: a zero denominator can't yield a meaningful index, so report NaN
+    # instead of letting it silently become inf/-inf.
+    out["spi"] = out["earned_value_cum"] / out["planned_value_cum"].replace(0, float("nan"))
+    out["cpi"] = out["earned_value_cum"] / out["actual_cost_cum"].replace(0, float("nan"))
+    out[["spi", "cpi"]] = out[["spi", "cpi"]].replace([float("inf"), -float("inf")], float("nan"))
+    return out
+
+
+def _safe_percentage(numerator: float, denominator: float) -> float:
+    """Return a finite percentage or NaN when the ratio is undefined/out of range."""
+    try:
+        if denominator == 0:
+            return float("nan")
+        result = float(numerator) / float(denominator) * 100
+    except (TypeError, ValueError, ZeroDivisionError, OverflowError):
+        return float("nan")
+    return result if math.isfinite(result) else float("nan")
+
+
+def project_summary(df: pd.DataFrame, bac: float) -> dict:
+    """Headline EVM figures as of the latest period with actuals."""
+    actuals = actuals_only(df)
+    if actuals.empty:
+        raise ValueError("No period has both earned_value_cum and actual_cost_cum populated yet")
+    latest = add_performance_indices(actuals).iloc[-1]
+
+    pv, ev, ac = latest["planned_value_cum"], latest["earned_value_cum"], latest["actual_cost_cum"]
+    spi, cpi = latest["spi"], latest["cpi"]
+
+    # A zero/invalid CPI cannot support a CPI-based EAC forecast.
+    # Also reject non-finite or non-positive BAC rather than publishing
+    # misleading percentages or forecasts from an invalid baseline.
+    try:
+        bac_value = float(bac) if not isinstance(bac, bool) else float("nan")
+    except (TypeError, ValueError):
+        bac_value = float("nan")
+    valid_bac = math.isfinite(bac_value) and bac_value > 0
+    valid_cpi = pd.notna(cpi) and math.isfinite(float(cpi)) and float(cpi) > 0
+    eac = bac_value / float(cpi) if valid_bac and valid_cpi else float("nan")
+    if not math.isfinite(eac):
+        eac = float("nan")
+    etc = eac - ac if pd.notna(eac) and math.isfinite(float(ac)) else float("nan")
+    vac = bac_value - eac if valid_bac and pd.notna(eac) else float("nan")
+    tcpi_denominator = bac_value - float(ac) if valid_bac and pd.notna(ac) else float("nan")
+    tcpi = (
+        (bac_value - float(ev)) / tcpi_denominator
+        if pd.notna(ev) and pd.notna(tcpi_denominator) and tcpi_denominator > 0
+        else float("nan")
+    )
+    if not math.isfinite(tcpi):
+        tcpi = float("nan")
+
+    return {
+        "status_period": latest["period_label"].strftime("%Y-%m"),
+        "bac": bac_value,
+        "pv": pv,
+        "ev": ev,
+        "ac": ac,
+        "sv": ev - pv,
+        # Same zero-denominator guard as spi/cpi above: a zero pv or ev can't
+        # yield a meaningful percentage, so report NaN instead of inf/-inf.
+        "sv_pct": _safe_percentage(ev - pv, pv),
+        "cv": ev - ac,
+        "cv_pct": _safe_percentage(ev - ac, ev),
+        "spi": spi,
+        "cpi": cpi,
+        "percent_complete": (
+            _safe_percentage(ev, bac_value)
+            if valid_bac and pd.notna(ev)
+            else float("nan")
+        ),
+        "eac": eac,
+        "etc": etc,
+        "vac": vac,
+        "tcpi": tcpi,
+    }
+
+
+def load_milestones(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path, parse_dates=["planned_date", "current_date"])
+    df["slip_days"] = (df["current_date"] - df["planned_date"]).dt.days
+
+    def _status(slip) -> str:
+        # A missing planned/current date leaves slip_days as NaN. NaN <=
+        # comparisons are always False, so without this explicit branch a
+        # missing-date row would silently fall through to "Delayed" instead
+        # of being flagged as a data-quality gap.
+        if pd.isna(slip):
+            return "Date Missing"
+        return "On Track" if slip <= 0 else ("At Risk" if slip <= 14 else "Delayed")
+
+    df["milestone_status"] = df["slip_days"].apply(_status)
+    return df
+
+
+def load_risk_register(path: str, status_date: str) -> pd.DataFrame:
+    df = pd.read_csv(path, parse_dates=["mitigation_due_date"])
+    df["exposure"] = df["probability"] * df["impact"]
+    status_dt = pd.Timestamp(status_date)
+    df["overdue"] = (df["status"] != "Closed") & (df["mitigation_due_date"] < status_dt)
+    return df.sort_values("exposure", ascending=False).reset_index(drop=True)
+
+
+def load_change_register(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path, parse_dates=["date_raised"])
+    return df.sort_values("cost_impact", ascending=False).reset_index(drop=True)
+
+
+def change_impact_summary(changes: pd.DataFrame, bac: float) -> dict:
+    """Cost/schedule impact of the change register, split approved vs pending.
+
+    Reported alongside the EVM summary, not fed back into CPI/EAC: this keeps
+    performance variance (how well the work is being executed) separate from
+    scope-change variance (how much the baseline itself has moved), which is
+    the distinction a change register is actually for.
+    """
+    approved = changes[changes["status"] == "Approved"]
+    pending = changes[changes["status"] == "Pending"]
+    approved_cost = approved["cost_impact"].sum()
+    return {
+        "approved_cost_impact": approved_cost,
+        "approved_schedule_days": int(approved["schedule_impact_days"].sum()),
+        "revised_budget": bac + approved_cost,
+        "pending_count": len(pending),
+        "pending_cost_exposure": pending["cost_impact"].sum(),
+        "pending_schedule_exposure_days": int(pending["schedule_impact_days"].sum()),
+    }
+
+
+def forecast_completion_date(spi: float | None, project_start: str, planned_finish: str) -> pd.Timestamp | None:
+    """Simple SPI-based forecast: stretch remaining planned duration by 1/SPI.
+
+    Returns None (not yet forecastable) if SPI is missing, NaN, zero, or
+    negative -- a zero or negative SPI has no meaningful "stretch factor"
+    and would otherwise forecast a finish date before project_start, rather
+    than raising ZeroDivisionError.
+    """
+    if spi is None or pd.isna(spi) or spi <= 0:
+        return None
+    start = pd.Timestamp(project_start)
+    planned_end = pd.Timestamp(planned_finish)
+    forecast = start + (planned_end - start) / spi
+    # Round to the nearest whole day: the division above leaves a fractional
+    # day that would otherwise floor-truncate wherever this is rendered as a
+    # date, silently shifting the displayed forecast a day earlier.
+    return forecast.round("D")
