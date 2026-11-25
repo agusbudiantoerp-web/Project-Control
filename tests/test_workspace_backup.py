@@ -122,5 +122,5 @@ def test_backup_refuses_snapshot_larger_than_supported_restore_limit(tmp_path, m
     db = tmp_path / "workspace.sqlite3"
     ProjectStore(db)
     monkeypatch.setattr(workspace_backup, "MAX_WORKSPACE_BACKUP_BYTES", 1)
-    with pytest.raises(ValueError, match="250 MB backup limit"):
+    with pytest.raises(ValueError, match="200 MB backup limit"):
         build_workspace_backup(db)
