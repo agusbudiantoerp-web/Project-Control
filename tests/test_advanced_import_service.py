@@ -380,3 +380,52 @@ def test_xer_replace_does_not_clear_existing_wbs_when_source_has_none():
             source_project_id="P6-1", mode="replace",
         )
     assert store.saved is None
+
+
+def test_gemini_rejects_oversized_description_and_invalid_confidence(monkeypatch):
+    import json
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": json.dumps(self.payload)}]}}]}
+
+    payloads = [
+        [{"description": "D" * 1001}],
+        [{"description": "valid", "confidence": {"unexpected": "object"}}],
+    ]
+    for payload in payloads:
+        monkeypatch.setattr(
+            import_service.requests, "post",
+            lambda *args, _payload=payload, **kwargs: Response(_payload),
+        )
+        with pytest.raises(RuntimeError):
+            import_service.analyze_drawing_page_with_gemini(
+                b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+            )
+
+
+def test_gemini_handles_huge_numeric_quantity_as_unavailable(monkeypatch):
+    import json
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            huge_quantity = 10 ** 1000
+            return {"candidates": [{"content": {"parts": [{
+                "text": json.dumps([{"description": "Unknown scale", "quantity": huge_quantity}])
+            }]}}]}
+
+    monkeypatch.setattr(import_service.requests, "post", lambda *args, **kwargs: Response())
+    rows = import_service.analyze_drawing_page_with_gemini(
+        b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+    )
+    assert rows[0]["quantity"] is None
+    assert rows[0]["review_status"] == "PENDING_REVIEW"
