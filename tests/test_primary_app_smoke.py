@@ -41,3 +41,7 @@ def test_primary_xer_and_drawing_intake_page_starts_without_exception(tmp_path, 
 
 def test_primary_backup_and_restore_page_starts_without_exception(tmp_path, monkeypatch):
     _run_page(ROOT / "pages" / "07_Workspace_Backup_Audit.py", tmp_path, monkeypatch)
+
+
+def test_primary_ai_project_advisor_page_starts_without_exception(tmp_path, monkeypatch):
+    _run_page(ROOT / "pages" / "09_AI_Project_Advisor.py", tmp_path, monkeypatch)
