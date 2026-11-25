@@ -1,3 +1,6 @@
+import os
+import stat
+
 import pytest
 
 from ai_project_control.project_store import ProjectStore
