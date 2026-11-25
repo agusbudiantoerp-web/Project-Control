@@ -16,6 +16,8 @@ ALIASES = {
         "project_name": ("project name", "nama proyek"),
         "currency": ("currency", "mata uang"),
         "bac": ("bac", "budget at completion", "anggaran awal"),
+        "progress_record_mode": ("progress record mode", "progress mode", "mode progres"),
+        "actual_cost_record_mode": ("actual cost record mode", "actual cost mode", "mode biaya aktual"),
     },
     "wbs": {
         "project_id": ("project id", "project code", "kode proyek"),
