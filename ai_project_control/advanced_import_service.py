@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 import math
+import re
 from typing import Any
 
 import requests
@@ -18,6 +19,8 @@ from .schedule_engine import calculate_critical_path
 
 MAX_XER_BYTES = 30 * 1024 * 1024
 MAX_DRAWING_IMAGE_BYTES = 12 * 1024 * 1024
+MAX_DRAWING_TAKEOFF_ITEMS = 500
+MAX_GEMINI_RESPONSE_CHARS = 1_000_000
 
 
 def parse_xer_tables(raw: bytes) -> dict[str, list[dict[str, str]]]:
@@ -347,6 +350,9 @@ def analyze_drawing_page_with_gemini(
         raise ValueError("GEMINI_API_KEY is required for drawing analysis")
     if not isinstance(model, str) or not model.strip():
         raise ValueError("Gemini model name is required")
+    model_name = model.strip()
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", model_name):
+        raise ValueError("Gemini model name contains unsupported characters")
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(float(timeout)) or timeout <= 0:
         raise ValueError("timeout must be a finite positive number")
 
@@ -359,7 +365,7 @@ def analyze_drawing_page_with_gemini(
         "confidence,assumptions. Use SI units where supported. Confidence must be High, Medium or Low. "
         "Every quantity is a draft and must be checked by a human quantity surveyor."
     )
-    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model.strip()}:generateContent"
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
     try:
         response = requests.post(
             endpoint,
@@ -381,6 +387,8 @@ def analyze_drawing_page_with_gemini(
         response.raise_for_status()
         payload = response.json()
         text = payload["candidates"][0]["content"]["parts"][0]["text"].strip()
+        if not isinstance(text, str) or len(text) > MAX_GEMINI_RESPONSE_CHARS:
+            raise ValueError("Gemini drawing response exceeds the supported output limit")
     except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
         raise RuntimeError("Gemini drawing analysis failed; check API configuration and provider response.") from None
     if text.startswith("```"):
@@ -391,6 +399,10 @@ def analyze_drawing_page_with_gemini(
         raise RuntimeError("Gemini returned unreadable drawing-analysis JSON.") from None
     if not isinstance(data, list):
         raise RuntimeError("Gemini drawing response must be a JSON array")
+    if len(data) > MAX_DRAWING_TAKEOFF_ITEMS:
+        raise RuntimeError(
+            f"Gemini returned more than the {MAX_DRAWING_TAKEOFF_ITEMS} item review limit"
+        )
     rows = []
     for index, item in enumerate(data, 1):
         if not isinstance(item, dict):
