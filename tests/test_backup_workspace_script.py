@@ -63,3 +63,12 @@ def test_backup_script_rejects_invalid_retention_and_missing_database(tmp_path, 
     monkeypatch.setattr(module, "get_workspace_database_path", lambda: str(missing))
     with __import__("pytest").raises(FileNotFoundError, match="Workspace database not found"):
         module.create_backup(tmp_path / "backups", 30)
+
+def test_backup_script_rejects_workspace_database_parent_as_destination(tmp_path, monkeypatch):
+    database = tmp_path / ".project_control" / "project_control.sqlite3"
+    database.parent.mkdir()
+    ProjectStore(database).close()
+    module = _load_backup_script()
+    monkeypatch.setattr(module, "get_workspace_database_path", lambda: str(database))
+    with __import__("pytest").raises(ValueError, match="cannot be the workspace database"):
+        module.create_backup(database.parent, 30)
