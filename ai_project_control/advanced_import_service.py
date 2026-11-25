@@ -14,6 +14,7 @@ from typing import Any
 import requests
 
 from .project_store import ProjectStore
+from .schedule_engine import calculate_critical_path
 
 MAX_XER_BYTES = 30 * 1024 * 1024
 MAX_DRAWING_IMAGE_BYTES = 12 * 1024 * 1024
@@ -222,6 +223,13 @@ def prepare_xer_workspace_import(
             "XER has multiple projects but some WBS rows omit proj_id; "
             "WBS records cannot be safely isolated."
         )
+    schedule_check = calculate_critical_path(activities)
+    if schedule_check.get("status") != "ASSESSED":
+        raise ValueError(
+            "P6 activity dependency network is not a valid finish-to-start CPM network: "
+            + "; ".join(schedule_check.get("issues", []))
+        )
+
     wbs_rows = []
     for row in raw_wbs_rows:
         if selected_source and str(row.get("proj_id", "")).strip() not in {"", selected_source}:
