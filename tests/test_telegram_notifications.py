@@ -135,3 +135,24 @@ def test_token_whitespace_is_rejected_without_echoing_token():
     with pytest.raises(ValueError, match="invalid whitespace") as captured:
         send_telegram_message("hello", bot_token=token, chat_id="123")
     assert token not in str(captured.value)
+
+
+def test_formatter_respects_telegram_utf16_limit_for_non_bmp_characters():
+    result = {
+        "as_of": "2026-11-25",
+        "summary": {},
+        "escalations": [{
+            "title": "🚧" * 300,
+            "project_id": "P1",
+            "status": "OPEN",
+            "recommended_action": "🛠️" * 300,
+        } for _ in range(20)],
+    }
+    message = format_escalation_message(result)
+    assert len(message.encode("utf-16-le")) // 2 <= 3900
+    message.encode("utf-8")
+
+
+def test_sender_rejects_message_over_utf16_limit():
+    with pytest.raises(ValueError, match="4096 characters"):
+        send_telegram_message("🚧" * 2049, bot_token="token", chat_id="123")
