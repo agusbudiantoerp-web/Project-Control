@@ -78,13 +78,24 @@ def calculate_evm(
             progress_mode_gap = "CUMULATIVE_PROGRESS_REQUIRES_ACTIVITY_ID_AND_PERIOD"
         else:
             latest_by_activity = {}
+            seen_activity_periods = set()
+            duplicate_snapshot = False
             for row in progress:
                 activity_id = str(row["activity_id"]).strip()
                 period = str(row["period"]).strip()
+                snapshot_key = (activity_id, period)
+                if snapshot_key in seen_activity_periods:
+                    duplicate_snapshot = True
+                    break
+                seen_activity_periods.add(snapshot_key)
                 previous = latest_by_activity.get(activity_id)
                 if previous is None or period > str(previous.get("period", "")):
                     latest_by_activity[activity_id] = row
-            progress = list(latest_by_activity.values())
+            if duplicate_snapshot:
+                progress = []
+                progress_mode_gap = "DUPLICATE_CUMULATIVE_PROGRESS_SNAPSHOT"
+            else:
+                progress = list(latest_by_activity.values())
 
     pv = _sum_field(progress, "planned_value")
     ev = _sum_field(progress, "earned_value")
