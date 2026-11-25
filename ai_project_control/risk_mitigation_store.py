@@ -4,9 +4,8 @@ from __future__ import annotations
 import json
 import math
 import sqlite3
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -125,7 +124,9 @@ class RiskMitigationStore:
         state = str(status).strip().upper()
         if state not in VALID_STATUSES:
             raise ValueError(f"status must be one of {sorted(VALID_STATUSES)}")
-        if isinstance(due_date, date):
+        if isinstance(due_date, datetime):
+            due = due_date.date().isoformat()
+        elif isinstance(due_date, date):
             due = due_date.isoformat()
         else:
             try:
