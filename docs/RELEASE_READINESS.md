@@ -350,3 +350,31 @@ The integration branch remains divergent from main. Main-only commits and file-l
 - PDF bytes are held in Streamlit session state only; the selected page is sent to Gemini only after a separate consent checkbox and Analyze action.
 - Polling requires no active Telegram webhook. The same token/chat configuration supports outbound executive reports and inbound PDF intake.
 - Tests cover authorized-chat filtering, offset handling, PDF signature validation and credential validation. Not yet executed.
+
+
+## Implementation checkpoint — 2026-11-25 (pre-test freeze candidate)
+
+### Integrated primary workflows
+
+- The root Streamlit application remains the primary workspace entry point. The historical V1 launcher is preserved for compatibility and is explicitly documented as a separate, unsynchronized local database.
+- Added a primary-workspace Primavera P6 XER intake page. It scopes multi-project XER files explicitly, validates activity IDs, WBS parent links, dependency cycles, relationship types and non-zero lags, then atomically saves Project Master, WBS and Activities.
+- Added drawing PDF page preview, explicit Telegram PDF polling from one configured chat, and Gemini draft takeoff. The PDF page is sent to Gemini only after separate explicit consent. BOQ rows remain pending review until a quantity surveyor marks them VERIFIED; unit rates and amounts are not fabricated.
+- Added persistent Telegram update offsets in workspace metadata so restarting Streamlit does not replay old bot updates.
+- Centralized the primary SQLite database path across root app, workspace import, financial control, COO cockpit, backup and advanced intake pages.
+- Added atomic multi-dataset workspace writes and tests for rollback when a later dataset write fails.
+- Hardened local SQLite connection lifecycles for ProjectStore, ActionRegisterStore and RiskMitigationStore, including shared in-memory database behavior.
+- Added numeric-range protections across EVM, cost forecast, Monte Carlo schedule/cost, resource utilization and portfolio financial/risk aggregation.
+- Hardened CSV/XLSX intake, destructive Replace confirmation, Telegram credential handling, and backup integrity verification.
+
+### Current repository state
+
+- Branch: `ai-project-control-integration`
+- Compared with `main`: **941 commits ahead, 13 commits behind**; branch remains diverged.
+- Open pull requests: none found.
+- Combined status for the checked latest commit: no status entries returned. This is not a passing CI result.
+- Focused workflow now compiles `app.py`, `ai_project_control` and `pages`, and is configured for pull requests targeting both the integration branch and `main`.
+- New regression tests are included in the focused workflow for XER import, Telegram PDF intake, workspace configuration, atomic storage, import validation and numerical edge cases.
+
+### Verification boundary — unchanged
+
+Implementation changes have been committed and selected files/workflows have been re-read through the repository API. **No test suite has been executed in this implementation phase.** Do not describe the application as tested, production-ready or fully released until the planned test phase has completed. The branch divergence must also be reconciled deliberately; do not merge or reset it blindly.
