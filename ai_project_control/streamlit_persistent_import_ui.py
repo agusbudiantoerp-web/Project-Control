@@ -117,7 +117,7 @@ def render_persistent_import_ui(database_path: str | Path | None = None) -> dict
         store = ProjectStore(database_path)
         result = import_uploaded_dataset(
             store, project_id, dataset, uploaded,
-            mapping=mapping, mode=mode,
+            mapping=mapping, sheet_name=selected_sheet, mode=mode,
         )
     except Exception as exc:
         st.error(f"Import was not committed: {exc}")
