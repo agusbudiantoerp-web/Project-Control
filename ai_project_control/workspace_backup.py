@@ -5,6 +5,8 @@ import sqlite3
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+MAX_WORKSPACE_BACKUP_BYTES = 250 * 1024 * 1024
+
 
 def build_workspace_backup(database_path: str | Path) -> bytes:
     """Return a consistent SQLite database snapshot without modifying its source."""
@@ -27,6 +29,8 @@ def build_workspace_backup(database_path: str | Path) -> bytes:
         finally:
             target.close()
             source.close()
+        if target_path.stat().st_size > MAX_WORKSPACE_BACKUP_BYTES:
+            raise ValueError("Workspace backup exceeds the 250 MB backup limit.")
         data = target_path.read_bytes()
     if not data.startswith(b"SQLite format 3\x00"):
         raise ValueError("Generated backup is not a valid SQLite database file.")
