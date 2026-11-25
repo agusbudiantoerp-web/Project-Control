@@ -124,3 +124,32 @@ def test_workspace_rejects_unsupported_project_evm_record_mode(tmp_path):
         store.save_dataset("P6", "project_master", [{
             "project_id": "P6", "progress_record_mode": "guess_from_data",
         }])
+
+
+def test_progress_store_supports_multiple_boq_items_per_activity_and_period(tmp_path):
+    store = ProjectStore(tmp_path / "multi-boq-progress.sqlite3")
+    store.save_dataset("P7", "project_master", [{
+        "project_id": "P7", "project_name": "Multi BOQ", "currency": "IDR",
+        "bac": 500,
+    }])
+    result = store.save_dataset("P7", "progress", [
+        {"project_id": "P7", "activity_id": "A1", "boq_id": "B1",
+         "period": "2026-11", "planned_value": 100, "earned_value": 80},
+        {"project_id": "P7", "activity_id": "A1", "boq_id": "B2",
+         "period": "2026-11", "planned_value": 150, "earned_value": 120},
+    ])
+    assert result["status"] == "COMMITTED"
+    assert len(store.load_dataset("P7", "progress")) == 2
+    overview = build_workspace_overview(tmp_path / "multi-boq-progress.sqlite3", "P7")
+    assert overview["evm"]["PV"] == 250
+    assert overview["evm"]["EV"] == 200
+
+
+def test_progress_store_still_rejects_duplicate_same_activity_boq_period(tmp_path):
+    store = ProjectStore(tmp_path / "duplicate-progress.sqlite3")
+    store.save_dataset("P8", "project_master", [{"project_id": "P8"}])
+    with pytest.raises(ValueError, match="Duplicate record key"):
+        store.save_dataset("P8", "progress", [
+            {"project_id": "P8", "activity_id": "A1", "boq_id": "B1", "period": "2026-11"},
+            {"project_id": "P8", "activity_id": "A1", "boq_id": "B1", "period": "2026-11"},
+        ])
