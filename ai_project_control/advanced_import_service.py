@@ -43,8 +43,13 @@ def parse_xer_tables(raw: bytes) -> dict[str, list[dict[str, str]]]:
             fields = []
         elif parts[0] == "%F" and current:
             fields = [value.strip() for value in parts[1:]]
+            folded = [field.casefold() for field in fields]
+            if not fields or any(not field for field in fields) or len(folded) != len(set(folded)):
+                raise ValueError(f"XER table {current} has blank or duplicate field names")
         elif parts[0] == "%R" and current and fields:
             values = parts[1:]
+            if len(values) > len(fields) and any(value.strip() for value in values[len(fields):]):
+                raise ValueError(f"XER table {current} contains a row wider than its field header")
             if len(values) < len(fields):
                 values += [""] * (len(fields) - len(values))
             tables[current].append(dict(zip(fields, values[:len(fields)])))
@@ -140,18 +145,29 @@ def prepare_xer_workspace_import(
     ]
     if not selected_tasks:
         raise ValueError("Selected P6 source project contains no TASK records")
-    task_ids = {str(row.get("task_id", "")).strip() for row in selected_tasks}
-    code_by_id = {
-        str(row.get("task_id", "")).strip():
-            str(row.get("task_code") or row.get("task_id") or "").strip()
+    task_id_values = [str(row.get("task_id", "")).strip() for row in selected_tasks]
+    if any(not value for value in task_id_values) or len(task_id_values) != len(set(task_id_values)):
+        raise ValueError("Selected P6 project contains blank or duplicate task IDs")
+    activity_id_values = [
+        str(row.get("task_code") or row.get("task_id") or "").strip()
         for row in selected_tasks
-    }
+    ]
+    if any(not value for value in activity_id_values) or len(activity_id_values) != len(set(activity_id_values)):
+        raise ValueError("Selected P6 project contains blank or duplicate activity codes")
+    task_ids = set(task_id_values)
+    code_by_id = dict(zip(task_id_values, activity_id_values))
     predecessor_map: dict[str, list[str]] = {}
     for relation in tables.get("TASKPRED", []):
         successor = str(relation.get("task_id", "")).strip()
         predecessor = str(relation.get("pred_task_id", "")).strip()
-        if successor not in task_ids or predecessor not in task_ids:
+        if successor not in task_ids:
             continue
+        if predecessor not in task_ids:
+            raise ValueError(
+                f"P6 activity {successor} references predecessor {predecessor} outside the selected project."
+            )
+        if code_by_id[predecessor] in predecessor_map.get(successor, []):
+            raise ValueError(f"P6 activity {successor} contains a duplicate predecessor link")
         relation_type = str(relation.get("pred_type") or "PR_FS").strip().upper()
         if relation_type not in {"PR_FS", "FS"}:
             raise ValueError(
@@ -214,6 +230,15 @@ def prepare_xer_workspace_import(
             "wbs_name": str(row.get("wbs_name") or row.get("wbs_short_name") or wbs_id).strip(),
             "source_format": "PRIMAVERA_P6_XER",
         })
+
+    wbs_ids = {row["wbs_id"] for row in wbs_rows}
+    if wbs_ids:
+        missing_wbs = sorted({
+            row["wbs_id"] for row in activities
+            if row["wbs_id"] and row["wbs_id"] not in wbs_ids
+        })
+        if missing_wbs:
+            raise ValueError("P6 activities reference WBS IDs not included in the selected project: " + ", ".join(missing_wbs[:10]))
 
     source_project = next(
         (row for row in available if row["source_project_id"] == selected_source),
