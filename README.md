@@ -16,7 +16,7 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 - Executive action register with optional risk-ID links, audit events and escalation review
 - Portfolio command center, snapshot monitoring, portfolio-wide risk aggregation by currency, cross-project shared-resource capacity checks, currency-safe portfolio cost/cashflow analysis, COO executive decision brief and executive reporting
 - Historical KPI snapshot store, next-snapshot dataset export, chronological Random Forest baseline evaluation and trend-based early warning
-- Telegram executive reporting integration (requires explicit bot configuration)
+- Telegram executive reporting and authorized-chat PDF document intake (requires explicit bot configuration and user action)
 
 ## Panduan
 
@@ -152,3 +152,8 @@ The COO portfolio cockpit includes a dated snapshot trend-warning view and a rec
 ## Primavera P6 and drawing intake
 
 Open **Primavera P6 XER & Drawing-to-BOQ Intake** from the sidebar. A selected XER project is imported atomically into Project Master, WBS and Activities. A selected PDF drawing page can be sent to Gemini for a quantity-takeoff draft only after explicit consent. Review and verify every quantity before saving it to BOQ; unit rates and amounts remain blank until supplied and approved.
+
+
+### Telegram drawing intake
+
+Send a PDF to the configured private bot chat as a Document, then use **Fetch latest Telegram PDF** on the drawing intake page. The bot token and allowed chat ID are read from environment variables or Streamlit secrets. The page polls with `getUpdates`, so an active webhook must be disabled for polling. Telegram PDF bytes stay in the Streamlit session; a selected page is sent to Gemini only after explicit consent.
