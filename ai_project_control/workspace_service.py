@@ -12,7 +12,13 @@ from .schedule_engine import calculate_critical_path
 from .schedule_forecast import assess_schedule_delays
 
 
-def build_workspace_overview(database_path: str | Path, project_id: str) -> dict[str, Any]:
+def build_workspace_overview(
+    database_path: str | Path,
+    project_id: str,
+    *,
+    as_of_period: str | None = None,
+    progress_mode: str = "period_deltas",
+) -> dict[str, Any]:
     project_id = str(project_id).strip()
     if not project_id:
         raise ValueError("project_id is required")
@@ -33,7 +39,10 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
         "currency": project.get("currency", ""),
         "budget_at_completion": project.get("budget_at_completion", project.get("bac")),
     }])
-    evm = calculate_evm(project, workspace["progress"], workspace["actual_cost"])
+    evm = calculate_evm(
+        project, workspace["progress"], workspace["actual_cost"],
+        as_of_period=as_of_period, progress_mode=progress_mode,
+    )
     schedule = calculate_critical_path(workspace["activities"])
     schedule_forecast = assess_schedule_delays(
         workspace["activities"],
@@ -42,6 +51,8 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
     return {
         "project": project,
         "evm": evm,
+        "as_of_period": as_of_period,
+        "progress_mode": progress_mode,
         "schedule": schedule,
         "schedule_forecast": schedule_forecast,
         "dataset_counts": {name: len(workspace[name]) for name in TABLE_KEYS},
