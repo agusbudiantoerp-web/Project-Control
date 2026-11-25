@@ -22,6 +22,11 @@ st.caption(
     "dengan analisis Gemini yang memerlukan persetujuan eksplisit."
 )
 
+def _text_cell(value) -> str:
+    text = str(value or "").strip()
+    return "" if text.lower() in {"<na>", "nan", "none"} else text
+
+
 database_path = get_workspace_database_path()
 store = ProjectStore(database_path)
 
@@ -242,8 +247,8 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                 if isinstance(raw_quantity, bool) or not math.isfinite(quantity) or quantity < 0:
                                     errors.append(f"Baris {index + 1}: quantity harus finite dan non-negatif.")
                                     continue
-                                description = str(row.get("description", "")).strip()
-                                unit = str(row.get("unit", "")).strip()
+                                description = _text_cell(row.get("description", ""))
+                                unit = _text_cell(row.get("unit", ""))
                                 if not description or not unit:
                                     errors.append(f"Baris {index + 1}: description dan unit wajib diisi.")
                                     continue
@@ -253,9 +258,9 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                 boq_rows.append({
                                     "project_id": target_project,
                                     "boq_id": boq_id,
-                                    "wbs_id": str(row.get("wbs_id", "") or "").strip(),
+                                    "wbs_id": _text_cell(row.get("wbs_id", "")),
                                     "description": description,
-                                    "item_code": str(row.get("item_code", "")).strip(),
+                                    "item_code": _text_cell(row.get("item_code", "")),
                                     "unit": unit,
                                     "quantity": quantity,
                                     "unit_rate": None,
@@ -263,9 +268,9 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                     "source_format": "GEMINI_DRAWING_TAKEOFF_DRAFT",
                                     "drawing_sha256": file_signature,
                                     "drawing_page": int(page_number),
-                                    "measurement_method": str(row.get("measurement_method", "")).strip(),
-                                    "confidence": str(row.get("confidence", "Low")).strip(),
-                                    "assumptions": str(row.get("assumptions", "")).strip(),
+                                    "measurement_method": _text_cell(row.get("measurement_method", "")),
+                                    "confidence": _text_cell(row.get("confidence", "Low")),
+                                    "assumptions": _text_cell(row.get("assumptions", "")),
                                     "review_status": "VERIFIED",
                                 })
                             if errors:
