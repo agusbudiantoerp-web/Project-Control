@@ -10,6 +10,7 @@ import streamlit as st
 
 from ai_project_control.advanced_import_service import (
     analyze_drawing_page_with_gemini,
+    MAX_DRAWING_IMAGE_BYTES,
     import_xer_to_workspace,
     list_xer_source_projects,
     prepare_xer_workspace_import,
@@ -237,6 +238,8 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                         page = document.load_page(int(page_number) - 1)
                         pixmap = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
                         image_bytes = pixmap.tobytes("png")
+                    if len(image_bytes) > MAX_DRAWING_IMAGE_BYTES:
+                        raise ValueError("Hasil render halaman melebihi batas 12 MB; gunakan PDF dengan resolusi lebih rendah.")
                     st.image(image_bytes, caption=f"Preview halaman {page_number} — {pdf_file_name}", use_container_width=True)
 
                     api_key = os.getenv("GEMINI_API_KEY", "")
@@ -282,12 +285,26 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                         import pandas as pd
 
                         draft_frame = pd.DataFrame(draft_state["rows"])
+                        if "wbs_id" not in draft_frame.columns:
+                            draft_frame["wbs_id"] = ""
+                        project_wbs = store.load_dataset(target_project, "wbs")
+                        valid_wbs_ids = sorted({
+                            _text_cell(value) for value in project_wbs.get("wbs_id", [])
+                            if _text_cell(value)
+                        }) if not project_wbs.empty else []
+                        if not valid_wbs_ids:
+                            st.warning("Impor WBS proyek terlebih dahulu. Draft BOQ tidak dapat disimpan tanpa pemetaan WBS yang valid.")
                         edited = st.data_editor(
                             draft_frame,
                             use_container_width=True,
                             hide_index=True,
                             num_rows="dynamic",
                             key=f"pc_gemini_editor_{target_project}_{file_signature[:10]}_{page_number}",
+                            column_config={
+                                "wbs_id": st.column_config.SelectboxColumn(
+                                    "WBS mapping", options=valid_wbs_ids, required=True
+                                )
+                            },
                         )
                         st.warning(
                             "Semua kuantitas adalah draft. Periksa dimensi, skala, satuan, metode ukur, "
@@ -302,7 +319,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                         )
                         if st.button(
                             "Save reviewed BOQ draft to Project Workspace",
-                            disabled=not verified or edited.empty,
+                            disabled=not verified or edited.empty or not valid_wbs_ids,
                             key="pc_gemini_save_button",
                         ):
                             boq_rows = []
@@ -322,8 +339,12 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                     continue
                                 description = _text_cell(row.get("description", ""))
                                 unit = _text_cell(row.get("unit", ""))
+                                wbs_id = _text_cell(row.get("wbs_id", ""))
                                 if not description or not unit:
                                     errors.append(f"Baris {index + 1}: description dan unit wajib diisi.")
+                                    continue
+                                if wbs_id not in valid_wbs_ids:
+                                    errors.append(f"Baris {index + 1}: pilih WBS yang valid untuk proyek ini.")
                                     continue
                                 boq_id = (
                                     f"DWG-{file_signature[:8].upper()}-P{int(page_number):03d}-{index + 1:03d}"
@@ -331,7 +352,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                 boq_rows.append({
                                     "project_id": target_project,
                                     "boq_id": boq_id,
-                                    "wbs_id": _text_cell(row.get("wbs_id", "")),
+                                    "wbs_id": wbs_id,
                                     "description": description,
                                     "item_code": _text_cell(row.get("item_code", "")),
                                     "unit": unit,
