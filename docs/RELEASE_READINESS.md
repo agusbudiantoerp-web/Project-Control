@@ -576,3 +576,20 @@ Run references:
 - Legacy deterministic engine CI: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45564173140
 
 **Scope boundary:** the Streamlit smoke check validates startup and its HTTP health endpoint, not interactive browser acceptance. CI does not register and execute the Windows scheduled task on the user's computer, send a live Telegram message, call a real Gemini API key, or validate a hosted multi-user deployment. Restore tests run against temporary test databases; the operator still needs a documented off-device backup and an actual restore drill. PR #3 remains draft and must not be merged until the remaining release gates are reviewed.
+
+
+## Release candidate update — 2026-11-25 15:15 Asia/Jakarta
+
+- Release head before this update: `82d1d3c9d1e2eb70e8fc930818f5316b571d50f9`.
+- Previous verified Linux CI: 521 focused tests and 530 complete primary-workspace tests passed; legacy integrated and deterministic suites each passed 179 tests; Windows backup/restore suite passed 14 tests.
+- This update adds Windows CI coverage for Python compilation of the primary app/pages, a headless Streamlit HTTP health smoke, and the complete primary-workspace test suite on Windows, in addition to backup/restore tests and PowerShell syntax parsing.
+- New Windows acceptance workflow is committed at `96bf8819204d8b2e086c9b77dda6154a76a325f2`; the next CI result must be observed before this added Windows coverage is called verified.
+- The current pull request is still Draft and has 279 commits ahead of main, 0 behind. The diff is broad (212 files). No merge is authorized by this status note.
+
+### Remaining real-environment acceptance
+
+1. On the user's Windows computer, install using Python 3.11 and the documented PowerShell steps; verify app navigation, project creation, imports, saved records, reports and exports using approved sample data.
+2. Register the Windows Task Scheduler job and execute it once on the user's computer; verify the resulting backup file and restore it into a separate test workspace.
+3. Configure Telegram credentials privately, then test a private-chat PDF intake and a report send only after explicit operator confirmation.
+4. Configure Gemini only if the user chooses to transmit an approved sample drawing; verify the consent gate, editable takeoff draft and QS approval path.
+5. Production multi-user use remains out of scope until authentication, roles, shared durable database, secret management, encryption, audit/monitoring and disaster recovery are implemented and reviewed.
