@@ -94,3 +94,15 @@ def test_gemini_drawing_service_validates_inputs_before_network():
         analyze_drawing_page_with_gemini(b"png", "")
     with pytest.raises(ValueError, match="finite positive"):
         analyze_drawing_page_with_gemini(b"png", "secret", timeout=float("inf"))
+
+
+def test_multi_project_xer_without_task_project_ids_is_rejected():
+    multi = SINGLE_PROJECT_XER.replace(
+        b"%R\tP6-1\tP6-CODE\tPlant Upgrade",
+        b"%R\tP6-1\tP6-CODE\tPlant Upgrade\n%R\tP6-2\tP6-OTHER\tOther Project",
+    ).replace(b"proj_id\ttask_id", b"task_id")
+    with pytest.raises(ValueError, match="cannot be safely isolated"):
+        prepare_xer_workspace_import(
+            multi, project_id="P1", project_name="Plant Upgrade",
+            currency="IDR", source_project_id="P6-1",
+        )
