@@ -119,3 +119,45 @@ def test_rejects_unsafe_telegram_file_paths(monkeypatch, unsafe_path):
     with pytest.raises(RuntimeError, match="Telegram PDF download failed"):
         intake.fetch_latest_telegram_pdf("token", "123")
     assert len(calls) == 2
+
+
+
+@pytest.mark.parametrize(
+    "file_size",
+    [intake.MAX_TELEGRAM_PDF_BYTES + 1, -1, True, "2048"],
+)
+def test_ignores_invalid_or_oversized_telegram_document_metadata(monkeypatch, file_size):
+    monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: Response({
+        "ok": True,
+        "result": [{
+            "update_id": 10,
+            "message": {
+                "chat": {"id": "123"},
+                "document": {
+                    "file_id": "FILE-OVERSIZED",
+                    "file_name": "drawing.pdf",
+                    "mime_type": "application/pdf",
+                    "file_size": file_size,
+                },
+            },
+        }],
+    }))
+    result = intake.fetch_latest_telegram_pdf("token", "123")
+    assert result == {"status": "NO_PDF", "next_offset": 11}
+
+
+def test_rejects_downloaded_telegram_pdf_over_configured_size(monkeypatch):
+    responses = [
+        Response({"ok": True, "result": [{
+            "update_id": 1,
+            "message": {
+                "chat": {"id": "123"},
+                "document": {"file_id": "FILE-LARGE", "file_name": "drawing.pdf"},
+            },
+        }]}),
+        Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
+        Response(content=b"%PDF-" + b"x" * 16),
+    ]
+    monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
+    with pytest.raises(RuntimeError, match="exceeds the 20 MB intake limit"):
+        intake.fetch_latest_telegram_pdf("token", "123", max_bytes=10)
