@@ -142,6 +142,9 @@ def fetch_latest_telegram_pdf(
                 declared_size = None
         if declared_size is not None and declared_size > max_bytes:
             raw = None
+            close_response = getattr(download_response, "close", None)
+            if callable(close_response):
+                close_response()
         else:
             chunks = []
             downloaded_size = 0
@@ -152,6 +155,9 @@ def fetch_latest_telegram_pdf(
                 if downloaded_size > max_bytes:
                     chunks = []
                     raw = None
+                    close_response = getattr(download_response, "close", None)
+                    if callable(close_response):
+                        close_response()
                     break
                 chunks.append(chunk)
             else:
