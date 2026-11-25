@@ -25,7 +25,10 @@ def _sum_complete_amounts(rows: list[dict[str, Any]], field: str) -> float | Non
         if not math.isfinite(value) or value < 0:
             return None
         values.append(value)
-    total = math.fsum(values)
+    try:
+        total = math.fsum(values)
+    except OverflowError:
+        return None
     return total if math.isfinite(total) else None
 
 
