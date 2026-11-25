@@ -504,3 +504,24 @@ Implementation changes have been committed and selected files/workflows have bee
 - Cumulative mode selects the latest snapshot per activity through the as-of period; actual-cost records remain transaction/period deltas in both modes.
 - Added regression coverage for latest-per-activity selection, cut-off behavior and missing activity/period keys.
 - Default behavior remains period-delta aggregation for compatibility. These tests have not yet been executed during this implementation phase.
+
+
+## Continued implementation additions — 2026-11-25
+
+The following feature work was added to the release candidate after the previous checkpoint:
+
+- CPM now supports Finish-to-Start, Start-to-Start, Finish-to-Finish and Start-to-Finish relationships, including signed lag in nominal working-day units. Legacy predecessor_ids remain compatible as zero-lag FS links.
+- Primavera XER intake now preserves each imported relationship type and lag rather than rejecting non-FS or non-zero-lag links.
+- Saved Project Financial Control now lets the operator choose period-delta progress or cumulative progress snapshots. Cumulative mode selects the latest record per activity through the as-of period; actual cost remains transaction/period deltas.
+- Added a local workspace backup command with timestamped SQLite online backups, pre-publication file-signature verification, restrictive POSIX file permissions and configurable retention.
+- Added a Windows Task Scheduler installer for daily backup execution.
+- Added regression tests for typed CPM links/lags, XER relationship mapping, cumulative EVM aggregation and backup script behavior. The backup test was added to the focused CI manifest.
+
+Implementation commits in this continuation include:
+- CPM engine: 384105071c580973679e8054104ae2db61c6392e
+- XER relationship import: d07b09bf8ba281f50e7ece120478afddfd61541e
+- Backup utility and Windows scheduler: c03892d395bf13561027edc7a4453017da6dcf88 / 794f0aecfd38118d6f33cc9f96a9767a127d1986
+- EVM cumulative snapshot mode: ac9bf7787c983d5abec98d301d4315bbce0648fe
+- Latest recorded implementation commit: a1d64f4dce33d14222e34a2f596db96e7f814c58
+
+**Verification boundary:** per the implementation-first instruction, no tests or compile checks have been run in this continuation. These additions are not yet verified. Calendar-aware P6 recalculation, resource leveling, authenticated multi-user deployment, live provider integrations, restore drills and Windows acceptance remain separate release gates.
