@@ -537,3 +537,13 @@ Implementation changes have been committed and selected files/workflows have bee
 - Rows with missing unit_rate or amount remain valid unpriced BOQ/takeoff drafts; they are not treated as a priced estimate and must not be summed into a cost baseline until rates and amounts are supplied.
 - Added regression tests for a correct priced row, a mismatched amount and rounding tolerance. Execution on the current branch head remains pending.
 
+
+
+## BOQ arithmetic fixture correction and EVM currency consistency — 2026-11-25
+
+- Corrected the positive BOQ arithmetic fixture: 12.5 × 250,000 is 3,125,000, not 3,000,000. This ensures the acceptance test actually represents a valid priced BOQ row.
+- EVM now refuses to aggregate progress PV/EV or actual cost AC when an explicitly supplied row currency differs from the project's declared currency. Affected metrics remain unavailable and the result reports a currency-mismatch data gap.
+- Currency comparison is case-insensitive. A missing row currency remains an explicit assumption for review; no FX conversion is performed.
+- Added regression tests for actual-cost mismatch, progress mismatch, case-insensitive matching and absent currency.
+- These changes and tests are committed. A passing full CI run and end-to-end saved-workspace verification are still outstanding.
+
