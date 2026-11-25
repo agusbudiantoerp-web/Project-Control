@@ -8,4 +8,4 @@ matplotlib>=3.5,<4
 requests>=2.31,<3
 PyP6XER>=2.0,<3
 reportlab>=4.2,<6
-PyMuPDF>=1.24
+PyMuPDF>=1.24,<2
