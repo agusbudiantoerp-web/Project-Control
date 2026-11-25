@@ -21,6 +21,9 @@ def build_workspace_backup(database_path: str | Path) -> bytes:
         try:
             source.backup(target)
             target.commit()
+            integrity = target.execute("PRAGMA integrity_check").fetchone()
+            if not integrity or integrity[0] != "ok":
+                raise ValueError("Generated workspace backup failed SQLite integrity_check.")
         finally:
             target.close()
             source.close()
