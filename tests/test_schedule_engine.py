@@ -64,3 +64,36 @@ def test_rejects_boolean_duration_and_cumulative_overflow():
             {"activity_id": "A", "duration_days": 1e308},
             {"activity_id": "B", "duration_days": 1e308, "predecessors": ["A"]},
         ])
+
+
+@pytest.mark.parametrize(
+    ("relation_type", "lag_days", "expected_successor_start"),
+    [("FS", 1, 11), ("SS", 1, 1), ("FF", 1, 6), ("SF", 8, 3)],
+)
+def test_supports_typed_relationships_and_signed_lags(relation_type, lag_days, expected_successor_start):
+    result = calculate_critical_path([
+        {"activity_id": "A", "duration_days": 10},
+        {
+            "activity_id": "B",
+            "duration_days": 5,
+            "relationship_details": [{
+                "predecessor_id": "A", "type": relation_type, "lag_days": lag_days,
+            }],
+        },
+    ])
+    assert result["status"] == "ASSESSED"
+    rows = {row["activity_id"]: row for row in result["activities"]}
+    assert rows["B"]["early_start"] == expected_successor_start
+    assert rows["B"]["early_finish"] == expected_successor_start + 5
+
+
+def test_legacy_predecessor_ids_remain_zero_lag_finish_to_start():
+    result = calculate_critical_path([
+        {"activity_id": "A", "duration_days": 2},
+        {"activity_id": "B", "duration_days": 3, "predecessor_ids": "A"},
+    ])
+    rows = {row["activity_id"]: row for row in result["activities"]}
+    assert rows["B"]["early_start"] == 2
+    assert rows["B"]["relationships"] == [{
+        "predecessor_id": "A", "type": "FS", "lag_days": 0.0,
+    }]
