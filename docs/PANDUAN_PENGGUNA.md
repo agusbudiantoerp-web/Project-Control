@@ -197,3 +197,30 @@ Pada Saved Portfolio COO Cockpit, bagian COO Decision Brief merangkum proyek yan
 ## U. Predictive Early Warning dan Recovery Review
 
 Bagian Predictive Early Warning menggunakan `portfolio_snapshots` bertanggal. Forecast trend memerlukan minimal tiga tanggal unik untuk setiap metrik; metrik yang belum cukup historinya tetap `INSUFFICIENT_HISTORY`. Metode yang digunakan adalah regresi linear sederhana 30 hari, bukan model ML atau probabilitas kegagalan. Recovery Review menggabungkan EVM dan Risk Exposure Matrix yang tersedia, lalu secara eksplisit menampilkan input Monte Carlo, scenario comparison, atau resource recovery yang belum tersedia. Rekomendasi adalah agenda validasi, bukan persetujuan tindakan.
+
+
+## H. Primavera P6 XER dan drawing-to-BOQ
+
+### Import jadwal Primavera P6
+
+1. Buka **Primavera P6 XER & Drawing-to-BOQ Intake**.
+2. Upload file `.xer` dan pilih project sumber jika file berisi lebih dari satu project.
+3. Isi Project ID, nama proyek dan mata uang yang akan dipakai di workspace utama.
+4. Periksa preview WBS dan Activities sebelum impor.
+5. Pilih Upsert untuk menambah/memperbarui record. Pilih Replace hanya jika memang ingin mengganti seluruh dataset WBS dan Activities; aplikasi meminta konfirmasi tambahan.
+6. Setelah impor, buka Project Workspace untuk meninjau CPM dan dataset.
+
+Durasi P6 dikonversi dari jam ke hari nominal 8 jam. Kalender kerja, hari libur, lag, constraint, tipe relasi non-finish-to-start dan resource leveling tidak direkonstruksi. Validasi kembali baseline dan kalender pada Primavera P6 sebelum keputusan proyek.
+
+### Draft BOQ dari gambar PDF
+
+1. Pilih proyek yang sudah ada dan upload PDF gambar teknik.
+2. Pilih halaman yang akan dianalisis. Preview dilakukan lokal.
+3. Konfigurasikan `GEMINI_API_KEY` secara aman. Centang persetujuan pengiriman halaman ke Google Gemini, lalu tekan Analyze.
+4. Periksa dan edit item, description, unit, quantity, metode pengukuran, confidence dan asumsi.
+5. Isi quantity yang masih kosong berdasarkan pengukuran terverifikasi. Ubah `review_status` menjadi `VERIFIED` hanya setelah quantity surveyor memeriksa gambar sumber.
+6. Centang konfirmasi review dan simpan BOQ draft. Unit rate dan amount sengaja tetap kosong sampai disuplai dan disetujui.
+
+Hasil Gemini bukan quantity takeoff final. Model tidak dapat menggantikan pemeriksaan skala, dimensi, revisi gambar, metode ukur, spesifikasi, dan persetujuan quantity surveyor. Halaman PDF yang dipilih dikirim ke Google hanya setelah persetujuan eksplisit.
+
+Launcher V1 di `ai_project_control` tetap tersedia sebagai aplikasi kompatibilitas dan memakai database terpisah di `%LOCALAPPDATA%\\AIProjectControl\\project_control.db`. Data V1 tidak otomatis tersinkron dengan workspace utama yang memakai `.project_control/project_control.sqlite3` atau path `PROJECT_CONTROL_DB`.
