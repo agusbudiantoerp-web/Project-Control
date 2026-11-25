@@ -4,9 +4,14 @@ import ai_project_control.telegram_document_intake as intake
 
 
 class Response:
-    def __init__(self, payload=None, content=b""):
+    def __init__(self, payload=None, content=b"", headers=None):
         self._payload = payload
         self.content = content
+        self.headers = headers or {}
+
+    def iter_content(self, chunk_size=65536):
+        for start in range(0, len(self.content), chunk_size):
+            yield self.content[start:start + chunk_size]
 
     def raise_for_status(self):
         return None
@@ -98,7 +103,7 @@ def test_rejects_custom_limit_above_telegram_cap_before_network():
         )
 
 
-@pytest.mark.parametrize("unsafe_path", ["../outside.pdf", "documents/file.pdf?x=1", "documents\\\\file.pdf"])
+@pytest.mark.parametrize("unsafe_path", ["../outside.pdf", "documents/file.pdf?x=1", r"documents\\file.pdf"])
 def test_rejects_unsafe_telegram_file_paths(monkeypatch, unsafe_path):
     responses = [
         Response({"ok": True, "result": [{
@@ -119,3 +124,44 @@ def test_rejects_unsafe_telegram_file_paths(monkeypatch, unsafe_path):
     with pytest.raises(RuntimeError, match="Telegram PDF download failed"):
         intake.fetch_latest_telegram_pdf("token", "123")
     assert len(calls) == 2
+
+
+def test_streamed_download_enforces_size_limit_when_telegram_metadata_is_missing(monkeypatch):
+    responses = [
+        Response({"ok": True, "result": [{
+            "update_id": 2,
+            "message": {
+                "chat": {"id": "123"},
+                "document": {"file_id": "F", "file_name": "drawing.pdf"},
+            },
+        }]}),
+        Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
+        Response(content=b"%PDF-123456"),
+    ]
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append((url, kwargs))
+        return responses.pop(0)
+
+    monkeypatch.setattr(intake.requests, "get", fake_get)
+    with pytest.raises(RuntimeError, match="download failed"):
+        intake.fetch_latest_telegram_pdf("token", "123", max_bytes=8)
+    assert calls[-1][1]["stream"] is True
+
+
+def test_streamed_download_rejects_large_content_length_before_reading(monkeypatch):
+    responses = [
+        Response({"ok": True, "result": [{
+            "update_id": 3,
+            "message": {
+                "chat": {"id": "123"},
+                "document": {"file_id": "F", "file_name": "drawing.pdf"},
+            },
+        }]}),
+        Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
+        Response(content=b"", headers={"Content-Length": "999"}),
+    ]
+    monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
+    with pytest.raises(RuntimeError, match="download failed"):
+        intake.fetch_latest_telegram_pdf("token", "123", max_bytes=8)
