@@ -8,6 +8,10 @@ class Response:
         self._payload = payload
         self.content = content
         self.headers = headers or {}
+        self.closed = False
+
+    def close(self):
+        self.closed = True
 
     def raise_for_status(self):
         return None
@@ -170,6 +174,7 @@ def test_rejects_downloaded_telegram_pdf_over_configured_size(monkeypatch):
 
 
 def test_stops_streaming_when_pdf_exceeds_configured_limit(monkeypatch):
+    oversized_response = Response(content=b"%PDF-" + b"x" * 20)
     responses = [
         Response({"ok": True, "result": [{
             "update_id": 2,
@@ -179,7 +184,7 @@ def test_stops_streaming_when_pdf_exceeds_configured_limit(monkeypatch):
             },
         }]}),
         Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
-        Response(content=b"%PDF-" + b"x" * 20),
+        oversized_response,
     ]
     chunks_requested = []
     original_iter_content = Response.iter_content
@@ -193,10 +198,13 @@ def test_stops_streaming_when_pdf_exceeds_configured_limit(monkeypatch):
     monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
     with pytest.raises(RuntimeError, match="configured limit: 10 bytes"):
         intake.fetch_latest_telegram_pdf("token", "123", max_bytes=10)
+    assert oversized_response.closed
     assert chunks_requested == [25]
+    assert oversized_response.closed
 
 
 def test_rejects_oversized_content_length_before_streaming(monkeypatch):
+    oversized_response = Response(content=b"%PDF-", headers={"Content-Length": "1000"})
     responses = [
         Response({"ok": True, "result": [{
             "update_id": 3,
@@ -206,7 +214,7 @@ def test_rejects_oversized_content_length_before_streaming(monkeypatch):
             },
         }]}),
         Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
-        Response(content=b"%PDF-", headers={"Content-Length": "1000"}),
+        oversized_response,
     ]
     monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
     with pytest.raises(RuntimeError, match="configured limit: 10 bytes"):
