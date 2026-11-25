@@ -1,11 +1,11 @@
 streamlit>=1.40,<2
 pandas>=2.2,<4
 numpy>=1.26,<3
-scipy>=1.10
-plotly>=5.20
+scipy>=1.10,<2
+plotly>=5.20,<8
 openpyxl>=3.1,<4
-matplotlib>=3.5
-requests>=2.31
-PyP6XER>=2.0
-reportlab>=4.2
+matplotlib>=3.5,<4
+requests>=2.31,<3
+PyP6XER>=2.0,<3
+reportlab>=4.2,<6
 PyMuPDF>=1.24
