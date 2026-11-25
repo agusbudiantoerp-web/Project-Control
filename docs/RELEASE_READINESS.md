@@ -476,3 +476,14 @@ Implementation changes have been committed and selected files/workflows have bee
 - A reverse-direction reconciliation PR was inspected and closed without merging; no branch history was rewritten.
 - Latest reviewed implementation commit at this checkpoint: `9ed0e95934c4514b7a2f5e27ad8b30ab67ded481`.
 - No passing CI result has been observed for this head. The final test and merge gate remains open.
+
+
+## Clean release branch and PR checkpoint — 2026-11-25
+
+- A clean release branch was reconstructed directly from `main`, carrying the 209 changed files from the integration candidate while retaining the current main history as its base.
+- Release branch: `ai-project-control-release`.
+- Draft PR for review: https://github.com/agusbudiantoerp-web/Project-Control/pull/3
+- The PR is based on main with no commits behind and GitHub currently reports the merge candidate as mergeable.
+- The earlier divergent integration PR was closed without merging or rewriting its history.
+- The Drawing-to-BOQ page now uses the list-based ProjectStore WBS helper and handles extreme numeric values and unexpected preview errors without presenting an unconfirmed save as successful.
+- No CI result is currently available for the release head. The implementation is staged for the dedicated final test phase; do not mark it production-ready until that phase and user acceptance are complete.
