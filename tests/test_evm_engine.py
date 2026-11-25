@@ -229,3 +229,30 @@ def test_unknown_evm_record_mode_is_rejected():
             [{"project_id": "P1", "period": "2026-01", "actual_cost": 90}],
             progress_record_mode="cumulative",
         )
+
+
+def test_snapshot_mode_keeps_latest_value_per_activity_and_boq_pair():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000, "currency": "IDR"},
+        [
+            {"project_id": "P1", "period": "2026-01", "activity_id": "A1", "boq_id": "Q1",
+             "planned_value": 100, "earned_value": 50},
+            {"project_id": "P1", "period": "2026-02", "activity_id": "A1", "boq_id": "Q1",
+             "planned_value": 150, "earned_value": 100},
+            {"project_id": "P1", "period": "2026-01", "activity_id": "A1", "boq_id": "Q2",
+             "planned_value": 200, "earned_value": 100},
+            {"project_id": "P1", "period": "2026-02", "activity_id": "A2", "boq_id": "Q1",
+             "planned_value": 300, "earned_value": 250},
+        ],
+        [
+            {"project_id": "P1", "period": "2026-01", "cost_code": "C1", "actual_cost": 80},
+            {"project_id": "P1", "period": "2026-02", "cost_code": "C1", "actual_cost": 120},
+            {"project_id": "P1", "period": "2026-02", "cost_code": "C2", "actual_cost": 60},
+        ],
+        progress_record_mode="cumulative_snapshot",
+        actual_cost_record_mode="cumulative_snapshot",
+    )
+    assert result["PV"] == 650
+    assert result["EV"] == 450
+    assert result["AC"] == 180
+    assert result["source_record_counts"] == {"progress": 3, "actual_cost": 2}
