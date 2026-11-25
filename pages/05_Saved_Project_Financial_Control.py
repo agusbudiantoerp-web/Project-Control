@@ -1,15 +1,15 @@
 """Persisted project financial-control view backed by the local workspace."""
 import json
-import os
 import streamlit as st
 
 from ai_project_control.financial_workspace_service import build_stored_project_financial_control
 from ai_project_control.executive_report_export import build_executive_report_pdf, build_executive_report_xlsx
+from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(page_title="Saved Project Financial Control", page_icon="📊", layout="wide")
 st.title("Saved Project Financial Control")
 st.caption("Analisis EVM dan skenario biaya dari data proyek yang sudah diimpor dan disimpan di workspace lokal.")
-database_path = os.getenv("PROJECT_CONTROL_DB", ".project_control/project_control.sqlite3")
+database_path = get_workspace_database_path()
 st.info("Halaman ini membaca data tersimpan. Impor data terlebih dahulu melalui Project Workspace. Tidak ada data yang diubah oleh halaman ini.")
 with st.form("saved_financial_control_form"):
     project_id = st.text_input("Project ID", placeholder="Contoh: PROJECT-001")
