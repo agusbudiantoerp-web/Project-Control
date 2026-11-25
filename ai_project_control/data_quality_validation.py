@@ -33,6 +33,8 @@ NUMERIC_FIELDS = {
     "risk": ("probability", "impact", "exposure", "risk_score", "cost_impact_min", "cost_impact_most_likely", "cost_impact_max"),
     "resources": ("planned_units", "actual_units", "capacity_units"),
     "portfolio_snapshots": ("SPI", "CPI", "risk_score"),
+    "schedule_baselines": ("version",),
+    "schedule_changes": ("cost_impact", "schedule_impact_days"),
 }
 
 
@@ -125,7 +127,7 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                                "duration_days", "planned_duration_days", "actual_duration_days",
                                "planned_units", "actual_units", "capacity_units", "impact",
                                "exposure", "cost_impact_min", "cost_impact_most_likely",
-                               "cost_impact_max"} and number < 0:
+                               "cost_impact_max", "version", "cost_impact", "schedule_impact_days"} and number < 0:
                     issues.append({"severity": "ERROR", "code": "NEGATIVE_VALUE",
                                    "table": table, "record": str(index), "field": field,
                                    "message": f"{field} cannot be negative"})
