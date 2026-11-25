@@ -86,7 +86,13 @@ def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) ->
             sheet = workbook[chosen]
             iterator = sheet.iter_rows(values_only=True)
             first = next(iterator, None)
-            headers = [str(value).strip() if value is not None else "" for value in (first or ())]
+            header_values = list(first or ())
+            # Worksheet dimensions may be extended by a later row. Ignore
+            # only trailing empty header cells so surplus data cells can be
+            # detected against the actual declared header width below.
+            while header_values and header_values[-1] in (None, ""):
+                header_values.pop()
+            headers = [str(value).strip() if value is not None else "" for value in header_values]
             _validate_headers(headers)
             rows = []
             for index, values in enumerate(iterator):
