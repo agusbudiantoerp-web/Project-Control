@@ -157,3 +157,26 @@ Open **Primavera P6 XER & Drawing-to-BOQ Intake** from the sidebar. A selected X
 ### Telegram drawing intake
 
 Send a PDF to the configured private bot chat as a Document, then use **Fetch latest Telegram PDF** on the drawing intake page. The bot token and allowed chat ID are read from environment variables or Streamlit secrets. The page polls with `getUpdates`, so an active webhook must be disabled for polling. Telegram PDF bytes stay in the Streamlit session; a selected page is sent to Gemini only after explicit consent.
+
+
+## Automated local workspace backups
+
+The repository includes `scripts/backup_workspace.py` to create a consistent SQLite online backup of the primary workspace. Run it from PowerShell in the repository root:
+
+```powershell
+py -3.11 scripts/backup_workspace.py
+```
+
+By default, timestamped backup files are written to `.project_control/backups`; generated backups older than 30 days are removed after a new backup has been verified. To choose another destination and retention period:
+
+```powershell
+py -3.11 scripts/backup_workspace.py --destination "D:\\AIProjectControlBackups" --retention-days 60
+```
+
+To register a daily Windows Task Scheduler job at 20:00, run PowerShell as the Windows account that owns the workspace and execute:
+
+```powershell
+.\\INSTALL_DAILY_BACKUP_TASK.ps1 -At "20:00"
+```
+
+The task runs as the current Windows account. Keep a second encrypted copy off the computer. A successful backup creation is not a substitute for periodically restoring a copy into a separate test workspace.
