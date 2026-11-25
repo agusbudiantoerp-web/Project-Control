@@ -210,7 +210,7 @@ Bagian Predictive Early Warning menggunakan `portfolio_snapshots` bertanggal. Fo
 5. Pilih Upsert untuk menambah/memperbarui record. Pilih Replace hanya jika memang ingin mengganti seluruh dataset WBS dan Activities; aplikasi meminta konfirmasi tambahan.
 6. Setelah impor, buka Project Workspace untuk meninjau CPM dan dataset.
 
-Durasi P6 dikonversi dari jam ke hari nominal 8 jam. Kalender kerja, hari libur, lag, constraint, tipe relasi non-finish-to-start dan resource leveling tidak direkonstruksi. Validasi kembali baseline dan kalender pada Primavera P6 sebelum keputusan proyek.
+Durasi dan lag P6 dikonversi dari jam ke hari nominal 8 jam. CPM workspace mendukung relasi FS, SS, FF dan SF beserta lag positif/negatif dalam satuan hari kerja nominal. Kalender kerja, hari libur, exception, constraint, resource leveling, actual dates dan semua aturan penjadwalan P6 tidak direkonstruksi. Validasi kembali hasil, baseline dan kalender pada Primavera P6 sebelum keputusan proyek.
 
 ### Draft BOQ dari gambar PDF
 
