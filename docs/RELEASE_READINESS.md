@@ -536,3 +536,12 @@ Implementation commits in this continuation include:
 - No test, compile or live integration command has been executed during this implementation-first phase. All newly added and changed tests remain pending the agreed test phase.
 
 - Backup retention and destination safeguards now restrict cleanup to the script's timestamped filenames and reject the workspace database folder as a backup destination. A regression test covers this guard.
+
+
+## Primary dashboard EVM control integration — 2026-11-25
+
+- The Project Workspace dashboard now exposes an optional YYYY-MM reporting cut-off and the period-delta/cumulative-snapshot progress convention.
+- The workspace overview service passes those selections to the EVM engine and returns the selected settings for display.
+- Added service-level regression coverage proving the selected cumulative mode and month cut-off are applied to persisted project records.
+- Duplicate activity-period cumulative snapshots now produce an explicit data gap instead of depending on source row order.
+- CI is configured to run the focused/full test workflow on pushes to ai-project-control-release as well as the prior integration branch. The workflow run for the current release head is still pending observation.
