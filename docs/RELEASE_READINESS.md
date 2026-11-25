@@ -588,3 +588,16 @@ The tests use mocks for provider requests. No live Groq/Gemini account request o
 - Added BOQ/schedule/resource input integrity guards: reject non-dictionary rows, duplicate identifiers, blank identifiers and boolean-as-number values.
 - Added regression tests for duplicate activity/BOQ/resource IDs, boolean quantities and malformed rows.
 - These CI results verify automated repository tests on this commit. They do not replace Windows operator acceptance, live Telegram/Gemini integration, security review, production database validation or multi-user deployment testing.
+
+
+## CI verification after latest integrity and release-readiness updates — 2026-11-26
+
+Verified on branch `ai-project-control-integration`, commit `14fe7a55742e587954b46b801966c33f9ef0b9ae`:
+
+- Project Control focused workflow: **SUCCESS** — run [45712059319](https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45712059319).
+- Focused project-control suite: **548 passed**.
+- Complete repository suite: **774 passed**.
+- Recovery workflow: **SUCCESS** — run [45712059318](https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45712059318).
+- Python compile check for root app, pages and application modules: passed as part of the focused workflow.
+
+These results establish automated CI success for the tested branch commit only. They do not establish Windows operator acceptance, successful live provider/Telegram calls, production hosting, authenticated multi-user access, or validation against a project owner's signed-off reference calculations.
