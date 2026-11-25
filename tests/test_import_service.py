@@ -128,7 +128,7 @@ def test_import_rejects_cross_dataset_activity_link_before_persisting(store):
     }])
     upload = Upload(
         "boq-linked.csv",
-        b"Project ID,BOQ ID,Activity ID,Quantity\\nP1,B1,UNKNOWN-ACTIVITY,10\\n",
+        b"Project ID,BOQ ID,Activity ID,Quantity\nP1,B1,UNKNOWN-ACTIVITY,10\n",
     )
     result = import_uploaded_dataset(store, "P1", "boq", upload)
     assert result["status"] == "VALIDATION_FAILED"
@@ -146,7 +146,7 @@ def test_import_upsert_validates_merged_workspace_not_only_uploaded_rows(store):
     }])
     upload = Upload(
         "boq-valid.csv",
-        b"Project ID,BOQ ID,Activity ID,WBS ID,Quantity\\nP1,B1,A1,W1,10\\n",
+        b"Project ID,BOQ ID,Activity ID,WBS ID,Quantity\nP1,B1,A1,W1,10\n",
     )
     result = import_uploaded_dataset(store, "P1", "boq", upload, mode="upsert")
     assert result["status"] == "COMMITTED"
