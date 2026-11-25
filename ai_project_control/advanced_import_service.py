@@ -211,7 +211,8 @@ def prepare_xer_workspace_import(
         if not math.isfinite(lag_hours):
             raise ValueError(f"P6 relationship {predecessor} -> {successor} has a non-finite lag.")
         predecessor_code = code_by_id[predecessor]
-        predecessor_map.setdefault(successor, []).append(predecessor_code)
+        if relation_type == "FS" and abs(lag_hours) <= 1e-9:
+            predecessor_map.setdefault(successor, []).append(predecessor_code)
         relationship_map.setdefault(successor, []).append({
             "predecessor_id": predecessor_code,
             "type": relation_type,
