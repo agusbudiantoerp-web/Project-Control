@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 APP_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_DIR))
@@ -694,3 +695,61 @@ def test_progress_validation_accepts_matching_activity_boq_wbs():
     }
     issues = validate_dataset("progress.csv", progress, existing)
     assert not any("berada pada WBS berbeda" in issue for issue in issues)
+
+
+def test_pdf_render_rejects_empty_input_and_unsafe_zoom():
+    from core import render_pdf_page
+
+    with pytest.raises(ValueError, match="empty or invalid"):
+        render_pdf_page(b"", 0)
+    with pytest.raises(ValueError, match="zoom"):
+        render_pdf_page(b"%PDF-1.4", 0, zoom=100)
+
+
+def test_pdf_render_returns_page_image_and_closes_document():
+    import fitz
+    from core import render_pdf_page
+
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Project Control Drawing")
+    raw = document.tobytes()
+    document.close()
+
+    image, text, page_count = render_pdf_page(raw, 0)
+    assert image.startswith(b"\x89PNG")
+    assert "Project Control Drawing" in text
+    assert page_count == 1
+
+
+def test_gemini_drawing_rejects_invalid_model_before_network():
+    from core import analyze_drawing_page_gemini
+
+    with pytest.raises(ValueError, match="model name"):
+        analyze_drawing_page_gemini(b"png", "secret-key", model="../bad/model")
+
+
+def test_gemini_drawing_rejects_oversized_image_before_network():
+    from core import analyze_drawing_page_gemini, MAX_DRAWING_IMAGE_BYTES
+
+    with pytest.raises(ValueError, match="12 MB"):
+        analyze_drawing_page_gemini(b"x" * (MAX_DRAWING_IMAGE_BYTES + 1), "secret-key")
+
+
+def test_gemini_drawing_rejects_too_many_takeoff_items(monkeypatch):
+    import json
+    import requests
+    from core import analyze_drawing_page_gemini
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{
+                "text": json.dumps([{"description": "Draft"}] * 501)
+            }]}}]}
+
+    monkeypatch.setattr(requests, "post", lambda *args, **kwargs: Response())
+    with pytest.raises(ValueError, match="review limit"):
+        analyze_drawing_page_gemini(b"png", "secret-key")
