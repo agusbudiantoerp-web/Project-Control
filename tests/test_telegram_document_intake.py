@@ -4,15 +4,20 @@ import ai_project_control.telegram_document_intake as intake
 
 
 class Response:
-    def __init__(self, payload=None, content=b""):
+    def __init__(self, payload=None, content=b"", headers=None):
         self._payload = payload
         self.content = content
+        self.headers = headers or {}
 
     def raise_for_status(self):
         return None
 
     def json(self):
         return self._payload
+
+    def iter_content(self, chunk_size=64 * 1024):
+        for start in range(0, len(self.content), chunk_size):
+            yield self.content[start : start + chunk_size]
 
 
 def test_fetches_latest_authorized_pdf_and_returns_next_offset(monkeypatch):
@@ -160,4 +165,49 @@ def test_rejects_downloaded_telegram_pdf_over_configured_size(monkeypatch):
     ]
     monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
     with pytest.raises(RuntimeError, match="exceeds the 20 MB intake limit"):
+        intake.fetch_latest_telegram_pdf("token", "123", max_bytes=10)
+
+
+
+def test_stops_streaming_when_pdf_exceeds_configured_limit(monkeypatch):
+    responses = [
+        Response({"ok": True, "result": [{
+            "update_id": 2,
+            "message": {
+                "chat": {"id": "123"},
+                "document": {"file_id": "FILE-STREAM", "file_name": "drawing.pdf"},
+            },
+        }]}),
+        Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
+        Response(content=b"%PDF-" + b"x" * 20),
+    ]
+    chunks_requested = []
+    original_iter_content = Response.iter_content
+
+    def tracked_iter_content(self, chunk_size=64 * 1024):
+        for chunk in original_iter_content(self, chunk_size):
+            chunks_requested.append(len(chunk))
+            yield chunk
+
+    monkeypatch.setattr(Response, "iter_content", tracked_iter_content)
+    monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
+    with pytest.raises(RuntimeError, match="configured limit: 10 bytes"):
+        intake.fetch_latest_telegram_pdf("token", "123", max_bytes=10)
+    assert chunks_requested == [25]
+
+
+def test_rejects_oversized_content_length_before_streaming(monkeypatch):
+    responses = [
+        Response({"ok": True, "result": [{
+            "update_id": 3,
+            "message": {
+                "chat": {"id": "123"},
+                "document": {"file_id": "FILE-LENGTH", "file_name": "drawing.pdf"},
+            },
+        }]}),
+        Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
+        Response(content=b"%PDF-", headers={"Content-Length": "1000"}),
+    ]
+    monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
+    with pytest.raises(RuntimeError, match="configured limit: 10 bytes"):
         intake.fetch_latest_telegram_pdf("token", "123", max_bytes=10)
