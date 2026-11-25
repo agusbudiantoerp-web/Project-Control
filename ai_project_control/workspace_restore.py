@@ -9,9 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from .project_store import SCHEMA_VERSION
-from .workspace_backup import build_workspace_backup
+from .workspace_backup import MAX_WORKSPACE_BACKUP_BYTES, build_workspace_backup
 
-MAX_WORKSPACE_BACKUP_BYTES = 250 * 1024 * 1024
 REQUIRED_TABLES = {"project_records", "import_events", "store_metadata"}
 
 
