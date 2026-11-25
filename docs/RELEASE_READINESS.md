@@ -378,3 +378,11 @@ The integration branch remains divergent from main. Main-only commits and file-l
 ### Verification boundary — unchanged
 
 Implementation changes have been committed and selected files/workflows have been re-read through the repository API. **No test suite has been executed in this implementation phase.** Do not describe the application as tested, production-ready or fully released until the planned test phase has completed. The branch divergence must also be reconciled deliberately; do not merge or reset it blindly.
+
+
+### Drawing-to-BOQ intake hardening
+
+- PDF drawing intake now rejects empty/invalid uploads, files over 50 MB, documents outside the 1–500 page range, invalid page indexes, and render zoom outside 0.25–4.0. PDF document handles are closed after each render; rendered page images are capped at 12 MB.
+- Gemini drawing requests validate the model identifier, API key, and image size before sending. Provider response text is bounded to 1 MB and takeoff output is capped at 500 rows.
+- Gemini takeoff values are treated as untrusted suggestions. Invalid, negative, boolean, or non-finite quantities are left blank; generated BOQ drafts have blank unit rates and amounts and remain marked **Pending Review**.
+- These controls do not certify quantities. Drawing scale, measurement method, scope, units, WBS assignment, and every quantity still require professional review.
