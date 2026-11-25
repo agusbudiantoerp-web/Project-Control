@@ -7,6 +7,8 @@ mathematical inputs are available and valid.
 from __future__ import annotations
 
 import math
+import re
+from datetime import date
 from typing import Any
 
 
@@ -59,8 +61,19 @@ def calculate_evm(
     cutoff_key = None
     if as_of_period is not None:
         cutoff_key = str(as_of_period).strip()
-        if len(cutoff_key) == 7 and cutoff_key[4] == "-":
+        if re.fullmatch(r"\\d{4}-\\d{2}", cutoff_key):
+            try:
+                date.fromisoformat(cutoff_key + "-01")
+            except ValueError:
+                raise ValueError("as_of_period must be a valid YYYY-MM month or YYYY-MM-DD date") from None
             cutoff_key += "\uffff"
+        elif re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", cutoff_key):
+            try:
+                date.fromisoformat(cutoff_key)
+            except ValueError:
+                raise ValueError("as_of_period must be a valid YYYY-MM month or YYYY-MM-DD date") from None
+        else:
+            raise ValueError("as_of_period must use YYYY-MM or YYYY-MM-DD format")
     progress = [
         dict(row) for row in progress_rows
         if str(row.get("project_id", "")).strip() == project_id
