@@ -408,3 +408,9 @@ Implementation changes have been committed and selected files/workflows have bee
 
 - XLSX uploads are inspected as ZIP containers before openpyxl parses them. The reader rejects malformed workbooks, duplicate or unsafe archive paths, encrypted entries, excessive member counts, expansion above 100 MB, and compression ratios above the configured threshold.
 - External workbook links are not retained, and defusedxml is installed for hardened XML parsing. CSV and XLSX data remain preview-only until mapping and validation are explicitly completed.
+
+
+### Primavera XER parser bounds
+
+- The XER parser now caps the source file at 30 MB, table count at 100, rows per table at 100,000, fields per table at 300, and individual line length at 1,000,000 characters.
+- The parser rejects over-wide rows rather than silently dropping extra values. P6 import still supports only Finish-to-Start relationships in the primary intake path and converts P6 hours to nominal 8-hour days; calendars, lag, constraints, resource leveling and other relationship types require Primavera review.
