@@ -72,6 +72,7 @@ def train_historical_kpi_models(
 
     models: dict[str, Any] = {}
     metrics: list[dict[str, Any]] = []
+    model_feature_columns: dict[str, list[str]] = {}
     for target in TARGETS:
         usable = []
         for target_date, row in dated_rows:
@@ -91,9 +92,23 @@ def train_historical_kpi_models(
             continue
 
         train_rows, test_rows = usable[:train_count], usable[train_count:]
-        x_train = [row[1] for row in train_rows]
+        # Drop columns that are entirely missing in the training window.
+        # Determine this from training rows only to avoid holdout leakage.
+        active_feature_indices = [
+            index for index in range(len(FEATURES))
+            if any(row[1][index] is not None for row in train_rows)
+        ]
+        if not active_feature_indices:
+            metrics.append({
+                "target": target, "status": "INSUFFICIENT_FEATURES",
+                "usable_rows": len(usable), "training_rows": train_count,
+                "test_rows": test_count,
+            })
+            continue
+        active_feature_names = [FEATURES[index] for index in active_feature_indices]
+        x_train = [[row[1][index] for index in active_feature_indices] for row in train_rows]
         y_train = [row[2] for row in train_rows]
-        x_test = [row[1] for row in test_rows]
+        x_test = [[row[1][index] for index in active_feature_indices] for row in test_rows]
         y_test = [row[2] for row in test_rows]
 
         model = make_pipeline(
@@ -125,12 +140,14 @@ def train_historical_kpi_models(
             "beats_persistence_baseline": (mae < baseline_mae) if baseline_mae is not None else None,
         })
         models[target] = model
+        model_feature_columns[target] = active_feature_names
 
     return {
         "status": "EVALUATED" if models else "INSUFFICIENT_HISTORY",
         "model_family": "RandomForestRegressor with median imputation",
         "split_method": "Chronological holdout by target_date; latest observations are test data.",
         "feature_columns": list(FEATURES),
+        "model_feature_columns": model_feature_columns,
         "target_columns": [f"target_{target}" for target in TARGETS],
         "metrics": metrics,
         "models": models,
