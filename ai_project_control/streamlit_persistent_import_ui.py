@@ -63,11 +63,13 @@ def render_persistent_import_ui(database_path: str | Path | None = None) -> dict
     )
     mode = "replace" if mode_label.startswith("Replace") else "upsert"
     confirm_replace = True
+    replace_nonce_key = f"pc_persist_replace_nonce_{project_id}_{dataset}"
+    replace_nonce = st.session_state.get(replace_nonce_key, 0)
     if mode == "replace":
         st.warning("Replace will remove existing records for this project and dataset before saving the uploaded rows.")
         confirm_replace = st.checkbox(
             "I confirm that I want to replace this project's entire selected dataset.",
-            key=f"pc_persist_confirm_replace_{project_id}_{dataset}",
+            key=f"pc_persist_confirm_replace_{project_id}_{dataset}_{replace_nonce}",
         )
 
     if not st.button(
@@ -90,6 +92,8 @@ def render_persistent_import_ui(database_path: str | Path | None = None) -> dict
         return {"status": "IMPORT_ERROR", "message": str(exc)}
 
     if result["status"] == "COMMITTED":
+        if mode == "replace":
+            st.session_state[replace_nonce_key] = replace_nonce + 1
         st.success(f"Saved {result['saved_count']} records to project {project_id}.")
         st.json(result["persistence"])
     else:
