@@ -59,12 +59,19 @@ def build_resource_loading_summary(records: list[dict[str, Any]]) -> dict[str, A
     grouped["actual_utilization_pct"] = pd.NA
     planned_ok = grouped["planned_complete"] & grouped["capacity_complete"] & grouped["capacity_units"].gt(0)
     actual_ok = grouped["actual_complete"] & grouped["capacity_complete"] & grouped["capacity_units"].gt(0)
-    grouped.loc[planned_ok, "planned_utilization_pct"] = (
+    planned_ratio = (
         grouped.loc[planned_ok, "planned_units"] / grouped.loc[planned_ok, "capacity_units"] * 100
     )
-    grouped.loc[actual_ok, "actual_utilization_pct"] = (
+    actual_ratio = (
         grouped.loc[actual_ok, "actual_units"] / grouped.loc[actual_ok, "capacity_units"] * 100
     )
+    grouped.loc[planned_ok, "planned_utilization_pct"] = planned_ratio.where(
+        planned_ratio.map(math.isfinite)
+    )
+    grouped.loc[actual_ok, "actual_utilization_pct"] = actual_ratio.where(
+        actual_ratio.map(math.isfinite)
+    )
+    planned_ok = planned_ok & grouped["planned_utilization_pct"].notna()
     grouped["status"] = "WITHIN_CAPACITY"
     grouped.loc[~planned_ok, "status"] = "UNASSESSED"
     grouped.loc[planned_ok & grouped["planned_utilization_pct"].gt(100), "status"] = "OVERLOADED"
