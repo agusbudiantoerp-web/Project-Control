@@ -45,6 +45,7 @@ jobs:
             tests/test_advanced_import_service.py \
             tests/test_dashboard_metrics_regressions.py \
             tests/test_project_store.py \
+            tests/test_workspace_config.py \
             tests/test_import_service.py \
             tests/test_workspace_service.py \
             tests/test_evm_engine.py \
