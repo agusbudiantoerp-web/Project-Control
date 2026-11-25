@@ -601,3 +601,17 @@ Verified on branch `ai-project-control-integration`, commit `14fe7a55742e587954b
 - Python compile check for root app, pages and application modules: passed as part of the focused workflow.
 
 These results establish automated CI success for the tested branch commit only. They do not establish Windows operator acceptance, successful live provider/Telegram calls, production hosting, authenticated multi-user access, or validation against a project owner's signed-off reference calculations.
+
+
+## Package import compatibility and regression verification — 2026-11-26
+
+- Corrected `integrated_forecast.py` to support both package-relative imports (`ai_project_control.integrated_forecast`) and legacy direct-module imports used by the V1 launcher.
+- Corrected the CPM engine import in `core.py` to resolve the bundled `pmcontrols` package in both import modes.
+- Added a regression test that imports and executes the integrated forecast from the repository root as a package.
+- Verified on commit `f57605957575692f2ade4a89f4f705e3db7e3a4b`:
+  - Project Control focused workflow: **SUCCESS**, 548 focused tests passed and **775 full-repository tests passed**. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875176
+  - Integrated engine CI: **SUCCESS**, 188 tests passed, including compile/import checks. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875192
+  - Recovery tests: **SUCCESS**. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875243
+  - Additional automated tests: **SUCCESS**. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875266
+
+The green CI verifies code-level automated checks on this branch. It does not validate live Telegram/Gemini credentials, real project reference calculations, Windows operator acceptance, or production deployment controls.
