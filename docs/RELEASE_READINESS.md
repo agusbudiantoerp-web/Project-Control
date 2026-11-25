@@ -497,6 +497,7 @@ Implementation changes have been committed and selected files/workflows have bee
 
 - Telegram PDF download now uses streamed HTTP responses and enforces the configured byte ceiling while consuming chunks, rather than downloading an unbounded response into memory first.
 - A declared Content-Length above the configured limit is rejected before reading the response body; the streaming counter still enforces the cap if the header is absent, invalid or inaccurate.
+- The HTTP response is explicitly closed when an oversized body is rejected, including when Content-Length already exceeds the limit.
 - The response test double now supports streamed chunks. Regression tests cover an oversized streamed body and an oversized Content-Length header.
 - Telegram path validation also rejects Windows separators and actual carriage-return/newline characters.
 - Source and regression tests are committed, but no passing CI run or live Telegram download has been verified for this branch head.
