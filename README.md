@@ -120,7 +120,7 @@ Open **Saved Portfolio — COO Executive Cockpit** to discover projects saved in
 
 ## Workspace Backup & Import History
 
-Open **Workspace Backup & Import History** to review the latest 100 import events for a selected project and prepare a consistent SQLite snapshot using SQLite's online backup API. Backups may contain sensitive commercial and project data: store them encrypted with restricted access and never commit them to a public repository. Restore procedures and backup retention remain organizational responsibilities.
+Open **Workspace Backup & Import History** to review the latest 100 import events for a selected project and prepare a consistent SQLite snapshot using SQLite's online backup API. Backups may contain sensitive commercial and project data: store them encrypted with restricted access and never commit them to a public repository. The same page provides a confirmed restore workflow: it validates SQLite integrity and schema, creates a pre-restore safety snapshot, and atomically replaces the active workspace. Restore is a same-schema recovery operation, not a schema migration; maintain separate encrypted off-device backups and an organizational retention policy.
 
 
 The saved COO cockpit now joins the imported risk register with persisted executive actions and mitigation tracking. It displays risk exposure ranking, activity/WBS link status, overdue or blocked linked actions, mitigation coverage and residual exposure. Risk impact values must use consistent units within each project. Actor names remain attribution fields only; they do not authenticate users.
