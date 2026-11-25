@@ -116,3 +116,15 @@ def test_negative_evm_financial_amounts_are_rejected():
     })
     assert result["status"] == "INVALID"
     assert sum(issue["code"] == "NEGATIVE_VALUE" for issue in result["issues"]) == 3
+
+
+def test_risk_score_is_validated_when_supplied():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "risk": [{
+            "project_id": "P1", "risk_id": "R1",
+            "probability": 0.5, "impact": 10, "risk_score": 101,
+        }],
+    })
+    assert result["status"] == "INVALID"
+    assert any(issue["code"] == "RISK_SCORE_OUT_OF_RANGE" for issue in result["issues"])
