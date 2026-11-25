@@ -36,7 +36,7 @@ Windows PowerShell (atau klik dua kali `START_AI_PROJECT_CONTROL.bat` dari folde
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -r ai_project_control/requirements.txt
 streamlit run app.py
 ```
 
