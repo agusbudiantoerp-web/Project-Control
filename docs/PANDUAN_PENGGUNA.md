@@ -246,3 +246,13 @@ Actual Cost (AC) selalu dijumlahkan sebagai transaksi atau delta per periode. Ja
 
 
 Pada dashboard **Project Workspace**, pengaturan EVM tersedia langsung di atas ringkasan proyek. Isi *EVM reporting cut-off* seperti `2026-01` untuk membatasi data sampai akhir bulan tersebut, atau kosongkan untuk semua periode. Pilih **Period deltas** bila setiap baris adalah tambahan nilai pada periode itu; pilih **Cumulative snapshots** bila baris adalah nilai kumulatif aktivitas. Snapshot ganda untuk activity_id dan period yang sama akan ditandai sebagai data tidak memadai, bukan dipilih secara acak. Actual Cost tetap harus berupa transaksi/delta, bukan snapshot kumulatif.
+
+
+### Batas ukuran dan keamanan Telegram PDF
+
+- PDF dari Telegram dibatasi maksimum 20 MB.
+- Unduhan dilakukan bertahap agar file yang terlalu besar ditolak tanpa dibaca seluruhnya ke memori.
+- File hanya diterima dari chat ID yang dikonfigurasi pada `TELEGRAM_CHAT_ID`; chat lain diabaikan.
+- Bot harus menggunakan polling `getUpdates`; webhook aktif perlu dinonaktifkan terlebih dahulu.
+- Dokumen yang diterima berada sementara di session aplikasi. File tidak otomatis disimpan ke ProjectStore.
+- Persetujuan pengiriman halaman ke Gemini tetap terpisah dari persetujuan mengambil PDF dari Telegram.
