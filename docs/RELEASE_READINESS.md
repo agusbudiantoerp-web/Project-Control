@@ -520,3 +520,11 @@ Implementation changes have been committed and selected files/workflows have bee
 - Added regression coverage for successful streamed JSON, oversized declared Content-Length and oversized streamed content.
 - Test cases are committed; a passing full CI run on the latest branch head and a live Gemini API check are still required.
 
+
+
+## XER WBS referential integrity and project isolation — 2026-11-25
+
+- Added regression coverage that rejects an imported activity whose WBS ID is absent from the selected source project's WBS table.
+- Added regression coverage that ensures WBS records belonging to another source project are not included when importing the selected P6 project from a multi-project XER.
+- These tests protect the mapping between the imported activity schedule and WBS hierarchy; execution on the current branch head remains pending.
+
