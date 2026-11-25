@@ -100,7 +100,16 @@ def test_multi_project_xer_without_task_project_ids_is_rejected():
     multi = SINGLE_PROJECT_XER.replace(
         b"%R\tP6-1\tP6-CODE\tPlant Upgrade",
         b"%R\tP6-1\tP6-CODE\tPlant Upgrade\n%R\tP6-2\tP6-OTHER\tOther Project",
-    ).replace(b"proj_id\ttask_id", b"task_id")
+    ).replace(
+        b"%F\tproj_id\ttask_id",
+        b"%F\ttask_id",
+    ).replace(
+        b"%R\tP6-1\tT1\tA1",
+        b"%R\tT1\tA1",
+    ).replace(
+        b"%R\tP6-1\tT2\tA2",
+        b"%R\tT2\tA2",
+    )
     with pytest.raises(ValueError, match="cannot be safely isolated"):
         prepare_xer_workspace_import(
             multi, project_id="P1", project_name="Plant Upgrade",
