@@ -96,3 +96,8 @@ def test_simulation_rejects_overflowing_total_cost():
     }]
     with pytest.raises(ValueError, match="supported numeric range"):
         build_risk_cost_simulation(data, 1e308, "IDR", iterations=1000)
+
+
+def test_monte_carlo_seed_must_be_an_integer():
+    with pytest.raises(ValueError, match="seed must be an integer"):
+        build_risk_cost_simulation(risks(), 1000, "IDR", iterations=1000, seed=True)
