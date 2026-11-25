@@ -394,3 +394,11 @@ Implementation changes have been committed and selected files/workflows have bee
 - The root Windows launcher now installs both requirements.txt and ai_project_control/requirements.txt before starting the root app. The PowerShell instructions in the root README use the same dependency set.
 - ai_project_control/app.py and its nested launcher are retained as a historical V1 compatibility application. They use a separate local database and are not synchronized with the primary workspace; use the repository-root launcher for the current application.
 - The primary P6 XER and drawing-to-BOQ workflow is the root pages/08_Primavera_XER_Drawing_BOQ_Intake.py page. Drawing PDF preview is bounded by a 20 MB / 300-page intake limit in the UI; rendered images are capped at 12 MB. Gemini transmission requires explicit page-specific consent. BOQ rows require a valid project WBS, explicit VERIFIED review status, quantity, description and unit before persistence.
+
+
+### Primary workspace restore controls
+
+- Workspace restore now validates the SQLite file header, integrity check, required ProjectStore tables and exact supported schema version before touching the active database.
+- Restore creates a timestamped pre-restore SQLite safety snapshot when a current database exists, writes the candidate to the same filesystem, validates it again, and then replaces the active file atomically.
+- The Backup & Audit page requires an explicit confirmation and warns operators to stop other processes writing to the local SQLite database during restore.
+- Restore is limited to 250 MB and is not a migration tool; backups from a different or newer schema version are rejected. The workspace remains local-first and single-user.
