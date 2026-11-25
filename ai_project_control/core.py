@@ -148,7 +148,7 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
             if pd.to_datetime(df[col],errors="coerce").isna().any(): issues.append("Tanggal "+col+" tidak valid.")
         if "predecessor_ids" in df:
             ids=set(df["activity_id"].astype(str))
-            for raw in df["predecessor_ids"].fillna(""):
+            for raw in df["predecessor_ids"].astype("string").fillna(""):
                 for p in str(raw).split(","):
                     p=p.strip()
                     if p and p not in ids: issues.append(f"Predecessor {p} tidak ditemukan.")
@@ -169,7 +169,7 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
         issues.append(f"{key} duplikat.")
     if name=="wbs.csv":
         wbs_ids=set(df["wbs_id"].astype(str))
-        parents=df.get("parent_wbs_id",pd.Series("",index=df.index)).fillna("").astype(str)
+        parents=df.get("parent_wbs_id",pd.Series("",index=df.index,dtype="string")).astype("string").fillna("")
         for wbs_id,parent in zip(df["wbs_id"].astype(str),parents):
             if parent and parent!="nan" and parent not in wbs_ids:
                 issues.append(f"Parent WBS {parent} untuk {wbs_id} tidak ditemukan.")
@@ -178,7 +178,7 @@ def validate_dataset(name: str, df: pd.DataFrame, existing: dict[str,pd.DataFram
         start=pd.to_datetime(df["planned_start"],errors="coerce")
         finish=pd.to_datetime(df["planned_finish"],errors="coerce")
         if (finish<start).any(): issues.append("planned_finish tidak boleh lebih awal daripada planned_start.")
-        if (df["activity_id"].astype(str)==df.get("predecessor_ids",pd.Series("",index=df.index)).fillna("").astype(str)).any():
+        if (df["activity_id"].astype("string").str.strip()==df.get("predecessor_ids",pd.Series("",index=df.index,dtype="string")).astype("string").fillna("").str.strip()).any():
             issues.append("Aktivitas tidak boleh menjadi predecessor dirinya sendiri.")
     if name=="boq_budget.csv":
         if df["boq_id"].astype(str).duplicated().any(): issues.append("boq_id duplikat.")
