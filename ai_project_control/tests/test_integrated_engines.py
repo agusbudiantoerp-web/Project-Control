@@ -373,3 +373,57 @@ def test_resource_load_normalizes_task_and_resource_identifiers():
     summary, daily = calculate_resource_load(resources, assignments)
     assert summary.iloc[0]["rsrc_id"] == "R1"
     assert daily.iloc[0]["planned_load_per_day"] == 8
+
+
+def test_schedule_crashing_validates_target_durations_costs_and_links():
+    from core import optimize_crash
+
+    valid = pd.DataFrame([
+        {"activity_id": "A", "duration_days": 5, "predecessor_ids": "",
+         "crash_duration_days": 3, "crash_cost_per_day": 100},
+        {"activity_id": "B", "duration_days": 4, "predecessor_ids": "A",
+         "crash_duration_days": 2, "crash_cost_per_day": 150},
+    ])
+    table, stats = optimize_crash(valid, target_days=7)
+    assert stats["achieved_duration"] <= 7 + 1e-7
+    assert stats["total_crash_cost"] >= 0
+    assert len(table) == 2
+
+    for target in [True, "seven", float("inf"), -1]:
+        with pytest.raises(ValueError, match="target_days"):
+            optimize_crash(valid, target)
+
+    invalid = valid.copy()
+    invalid.loc[0, "crash_duration_days"] = 6
+    with pytest.raises(ValueError, match="tidak boleh melebihi"):
+        optimize_crash(invalid, 7)
+
+    invalid = valid.copy()
+    invalid.loc[1, "predecessor_ids"] = "MISSING"
+    with pytest.raises(ValueError, match="Predecessor tidak ditemukan"):
+        optimize_crash(invalid, 7)
+
+
+def test_schedule_crashing_rejects_boolean_and_non_finite_cost_inputs():
+    from core import optimize_crash
+
+    base = pd.DataFrame([{"activity_id": "A", "duration_days": 5,
+        "predecessor_ids": "", "crash_duration_days": 3,
+        "crash_cost_per_day": 100}])
+    for col, value in [("duration_days", True),
+                       ("crash_duration_days", float("nan")),
+                       ("crash_cost_per_day", float("inf"))]:
+        invalid = base.copy()
+        invalid[col] = value
+        with pytest.raises(ValueError):
+            optimize_crash(invalid, 4)
+
+
+def test_risk_analysis_rejects_boolean_or_negative_seed():
+    from core import risk_analysis
+
+    risks = pd.DataFrame([{"risk_id": "R1", "probability": 0.5,
+        "cost_impact": 100, "schedule_impact_days": 2}])
+    for seed in [True, -1, "7"]:
+        with pytest.raises(ValueError, match="seed"):
+            risk_analysis(risks, 1000, seed=seed)
