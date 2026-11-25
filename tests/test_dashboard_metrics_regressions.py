@@ -21,7 +21,8 @@ def test_zero_cpi_does_not_crash_or_publish_infinite_eac():
     assert math.isnan(result["eac"])
     assert math.isnan(result["etc"])
     assert math.isnan(result["vac"])
-    assert math.isnan(result["tcpi"])
+    # TCPI is independently defined from BAC, EV and remaining budget; it remains calculable even when CPI is zero.
+    assert math.isclose(result["tcpi"], 100.0 / 90.0)
 
 
 def test_zero_actual_cost_does_not_publish_infinite_eac():
@@ -54,4 +55,5 @@ def test_overflowing_spi_cpi_and_percentages_become_unavailable():
     assert math.isnan(result["cpi"])
     assert math.isnan(result["eac"])
     assert math.isnan(result["sv_pct"])
-    assert math.isnan(result["cv_pct"])
+    # CV% remains finite here: (EV - AC) / EV is approximately 100%.
+    assert math.isclose(result["cv_pct"], 100.0)
