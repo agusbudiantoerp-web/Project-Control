@@ -31,11 +31,26 @@ def render_persistent_import_ui(database_path: str | Path | None = None) -> dict
 
     try:
         parsed = read_tabular_upload(uploaded)
+        selected_sheet = None
+        if parsed["extension"] == "xlsx" and len(parsed["available_sheets"]) > 1:
+            selected_sheet = st.selectbox(
+                "Worksheet",
+                options=parsed["available_sheets"],
+                index=0,
+                key=f"pc_persist_sheet_{parsed['filename']}_{project_id}_{dataset}",
+            )
+            if selected_sheet != parsed["sheet_name"]:
+                uploaded.seek(0)
+                parsed = read_tabular_upload(uploaded, sheet_name=selected_sheet)
     except Exception as exc:
         st.error(f"File could not be read: {exc}")
         return {"status": "READ_ERROR", "message": str(exc)}
 
-    st.caption(f"{parsed['filename']} · {parsed['row_count']} rows")
+    st.caption(
+        f"{parsed['filename']}"
+        + (f" · worksheet: {parsed['sheet_name']}" if parsed["sheet_name"] else "")
+        + f" · {parsed['row_count']} rows"
+    )
     st.dataframe(parsed["preview"], use_container_width=True)
     suggestion = suggest_column_mapping(dataset, parsed["columns"])
     if suggestion["ambiguous"]:
