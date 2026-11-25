@@ -18,6 +18,10 @@ from .project_store import ProjectStore
 from .schedule_engine import calculate_critical_path
 
 MAX_XER_BYTES = 30 * 1024 * 1024
+MAX_XER_TABLES = 100
+MAX_XER_ROWS_PER_TABLE = 100_000
+MAX_XER_FIELDS = 300
+MAX_XER_LINE_CHARS = 1_000_000
 MAX_DRAWING_IMAGE_BYTES = 12 * 1024 * 1024
 MAX_DRAWING_TAKEOFF_ITEMS = 500
 MAX_GEMINI_RESPONSE_CHARS = 1_000_000
@@ -35,7 +39,9 @@ def parse_xer_tables(raw: bytes) -> dict[str, list[dict[str, str]]]:
     tables: dict[str, list[dict[str, str]]] = {}
     current: str | None = None
     fields: list[str] = []
-    for line in text.splitlines():
+    for line_number, line in enumerate(text.splitlines(), 1):
+        if len(line) > MAX_XER_LINE_CHARS:
+            raise ValueError(f"XER line {line_number} exceeds the supported line length.")
         parts = line.rstrip("\r\n").split("\t")
         if not parts:
             continue
@@ -43,10 +49,14 @@ def parse_xer_tables(raw: bytes) -> dict[str, list[dict[str, str]]]:
             current = parts[1].strip()
             if not current:
                 raise ValueError("XER contains an empty table name")
+            if current not in tables and len(tables) >= MAX_XER_TABLES:
+                raise ValueError(f"XER exceeds the {MAX_XER_TABLES} table limit.")
             tables.setdefault(current, [])
             fields = []
         elif parts[0] == "%F" and current:
             fields = [value.strip() for value in parts[1:]]
+            if len(fields) > MAX_XER_FIELDS:
+                raise ValueError(f"XER table {current} exceeds the {MAX_XER_FIELDS} field limit.")
             folded = [field.casefold() for field in fields]
             if not fields or any(not field for field in fields) or len(folded) != len(set(folded)):
                 raise ValueError(f"XER table {current} has blank or duplicate field names")
@@ -56,6 +66,10 @@ def parse_xer_tables(raw: bytes) -> dict[str, list[dict[str, str]]]:
                 raise ValueError(f"XER table {current} contains a row wider than its field header")
             if len(values) < len(fields):
                 values += [""] * (len(fields) - len(values))
+            if len(tables[current]) >= MAX_XER_ROWS_PER_TABLE:
+                raise ValueError(
+                    f"XER table {current} exceeds the {MAX_XER_ROWS_PER_TABLE} row limit."
+                )
             tables[current].append(dict(zip(fields, values[:len(fields)])))
     if not tables:
         raise ValueError("File does not contain recognizable Primavera XER tables")
