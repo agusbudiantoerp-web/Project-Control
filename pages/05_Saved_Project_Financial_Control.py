@@ -14,13 +14,19 @@ st.info("Halaman ini membaca data tersimpan. Impor data terlebih dahulu melalui 
 with st.form("saved_financial_control_form"):
     project_id = st.text_input("Project ID", placeholder="Contoh: PROJECT-001")
     period = st.text_input("As-of period (optional)", placeholder="YYYY-MM")
+    progress_mode_label = st.selectbox(
+        "Progress record convention",
+        ["Period deltas (sum each period)", "Cumulative snapshots (latest per activity)"],
+        help="Pilih sesuai format data yang diimpor. Actual cost tetap diperlakukan sebagai transaksi/period deltas.",
+    )
+    progress_mode = "cumulative_snapshots" if progress_mode_label.startswith("Cumulative") else "period_deltas"
     threshold = st.number_input("Budget variance warning threshold (%)", min_value=0.0, value=5.0, step=0.5)
     submitted = st.form_submit_button("Load saved project and calculate")
 if submitted:
     try:
         result = build_stored_project_financial_control(
             database_path, project_id, as_of_period=period.strip() or None,
-            warning_threshold_pct=threshold,
+            warning_threshold_pct=threshold, progress_mode=progress_mode,
         )
         evm = result["evm"]
         st.subheader(result["project_name"])
@@ -52,6 +58,7 @@ if submitted:
             "",
             f"Project: {result['project_name']} ({result['project_id']})",
             f"Reporting period: {period.strip() or 'All available periods'}",
+            f"Progress convention: {progress_mode_label}",
             f"Currency: {result['currency'] or 'Not defined'}",
             "",
             "## Earned Value Management",
