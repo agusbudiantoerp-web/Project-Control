@@ -305,7 +305,7 @@ def test_xer_parser_enforces_line_length_limit(monkeypatch):
 def test_gemini_rejects_invalid_timeout_values(timeout):
     with pytest.raises(ValueError, match="finite positive"):
         import_service.analyze_drawing_page_with_gemini(
-            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key", timeout=timeout
+            b"\x89PNG\r\n\x1a\nfake-png", "test-key", timeout=timeout
         )
 
 
@@ -320,7 +320,7 @@ def test_gemini_rejects_non_object_takeoff_rows(monkeypatch):
     monkeypatch.setattr(import_service.requests, "post", lambda *args, **kwargs: Response())
     with pytest.raises(RuntimeError, match="item 2 must be a JSON object"):
         import_service.analyze_drawing_page_with_gemini(
-            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+            b"\x89PNG\r\n\x1a\nfake-png", "test-key"
         )
 
 
@@ -337,13 +337,14 @@ def test_gemini_rejects_nested_or_oversized_takeoff_text(monkeypatch):
     monkeypatch.setattr(import_service.requests, "post", lambda *args, **kwargs: Response())
     with pytest.raises(RuntimeError, match="invalid description"):
         import_service.analyze_drawing_page_with_gemini(
-            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+            b"\x89PNG\r\n\x1a\nfake-png", "test-key"
         )
 
 
 def test_xer_import_rejects_duplicate_wbs_ids():
-    duplicate = SINGLE_PROJECT_XER + (
-        "%R\\tP6-1\\tW1\\t\\tDuplicate WBS\\n".encode("ascii")
+    duplicate = SINGLE_PROJECT_XER.replace(
+        b"%T\tTASK\n",
+        b"%R\tP6-1\tW1\t\tDuplicate WBS\n%T\tTASK\n",
     )
     with pytest.raises(ValueError, match="duplicate WBS IDs"):
         import_service.prepare_xer_workspace_import(
@@ -368,8 +369,8 @@ def test_xer_replace_does_not_clear_existing_wbs_when_source_has_none():
 
     store = Store()
     source_without_wbs = SINGLE_PROJECT_XER.replace(
-        b"%T\\tPROJWBS\\n%F\\tproj_id\\twbs_id\\tparent_wbs_id\\twbs_name\\n"
-        b"%R\\tP6-1\\tW1\\t\\tCivil Works\\n",
+        b"%T\tPROJWBS\n%F\tproj_id\twbs_id\tparent_wbs_id\twbs_name\n"
+        b"%R\tP6-1\tW1\t\tCivil Works\n",
         b"",
     )
     with pytest.raises(ValueError, match="existing WBS dataset was left unchanged"):
