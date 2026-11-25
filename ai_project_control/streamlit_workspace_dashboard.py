@@ -10,6 +10,7 @@ from .portfolio_executive_report import build_portfolio_executive_report
 from .workspace_service import build_workspace_overview
 from .project_store import ProjectStore
 from .schedule_baseline_service import create_schedule_baseline, approve_schedule_baseline
+from .schedule_change_service import decide_schedule_change
 from .streamlit_recovery_scenario_planner import render_recovery_scenario_planner
 from .resource_loading_summary import build_resource_loading_summary
 from .manpower_equipment_planner import build_manpower_equipment_plan
@@ -887,6 +888,37 @@ def render_project_workspace_dashboard(
                     st.rerun()
                 except (TypeError, ValueError, OSError) as change_error:
                     st.error("Change request was not saved: " + str(change_error))
+    pending_changes = [
+        row for row in change_rows if str(row.get("status", "")).upper() == "PENDING"
+    ]
+    if pending_changes:
+        with st.expander("Review pending schedule change requests", expanded=False):
+            pending_ids = [str(row.get("change_id")) for row in pending_changes]
+            with st.form("pc_decide_schedule_change_form"):
+                selected_change_id = st.selectbox("Pending change request", pending_ids)
+                change_decision = st.selectbox("Decision", ["APPROVED", "REJECTED"])
+                change_reviewer = st.text_input("Decision made by", key="pc_change_decision_reviewer")
+                change_rationale = st.text_area("Decision rationale", key="pc_change_decision_rationale")
+                submit_change_decision = st.form_submit_button("Record change decision")
+            if submit_change_decision:
+                try:
+                    selected_change = next(
+                        row for row in pending_changes
+                        if str(row.get("change_id")) == selected_change_id
+                    )
+                    decided_change = decide_schedule_change(
+                        selected_change, change_decision, change_reviewer, change_rationale
+                    )
+                    ProjectStore(database_path).save_dataset(
+                        project_id, "schedule_changes", [decided_change], mode="upsert"
+                    )
+                    st.success(
+                        f"Change request {selected_change_id} recorded as {change_decision}. "
+                        "The approved schedule baseline remains unchanged."
+                    )
+                    st.rerun()
+                except (TypeError, ValueError, OSError, StopIteration) as decision_error:
+                    st.error("Change decision was not saved: " + str(decision_error))
     if change_rows:
         st.markdown("**Schedule change register**")
         st.dataframe(change_rows, use_container_width=True, hide_index=True)
