@@ -305,6 +305,50 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
             add_link_issue("UNKNOWN_RESOURCE_ACTIVITY", "resources", index, "activity_id",
                            f"Resource activity {activity_id} does not exist in project {pid}")
 
+    # Baseline snapshots are versioned project records. Change requests may
+    # reference only a baseline belonging to the same project.
+    baselines_by_project = project_index("schedule_baselines", "baseline_id")
+    for index, row in enumerate(normalized["schedule_baselines"]):
+        version = row.get("version")
+        if version not in (None, ""):
+            try:
+                numeric_version = float(version)
+            except (TypeError, ValueError, OverflowError):
+                numeric_version = math.nan
+            if not math.isfinite(numeric_version) or numeric_version < 1 or not numeric_version.is_integer():
+                add_link_issue("INVALID_BASELINE_VERSION", "schedule_baselines", index, "version",
+                               "Baseline version must be a positive integer")
+        snapshot = row.get("activities_snapshot")
+        if snapshot is not None:
+            if not isinstance(snapshot, list):
+                add_link_issue("INVALID_BASELINE_SNAPSHOT", "schedule_baselines", index,
+                               "activities_snapshot", "activities_snapshot must be a list")
+            else:
+                seen_snapshot_ids = set()
+                for activity_index, activity in enumerate(snapshot):
+                    if not isinstance(activity, dict):
+                        add_link_issue("INVALID_BASELINE_ACTIVITY", "schedule_baselines", index,
+                                       "activities_snapshot",
+                                       f"Baseline activity at position {activity_index} must be an object")
+                        continue
+                    activity_id = str(activity.get("activity_id", "")).strip()
+                    if not activity_id:
+                        add_link_issue("MISSING_BASELINE_ACTIVITY_ID", "schedule_baselines", index,
+                                       "activities_snapshot",
+                                       f"Baseline activity at position {activity_index} has no activity_id")
+                    elif activity_id in seen_snapshot_ids:
+                        add_link_issue("DUPLICATE_BASELINE_ACTIVITY_ID", "schedule_baselines", index,
+                                       "activities_snapshot",
+                                       f"Baseline snapshot contains duplicate activity {activity_id}")
+                    seen_snapshot_ids.add(activity_id)
+
+    for index, row in enumerate(normalized["schedule_changes"]):
+        pid = str(row.get("project_id", "")).strip()
+        baseline_id = str(row.get("baseline_id", "") or "").strip()
+        if baseline_id and pid in baselines_by_project and baseline_id not in baselines_by_project[pid]:
+            add_link_issue("UNKNOWN_CHANGE_BASELINE", "schedule_changes", index, "baseline_id",
+                           f"Schedule change references unknown baseline {baseline_id} in project {pid}")
+
     errors = sum(issue["severity"] == "ERROR" for issue in issues)
     warnings = sum(issue["severity"] == "WARNING" for issue in issues)
     row_count = sum(len(rows) for rows in normalized.values())
