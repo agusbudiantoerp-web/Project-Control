@@ -593,3 +593,33 @@ Run references:
 3. Configure Telegram credentials privately, then test a private-chat PDF intake and a report send only after explicit operator confirmation.
 4. Configure Gemini only if the user chooses to transmit an approved sample drawing; verify the consent gate, editable takeoff draft and QS approval path.
 5. Production multi-user use remains out of scope until authentication, roles, shared durable database, secret management, encryption, audit/monitoring and disaster recovery are implemented and reviewed.
+
+
+## Latest verified source commit — 2026-11-25
+
+Source commit tested: `d879bd5c8086f8e8f14f8e54104ce5fe211dc316`
+
+### GitHub Actions results
+
+- Linux primary workspace focused regression suite: **523 passed**.
+- Linux complete primary workspace suite: **532 passed**.
+- Linux primary app compilation and Streamlit HTTP health smoke: **passed**.
+- Legacy integrated engine CI: **179 passed**.
+- Legacy deterministic engine CI: **179 passed**.
+- Windows complete primary workspace suite: **531 passed, 1 skipped**.
+- Windows primary app compilation: **passed**.
+- Windows Streamlit HTTP health smoke: **passed**.
+- Windows backup/restore regression suite: **14 passed**.
+- Windows backup utility compilation and Task Scheduler PowerShell syntax parsing: **passed**.
+- All jobs across the three workflows completed successfully.
+
+Workflow runs:
+- Linux focused/full suite + Windows acceptance: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45567765646
+- Legacy integrated engine: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45567765644
+- Legacy deterministic engine: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45567765750
+
+Telegram PDF intake was hardened to stream downloads in 64 KiB chunks, reject oversized Content-Length before reading, enforce the configured maximum while streaming, and reject backslashes in Telegram file paths. Regression tests cover oversized downloads with missing metadata, large Content-Length, and a single Windows path separator.
+
+### Release decision
+
+The code has passed automated Linux and Windows CI checks, including application startup health checks. This does **not** establish that a real user's Windows Task Scheduler job has been registered/executed, that a real backup has been restored to a separate live workspace, or that live Telegram/Gemini credentials and external provider delivery work. The current PR remains Draft. Do not merge or call production-ready until a human reviews the 212-file PR and the real-environment acceptance gates above are completed.
