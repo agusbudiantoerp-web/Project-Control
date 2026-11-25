@@ -52,7 +52,7 @@ def create_backup(destination: Path, retention_days: int) -> Path:
             temporary.write(payload)
             temporary.flush()
             os.fsync(temporary.fileno())
-        if temp_path.stat().st_size != len(payload) or not temp_path.read_bytes().startswith(b"SQLite format 3\\x00"):
+        if temp_path.stat().st_size != len(payload) or not temp_path.read_bytes().startswith(b"SQLite format 3\x00"):
             raise ValueError("Backup file verification failed before publication.")
         if os.name != "nt":
             temp_path.chmod(0o600)
