@@ -1,15 +1,15 @@
 """Local workspace backup and per-project import history."""
-import os
 import sqlite3
 import streamlit as st
 
 from ai_project_control.project_store import ProjectStore
 from ai_project_control.workspace_backup import build_workspace_backup
+from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(page_title="Workspace Backup & Audit", page_icon="🗄️", layout="wide")
 st.title("Workspace Backup & Import History")
 st.caption("Backup file SQLite dan riwayat impor lokal untuk membantu pengelolaan data.")
-database_path = os.getenv("PROJECT_CONTROL_DB", ".project_control/project_control.sqlite3")
+database_path = get_workspace_database_path()
 try:
     store = ProjectStore(database_path)
     project_ids = store.list_project_ids()
