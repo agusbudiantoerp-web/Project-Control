@@ -61,13 +61,13 @@ def calculate_evm(
     cutoff_key = None
     if as_of_period is not None:
         cutoff_key = str(as_of_period).strip()
-        if re.fullmatch(r"\\d{4}-\\d{2}", cutoff_key):
+        if re.fullmatch(r"\d{4}-\d{2}", cutoff_key):
             try:
                 date.fromisoformat(cutoff_key + "-01")
             except ValueError:
                 raise ValueError("as_of_period must be a valid YYYY-MM month or YYYY-MM-DD date") from None
             cutoff_key += "\uffff"
-        elif re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", cutoff_key):
+        elif re.fullmatch(r"\d{4}-\d{2}-\d{2}", cutoff_key):
             try:
                 date.fromisoformat(cutoff_key)
             except ValueError:
