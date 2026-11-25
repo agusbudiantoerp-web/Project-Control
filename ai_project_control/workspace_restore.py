@@ -61,7 +61,7 @@ def validate_workspace_backup(raw: bytes) -> dict[str, int]:
     if not isinstance(raw, (bytes, bytearray)) or not raw:
         raise ValueError("Workspace backup upload is empty.")
     if len(raw) > MAX_WORKSPACE_BACKUP_BYTES:
-        raise ValueError("Workspace backup exceeds the 250 MB restore limit.")
+        raise ValueError("Workspace backup exceeds the 200 MB restore limit.")
     if not bytes(raw).startswith(b"SQLite format 3\x00"):
         raise ValueError("Uploaded file is not a SQLite database backup.")
     with tempfile.TemporaryDirectory(prefix="project-control-restore-check-") as temp_dir:
