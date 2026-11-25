@@ -235,3 +235,12 @@ def test_multi_dataset_database_failure_rolls_back_entire_batch(tmp_path):
     assert store.load_dataset("P3", "project_master") == []
     assert store.load_dataset("P3", "wbs") == []
     assert store.load_dataset("P3", "activities") == []
+
+
+def test_workspace_metadata_persists_and_protects_schema_version(tmp_path):
+    store = ProjectStore(tmp_path / "metadata.sqlite3")
+    assert store.get_metadata("telegram_update_offset:123") is None
+    store.set_metadata("telegram_update_offset:123", "42")
+    assert store.get_metadata("telegram_update_offset:123") == "42"
+    with pytest.raises(ValueError, match="reserved"):
+        store.set_metadata("schema_version", "999")
