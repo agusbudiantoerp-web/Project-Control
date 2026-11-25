@@ -63,3 +63,16 @@ def test_complete_zero_actual_cost_is_valid_evidence(tmp_path):
     result = build_stored_portfolio_cashflow_view(db)
     assert result["project_count_assessed"] == 1
     assert result["projects"][0]["actual_cost"] == 0
+
+
+def test_overflowing_actual_cost_total_is_unassessed(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    _project(store, bac=1e308)
+    store.save_dataset("P1", "actual_cost", [
+        {"project_id": "P1", "period": "2026-10", "cost_code": "C1", "actual_cost": 1e308},
+        {"project_id": "P1", "period": "2026-11", "cost_code": "C2", "actual_cost": 1e308},
+    ])
+    result = build_stored_portfolio_cashflow_view(db)
+    assert result["project_count_assessed"] == 0
+    assert result["unassessed_projects"][0]["project_id"] == "P1"
