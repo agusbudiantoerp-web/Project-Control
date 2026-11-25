@@ -164,13 +164,18 @@ def simulate_schedule_risk(
         finishes.append(max((earliest_finish[aid] for aid in terminal_activities), default=0.0))
 
     p50, p80, p90 = (_percentile(finishes, p) for p in (.5, .8, .9))
+
+    def date_at(days: float) -> str:
+        try:
+            return (start + timedelta(days=math.ceil(days))).isoformat()
+        except OverflowError:
+            raise ValueError("Simulated finish date exceeds the supported calendar range") from None
+
     probability_target = {}
     for target_days in sorted(set(math.ceil(p) for p in (p50, p80, p90))):
-        probability_target[(start + timedelta(days=target_days)).isoformat()] = round(
+        probability_target[date_at(target_days)] = round(
             sum(value <= target_days for value in finishes) / iterations * 100, 2
         )
-    def date_at(days: float) -> str:
-        return (start + timedelta(days=math.ceil(days))).isoformat()
 
     return {
         "status": "ASSESSED",
