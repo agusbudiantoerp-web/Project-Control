@@ -185,36 +185,39 @@ def prepare_xer_workspace_import(
     task_ids = set(task_id_values)
     code_by_id = dict(zip(task_id_values, activity_id_values))
     predecessor_map: dict[str, list[str]] = {}
+    relationship_map: dict[str, list[dict[str, Any]]] = {}
+    seen_relationships: set[tuple[str, str]] = set()
     for relation in tables.get("TASKPRED", []):
         successor = str(relation.get("task_id", "")).strip()
         predecessor = str(relation.get("pred_task_id", "")).strip()
         if successor not in task_ids:
             continue
         if predecessor not in task_ids:
-            raise ValueError(
-                f"P6 activity {successor} references predecessor {predecessor} outside the selected project."
-            )
-        if code_by_id[predecessor] in predecessor_map.get(successor, []):
+            raise ValueError(f"P6 activity {successor} references predecessor {predecessor} outside the selected project.")
+        pair = (successor, predecessor)
+        if pair in seen_relationships:
             raise ValueError(f"P6 activity {successor} contains a duplicate predecessor link")
+        seen_relationships.add(pair)
         relation_type = str(relation.get("pred_type") or "PR_FS").strip().upper()
-        if relation_type not in {"PR_FS", "FS"}:
-            raise ValueError(
-                f"P6 relationship {predecessor} → {successor} uses unsupported type "
-                f"{relation_type}; only Finish-to-Start relationships are imported."
-            )
+        if relation_type.startswith("PR_"):
+            relation_type = relation_type[3:]
+        if relation_type not in {"FS", "SS", "FF", "SF"}:
+            raise ValueError(f"P6 relationship {predecessor} -> {successor} uses unsupported type {relation_type}.")
         raw_lag = relation.get("lag_hr_cnt", "0")
         try:
             lag_hours = float(raw_lag or 0)
         except (TypeError, ValueError):
-            raise ValueError(
-                f"P6 relationship {predecessor} → {successor} has an invalid lag."
-            ) from None
-        if not math.isfinite(lag_hours) or abs(lag_hours) > 1e-9:
-            raise ValueError(
-                f"P6 relationship {predecessor} → {successor} has a non-zero lag; "
-                "lags are not supported by the workspace CPM engine."
-            )
-        predecessor_map.setdefault(successor, []).append(code_by_id[predecessor])
+            raise ValueError(f"P6 relationship {predecessor} -> {successor} has an invalid lag.") from None
+        if not math.isfinite(lag_hours):
+            raise ValueError(f"P6 relationship {predecessor} -> {successor} has a non-finite lag.")
+        predecessor_code = code_by_id[predecessor]
+        predecessor_map.setdefault(successor, []).append(predecessor_code)
+        relationship_map.setdefault(successor, []).append({
+            "predecessor_id": predecessor_code,
+            "type": relation_type,
+            "lag_days": lag_hours / 8.0,
+            "source_lag_hours": lag_hours,
+        })
 
     activities = []
     for index, row in enumerate(selected_tasks, 1):
@@ -240,6 +243,7 @@ def prepare_xer_workspace_import(
             "planned_start": _first_date(row.get("target_start_date"), row.get("early_start_date")),
             "planned_finish": _first_date(row.get("target_end_date"), row.get("early_end_date")),
             "predecessor_ids": ",".join(predecessor_map.get(source_task_id, [])),
+            "relationship_details": relationship_map.get(source_task_id, []),
             "source_format": "PRIMAVERA_P6_XER",
             "source_task_id": source_task_id,
         })
