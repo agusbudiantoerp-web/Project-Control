@@ -75,7 +75,10 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                     issues.append({"severity": "ERROR", "code": "MISSING_KEY",
                                    "table": table, "record": str(index), "field": field,
                                    "message": f"Required key {field} is missing"})
-            key = tuple(str(row.get(field, "")).strip() for field in key_fields)
+            identity_fields = key_fields
+            if table == "progress" and str(row.get("boq_id", "") or "").strip():
+                identity_fields = (*key_fields, "boq_id")
+            key = tuple(str(row.get(field, "")).strip() for field in identity_fields)
             if all(key) and key in seen:
                 severity = "WARNING" if table == "portfolio_snapshots" else "ERROR"
                 code = "DUPLICATE_SNAPSHOT_DATE" if table == "portfolio_snapshots" else "DUPLICATE_KEY"
