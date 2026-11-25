@@ -9,6 +9,9 @@ __pycache__/
 venv/
 
 # Local workspace data and secrets
+.streamlit/
+secrets.toml
+*.secret
 .project_control/
 *.sqlite
 *.sqlite3
