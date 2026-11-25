@@ -386,7 +386,11 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
     for index, row in enumerate(normalized["schedule_changes"]):
         pid = str(row.get("project_id", "")).strip()
         baseline_id = str(row.get("baseline_id", "") or "").strip()
-        if baseline_id and baseline_id not in baselines_by_project.get(pid, {}):
+        if (
+            baseline_id
+            and "schedule_baselines" in tables
+            and baseline_id not in baselines_by_project.get(pid, {})
+        ):
             add_link_issue("UNKNOWN_CHANGE_BASELINE", "schedule_changes", index, "baseline_id",
                            f"Schedule change references unknown baseline {baseline_id} in project {pid}")
         status = str(row.get("status", "PENDING") or "PENDING").strip().upper()
