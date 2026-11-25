@@ -90,3 +90,14 @@ def test_schedule_risk_rejects_overflowing_sampled_finish():
     }]
     with pytest.raises(ValueError, match="supported numeric range"):
         simulate_schedule_risk(huge, [], "2026-11-01", iterations=1000)
+
+
+def test_schedule_risk_rejects_finish_date_outside_calendar_range():
+    very_long = [{
+        "activity_id": "A", "predecessors": [],
+        "duration_min_days": 10_000_000,
+        "duration_most_likely_days": 10_000_000,
+        "duration_max_days": 10_000_000,
+    }]
+    with pytest.raises(ValueError, match="calendar range"):
+        simulate_schedule_risk(very_long, [], "2026-11-01", iterations=1000)
