@@ -21,6 +21,7 @@ TABLE_KEYS = {
     "resources": ("project_id", "resource_id", "period"),
     "portfolio_snapshots": ("project_id", "snapshot_date"),
     "schedule_baselines": ("project_id", "baseline_id"),
+    "schedule_changes": ("project_id", "change_id"),
 }
 PROJECT_LINKED = tuple(name for name in TABLE_KEYS if name != "project_master")
 NUMERIC_FIELDS = {
