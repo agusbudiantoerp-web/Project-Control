@@ -547,3 +547,18 @@ Implementation changes have been committed and selected files/workflows have bee
 - Added regression tests for actual-cost mismatch, progress mismatch, case-insensitive matching and absent currency.
 - These changes and tests are committed. A passing full CI run and end-to-end saved-workspace verification are still outstanding.
 
+
+
+## CI evidence update — 2026-11-25
+
+Latest verified application commit: `f7217d561eef38b1e347215755e78e0aa62f6b1d`.
+
+- Project Control focused workflow: **542 passed** and workflow succeeded. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45621068210
+- Complete repository pytest suite in the same workflow: **764 passed**.
+- AI Project Control Recovery Tests: workflow succeeded. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45621070051
+- Python compilation step for root app, pages and application modules succeeded in the focused workflow.
+- Import preflight now validates proposed CSV/XLSX data against the existing project workspace before commit; atomic multi-dataset writes validate merged cross-dataset links.
+- Progress records now support either activity totals or BOQ-level detail, with duplicate and mixed-aggregation checks.
+- Drawing-to-BOQ review now allows an explicit optional Activity ID mapping in addition to WBS mapping.
+
+These results verify automated tests and compile checks on the stated SHA. They do not verify a clean Windows installation, real owner data, Gemini API connectivity, Telegram bot delivery, backup/restore drill, authentication or production deployment. Do not describe the product as production-ready until those acceptance gates are completed.
