@@ -16,14 +16,14 @@ Panduan ini menjalankan aplikasi secara lokal pada Windows untuk evaluasi intern
 Buka PowerShell, lalu jalankan:
 
 ```powershell
-git clone --branch ai-project-control-integration https://github.com/agusbudiantoerp-web/Project-Control.git
+git clone --branch ai-project-control-release https://github.com/agusbudiantoerp-web/Project-Control.git
 cd Project-Control
 ```
 
 Jika folder sudah ada, masuk ke folder tersebut dan perbarui branch:
 
 ```powershell
-git switch ai-project-control-integration
+git switch ai-project-control-release
 git pull
 ```
 
@@ -98,3 +98,28 @@ Workspace SQLite bersifat lokal dan tidak otomatis tersinkron ke komputer lain. 
 ## 8. Belum menjadi deployment produksi
 
 Sebelum digunakan banyak pengguna, organisasi harus menetapkan autentikasi, role-based access, database server bersama, enkripsi, audit trail, backup/restore, pemantauan, secret management, retensi data dan prosedur pemulihan bencana. Jalankan pengujian penerimaan dengan data referensi yang sudah disetujui pemilik proyek.
+
+
+## 9. Backup otomatis harian (opsional)
+
+Aplikasi menyediakan skrip backup SQLite yang memeriksa integritas file sebelum memublikasikan backup.
+
+Jalankan backup manual dari PowerShell di folder repository:
+
+```powershell
+py -3.11 scripts/backup_workspace.py
+```
+
+Secara default file backup dibuat di `.project_control/backups` dan file backup lama yang dibuat oleh skrip ini akan dihapus setelah melewati 30 hari, setelah backup baru berhasil dibuat. Untuk menyimpan backup di drive lain dan mempertahankannya selama 60 hari:
+
+```powershell
+py -3.11 scripts/backup_workspace.py --destination "D:\\AIProjectControlBackups" --retention-days 60
+```
+
+Untuk membuat jadwal harian pukul 20:00 melalui Windows Task Scheduler:
+
+```powershell
+.\\INSTALL_DAILY_BACKUP_TASK.ps1 -At "20:00"
+```
+
+Gunakan akun Windows yang sama dengan akun yang menjalankan aplikasi. Pastikan komputer menyala atau Task Scheduler dapat menjalankan tugas saat komputer aktif kembali. Simpan salinan terenkripsi di media/drive terpisah. Lakukan restore berkala ke workspace uji; backup yang belum pernah diuji restore belum membuktikan prosedur pemulihan berhasil.
