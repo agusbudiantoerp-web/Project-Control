@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import sqlite3
 
 import streamlit as st
 
@@ -30,7 +31,11 @@ def _text_cell(value) -> str:
 
 
 database_path = get_workspace_database_path()
-store = ProjectStore(database_path)
+try:
+    store = ProjectStore(database_path)
+except (OSError, RuntimeError, sqlite3.Error) as exc:
+    st.error("Primary workspace database is unavailable: " + str(exc))
+    st.stop()
 
 st.info(
     "P6 XER dipetakan ke dataset Project Master, WBS dan Activities pada workspace utama. "
@@ -133,7 +138,7 @@ with st.expander("A. Import Primavera P6 XER", expanded=True):
                 )
                 if mode == "replace":
                     st.session_state[replace_nonce_key] = replace_nonce + 1
-        except (TypeError, ValueError, OSError) as exc:
+        except (TypeError, ValueError, OSError, sqlite3.Error) as exc:
             st.error("XER could not be prepared: " + str(exc))
 
 st.divider()
@@ -284,7 +289,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                 st.success(f"Saved {saved['saved_count']} reviewed BOQ draft rows for {target_project}.")
                 except ImportError:
                     st.error("PDF drawing preview requires PyMuPDF. Install dependencies from the root requirements.txt.")
-                except (RuntimeError, ValueError, OSError) as exc:
+                except (RuntimeError, ValueError, OSError, sqlite3.Error) as exc:
                     st.error("Drawing takeoff could not be prepared: " + str(exc))
         else:
             st.info("Upload PDF gambar untuk memilih halaman dan meninjau hasil takeoff.")
