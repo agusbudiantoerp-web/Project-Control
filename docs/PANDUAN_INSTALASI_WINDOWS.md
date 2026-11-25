@@ -33,7 +33,7 @@ git pull
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements.txt -r ai_project_control/requirements.txt
 ```
 
 Jika PowerShell memblokir aktivasi script, jalankan perintah aktivasi melalui Command Prompt:
