@@ -89,11 +89,21 @@ class ProjectStore:
                     "SELECT value FROM store_metadata WHERE key=?",
                     ("schema_version",),
                 ).fetchone()
-                if current is not None and int(current["value"]) > SCHEMA_VERSION:
-                    raise RuntimeError(
-                        "Workspace database schema is newer than this application; "
-                        "upgrade the application before opening this database."
-                    )
+                if current is not None:
+                    try:
+                        current_version = int(current["value"])
+                    except (TypeError, ValueError):
+                        raise RuntimeError("Workspace database schema metadata is invalid.") from None
+                    if current_version > SCHEMA_VERSION:
+                        raise RuntimeError(
+                            "Workspace database schema is newer than this application; "
+                            "upgrade the application before opening this database."
+                        )
+                    if current_version < SCHEMA_VERSION:
+                        raise RuntimeError(
+                            "Workspace database schema is older than this application; "
+                            "run a supported backup and migration before opening this database."
+                        )
             db.execute("""
                 CREATE TABLE IF NOT EXISTS project_records (
                     project_id TEXT NOT NULL,
