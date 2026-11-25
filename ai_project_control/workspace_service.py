@@ -35,7 +35,13 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
         "currency": project.get("currency", ""),
         "budget_at_completion": project.get("budget_at_completion", project.get("bac")),
     }])
-    evm = calculate_evm(project, workspace["progress"], workspace["actual_cost"])
+    progress_record_mode = str(project.get("progress_record_mode", "period_delta") or "period_delta").strip()
+    actual_cost_record_mode = str(project.get("actual_cost_record_mode", "period_delta") or "period_delta").strip()
+    evm = calculate_evm(
+        project, workspace["progress"], workspace["actual_cost"],
+        progress_record_mode=progress_record_mode,
+        actual_cost_record_mode=actual_cost_record_mode,
+    )
     schedule = calculate_critical_path(workspace["activities"])
     schedule_forecast = assess_schedule_delays(
         workspace["activities"],
