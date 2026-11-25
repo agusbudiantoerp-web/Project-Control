@@ -187,3 +187,24 @@ def test_cumulative_progress_mode_respects_cutoff_and_requires_activity_period()
     )
     assert invalid["PV"] is None
     assert "CUMULATIVE_PROGRESS_REQUIRES_ACTIVITY_ID_AND_PERIOD" in invalid["data_gaps"]
+
+ 
+ 
+def test_month_cutoff_includes_iso_date_periods_through_month_end():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000},
+        [
+            {"project_id": "P1", "activity_id": "A", "period": "2026-01-31",
+             "planned_value": 100, "earned_value": 90},
+            {"project_id": "P1", "activity_id": "B", "period": "2026-02-01",
+             "planned_value": 200, "earned_value": 180},
+        ],
+        [
+            {"project_id": "P1", "period": "2026-01-31", "actual_cost": 50},
+            {"project_id": "P1", "period": "2026-02-01", "actual_cost": 60},
+        ],
+        as_of_period="2026-01",
+    )
+    assert result["PV"] == 100
+    assert result["EV"] == 90
+    assert result["AC"] == 50
