@@ -90,6 +90,10 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
     return {
         "project": project,
         "evm": evm,
+        "evm_record_modes": {
+            "progress": progress_record_mode,
+            "actual_cost": actual_cost_record_mode,
+        },
         "schedule": schedule,
         "schedule_forecast": schedule_forecast,
         "active_schedule_baseline": active_baseline,
