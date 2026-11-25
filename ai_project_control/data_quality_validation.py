@@ -132,6 +132,18 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                                    "table": table, "record": str(index), "field": field,
                                    "message": f"{field} cannot be negative"})
 
+            if table == "project_master":
+                for mode_field in ("progress_record_mode", "actual_cost_record_mode"):
+                    raw_mode = row.get(mode_field)
+                    if raw_mode not in (None, "") and str(raw_mode).strip() not in {
+                        "period_delta", "cumulative_snapshot"
+                    }:
+                        issues.append({
+                            "severity": "ERROR", "code": "INVALID_EVM_RECORD_MODE",
+                            "table": table, "record": str(index), "field": mode_field,
+                            "message": f"{mode_field} must be period_delta or cumulative_snapshot",
+                        })
+
             if table == "boq":
                 raw_quantity = row.get("quantity")
                 raw_unit_rate = row.get("unit_rate")
