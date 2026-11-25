@@ -360,6 +360,19 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
         if baseline_id and normalized["schedule_baselines"] and baseline_id not in baselines_by_project.get(pid, {}):
             add_link_issue("UNKNOWN_CHANGE_BASELINE", "schedule_changes", index, "baseline_id",
                            f"Schedule change references unknown baseline {baseline_id} in project {pid}")
+        status = str(row.get("status", "PENDING") or "PENDING").strip().upper()
+        if status not in {"PENDING", "APPROVED", "REJECTED", "IMPLEMENTED", "CANCELLED"}:
+            add_link_issue("INVALID_CHANGE_STATUS", "schedule_changes", index, "status",
+                           f"Unsupported schedule change status: {status}")
+        if status in {"APPROVED", "REJECTED"}:
+            missing_audit = [
+                field for field in ("decided_by", "decided_at", "decision_rationale")
+                if not str(row.get(field, "") or "").strip()
+            ]
+            if missing_audit:
+                add_link_issue("MISSING_CHANGE_DECISION_AUDIT", "schedule_changes", index,
+                               ",".join(missing_audit),
+                               "Approved or rejected change requests require decision maker, date, and rationale")
 
     errors = sum(issue["severity"] == "ERROR" for issue in issues)
     warnings = sum(issue["severity"] == "WARNING" for issue in issues)
