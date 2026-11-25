@@ -532,5 +532,7 @@ Implementation commits in this continuation include:
 - Latest feature updates include inclusive month cut-offs for EVM records whose period field is either YYYY-MM or an ISO date, and strict backup retention matching so manually named SQLite files are not deleted.
 - The XER compatibility predecessor_ids field is now limited to zero-lag FS links; complete relationship details remain in relationship_details for the typed CPM engine, preventing older FS-only consumers from silently misreading SS/FF/SF or lagged links.
 - The primary workspace schedule display now shows CPM assumptions alongside the calculated network.
-- Latest recorded implementation commit: b6ff8be43f05bfe925018d34cfb2151e824baab4.
+- Latest recorded implementation commit at this checkpoint: 71445aeeab77bec4b3e20d203768c565509e2f51.
 - No test, compile or live integration command has been executed during this implementation-first phase. All newly added and changed tests remain pending the agreed test phase.
+
+- Backup retention and destination safeguards now restrict cleanup to the script's timestamped filenames and reject the workspace database folder as a backup destination. A regression test covers this guard.
