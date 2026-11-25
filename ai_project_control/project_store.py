@@ -7,6 +7,7 @@ server-grade database and must not be exposed directly to the public internet.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -45,11 +46,15 @@ class ProjectStore:
             self._memory_keeper = sqlite3.connect(self._sqlite_target, uri=True, timeout=15)
         else:
             path = Path(self.database_path).expanduser()
-            path.parent.mkdir(parents=True, exist_ok=True)
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             self.database_path = str(path)
             self._sqlite_target = self.database_path
         try:
             self._initialise()
+            if not self._sqlite_uri and os.name != "nt":
+                # Workspace records can include contracts, budgets and costs.
+                # Restrict local database file permissions on POSIX systems.
+                os.chmod(self.database_path, 0o600)
         except Exception:
             self.close()
             raise
