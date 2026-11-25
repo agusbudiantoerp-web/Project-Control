@@ -28,6 +28,8 @@ ALIASES = {
     "boq": {
         "project_id": ("project id", "project code", "kode proyek"),
         "boq_id": ("boq id", "item code", "kode item"),
+        "wbs_id": ("wbs id", "wbs code", "kode wbs"),
+        "activity_id": ("activity id", "activity code", "kode aktivitas"),
         "quantity": ("quantity", "qty", "volume"),
         "unit_rate": ("unit rate", "unit price", "harga satuan"),
         "amount": ("amount", "total", "nilai"),
@@ -35,6 +37,8 @@ ALIASES = {
     "activities": {
         "project_id": ("project id", "project code", "kode proyek"),
         "activity_id": ("activity id", "activity code", "kode aktivitas"),
+        "wbs_id": ("wbs id", "wbs code", "kode wbs"),
+        "predecessor_ids": ("predecessor ids", "predecessors", "predecessor", "aktivitas pendahulu"),
         "duration_days": ("duration", "duration days", "durasi"),
         "planned_duration_days": ("planned duration", "durasi rencana"),
         "actual_duration_days": ("actual duration", "durasi aktual"),
@@ -46,12 +50,16 @@ ALIASES = {
         "planned_value": ("planned value", "pv"),
         "earned_value": ("earned value", "ev"),
         "physical_progress_pct": ("physical progress", "progress pct", "progress %", "progres fisik"),
+        "boq_id": ("boq id", "item code", "kode item"),
     },
     "actual_cost": {
         "project_id": ("project id", "project code", "kode proyek"),
         "period": ("period", "month", "periode", "bulan"),
         "cost_code": ("cost code", "kode biaya"),
         "actual_cost": ("actual cost", "ac", "biaya aktual"),
+        "boq_id": ("boq id", "item code", "kode item"),
+        "wbs_id": ("wbs id", "wbs code", "kode wbs"),
+        "activity_id": ("activity id", "activity code", "kode aktivitas"),
     },
     "risk": {
         "project_id": ("project id", "project code", "kode proyek"),
