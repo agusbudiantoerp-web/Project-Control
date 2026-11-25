@@ -18,7 +18,7 @@ if not exist "%PYTHON%" (
 )
 
 echo Memastikan dependensi AI Project Control tersedia...
-"%PYTHON%" -m pip install --disable-pip-version-check -r requirements.txt
+"%PYTHON%" -m pip install --disable-pip-version-check -r requirements.txt -r ai_project_control\requirements.txt
 if errorlevel 1 goto :error
 
 echo.
