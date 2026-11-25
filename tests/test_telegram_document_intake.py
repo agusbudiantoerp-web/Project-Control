@@ -26,6 +26,7 @@ class Response:
 
 def test_fetches_latest_authorized_pdf_and_returns_next_offset(monkeypatch):
     calls = []
+    download_response = Response(content=b"%PDF-1.7 test")
     responses = [
         Response({"ok": True, "result": [{
             "update_id": 100,
@@ -39,7 +40,7 @@ def test_fetches_latest_authorized_pdf_and_returns_next_offset(monkeypatch):
             },
         }]}),
         Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
-        Response(content=b"%PDF-1.7 test"),
+        download_response,
     ]
 
     def fake_get(url, **kwargs):
@@ -50,11 +51,11 @@ def test_fetches_latest_authorized_pdf_and_returns_next_offset(monkeypatch):
     result = intake.fetch_latest_telegram_pdf(
         "bot-token", "-100123", offset=90
     )
-    assert responses[0].closed is False if False else True
     assert result["status"] == "PDF_READY"
     assert result["file_name"] == "drawing.pdf"
     assert result["caption"] == "Latest drawing"
     assert result["bytes"].startswith(b"%PDF-")
+    assert download_response.closed
     assert result["next_offset"] == 101
     assert calls[0][1]["params"]["offset"] == 90
     assert calls[1][1]["params"]["file_id"] == "FILE-1"
@@ -76,6 +77,7 @@ def test_ignores_documents_from_unauthorized_chats(monkeypatch):
 
 
 def test_rejects_non_pdf_download(monkeypatch):
+    download_response = Response(content=b"not a pdf")
     responses = [
         Response({"ok": True, "result": [{
             "update_id": 1,
@@ -85,11 +87,12 @@ def test_rejects_non_pdf_download(monkeypatch):
             },
         }]}),
         Response({"ok": True, "result": {"file_path": "documents/drawing.pdf"}}),
-        Response(content=b"not a pdf"),
+        download_response,
     ]
     monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
     with pytest.raises(RuntimeError, match="not a valid PDF"):
         intake.fetch_latest_telegram_pdf("token", "123")
+    assert download_response.closed
 
 
 def test_rejects_invalid_credentials_and_offsets_before_network():
