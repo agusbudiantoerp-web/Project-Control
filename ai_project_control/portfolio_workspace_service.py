@@ -133,9 +133,12 @@ def build_saved_portfolio_report(
         risks = workspace["risk"]
         valid_risk_scores = []
         for risk_row in risks:
+            raw_score = risk_row.get("risk_score")
+            if isinstance(raw_score, bool):
+                continue
             try:
-                value = float(risk_row.get("risk_score"))
-                if value == value and abs(value) != float("inf"):
+                value = float(raw_score)
+                if value == value and abs(value) != float("inf") and 0 <= value <= 100:
                     valid_risk_scores.append(value)
             except (TypeError, ValueError):
                 pass
