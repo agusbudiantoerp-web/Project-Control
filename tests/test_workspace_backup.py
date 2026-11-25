@@ -1,4 +1,7 @@
+import os
 import sqlite3
+import stat
+from pathlib import Path
 
 import pytest
 
@@ -76,6 +79,8 @@ def test_restore_replaces_workspace_and_keeps_pre_restore_safety_copy(tmp_path):
     assert result["safety_backup_path"]
     safety = ProjectStore(result["safety_backup_path"])
     assert safety.list_project_ids() == ["OLD"]
+    if os.name != "nt":
+        assert stat.S_IMODE(Path(result["safety_backup_path"]).stat().st_mode) == 0o600
 
 
 def test_invalid_restore_does_not_change_current_workspace(tmp_path):
