@@ -106,6 +106,9 @@ def test_restore_creates_new_workspace_when_destination_is_missing(tmp_path):
     assert result["status"] == "RESTORED"
     assert result["safety_backup_path"] is None
     assert ProjectStore(destination).list_project_ids() == ["P1"]
+    if os.name != "nt":
+        assert stat.S_IMODE(destination.parent.stat().st_mode) == 0o700
+        assert stat.S_IMODE(destination.stat().st_mode) == 0o600
 
 
 def test_restore_rejects_future_schema_without_touching_destination(tmp_path):
