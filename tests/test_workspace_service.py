@@ -153,3 +153,21 @@ def test_progress_store_still_rejects_duplicate_same_activity_boq_period(tmp_pat
             {"project_id": "P8", "activity_id": "A1", "boq_id": "B1", "period": "2026-11"},
             {"project_id": "P8", "activity_id": "A1", "boq_id": "B1", "period": "2026-11"},
         ])
+
+
+def test_progress_validation_rejects_mixed_activity_total_and_boq_detail_rows():
+    from ai_project_control.data_quality_validation import validate_project_control_data
+
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P9"}],
+        "activities": [{"project_id": "P9", "activity_id": "A1"}],
+        "boq": [{"project_id": "P9", "boq_id": "B1", "activity_id": "A1", "quantity": 1}],
+        "progress": [
+            {"project_id": "P9", "activity_id": "A1", "period": "2026-11",
+             "planned_value": 100, "earned_value": 80},
+            {"project_id": "P9", "activity_id": "A1", "boq_id": "B1", "period": "2026-11",
+             "planned_value": 100, "earned_value": 80},
+        ],
+    })
+    assert any(issue["code"] == "MIXED_PROGRESS_ACTIVITY_AND_BOQ_ROWS"
+               for issue in result["issues"])
