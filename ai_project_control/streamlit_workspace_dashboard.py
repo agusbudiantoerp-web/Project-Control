@@ -848,6 +848,45 @@ def render_project_workspace_dashboard(
                 except (TypeError, ValueError, OSError, StopIteration) as approval_error:
                     st.error("Baseline approval failed: " + str(approval_error))
 
+    approved_baseline_ids = [
+        str(row.get("baseline_id")) for row in baseline_rows
+        if str(row.get("status", "")).upper() == "APPROVED"
+    ]
+    with st.expander("Raise a schedule change request", expanded=False):
+        if not approved_baseline_ids:
+            st.info("Approve a schedule baseline before raising a baseline-linked change request.")
+        else:
+            with st.form("pc_schedule_change_request_form"):
+                change_id_input = st.text_input("Change request ID", key="pc_change_request_id")
+                change_baseline_id = st.selectbox("Affected baseline", approved_baseline_ids)
+                change_description = st.text_area("Change description", key="pc_change_request_description")
+                change_cost_impact = st.number_input("Estimated cost impact", min_value=0.0, value=0.0, step=1000.0)
+                change_schedule_days = st.number_input("Estimated schedule impact (days)", min_value=0, value=0, step=1)
+                submit_change = st.form_submit_button("Record pending change request")
+            if submit_change:
+                try:
+                    if not change_id_input.strip() or not change_description.strip():
+                        raise ValueError("Change request ID and description are required.")
+                    if any(str(row.get("change_id", "")) == change_id_input.strip()
+                           for row in change_rows):
+                        raise ValueError("Change request ID already exists in this project.")
+                    change_record = {
+                        "project_id": project_id,
+                        "change_id": change_id_input.strip(),
+                        "baseline_id": change_baseline_id,
+                        "description": change_description.strip(),
+                        "cost_impact": float(change_cost_impact),
+                        "schedule_impact_days": int(change_schedule_days),
+                        "status": "PENDING",
+                        "date_raised": __import__("datetime").date.today().isoformat(),
+                    }
+                    ProjectStore(database_path).save_dataset(
+                        project_id, "schedule_changes", [change_record], mode="upsert"
+                    )
+                    st.success("Change request recorded as PENDING. It has not changed the approved baseline.")
+                    st.rerun()
+                except (TypeError, ValueError, OSError) as change_error:
+                    st.error("Change request was not saved: " + str(change_error))
     if change_rows:
         st.markdown("**Schedule change register**")
         st.dataframe(change_rows, use_container_width=True, hide_index=True)
