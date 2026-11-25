@@ -115,3 +115,23 @@ def test_unexpected_success_payload_is_handled_safely():
         assert send_telegram_message("hello", bot_token="secret", chat_id="123") == {
             "status": "SENT", "message_id": None,
         }
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan"), True])
+def test_invalid_timeout_is_rejected_before_network(timeout):
+    with pytest.raises(ValueError, match="finite positive"):
+        send_telegram_message(
+            "hello", bot_token="secret", chat_id="123", timeout=timeout
+        )
+
+
+def test_non_text_telegram_credentials_are_rejected():
+    with pytest.raises(ValueError, match="text values"):
+        send_telegram_message("hello", bot_token=123, chat_id="123")
+
+
+def test_token_whitespace_is_rejected_without_echoing_token():
+    token = "secret\nINJECTED"
+    with pytest.raises(ValueError, match="invalid whitespace") as captured:
+        send_telegram_message("hello", bot_token=token, chat_id="123")
+    assert token not in str(captured.value)
