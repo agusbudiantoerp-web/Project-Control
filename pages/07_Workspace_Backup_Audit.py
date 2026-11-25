@@ -1,5 +1,6 @@
 """Local workspace backup and per-project import history."""
 import os
+import sqlite3
 import streamlit as st
 
 from ai_project_control.project_store import ProjectStore
@@ -39,5 +40,5 @@ try:
             file_name="project_control_workspace_backup.sqlite3",
             mime="application/vnd.sqlite3",
         )
-except (OSError, ValueError) as exc:
+except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
     st.error("Workspace backup unavailable: " + str(exc))
