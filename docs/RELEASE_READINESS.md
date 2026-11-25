@@ -402,3 +402,9 @@ Implementation changes have been committed and selected files/workflows have bee
 - Restore creates a timestamped pre-restore SQLite safety snapshot when a current database exists, writes the candidate to the same filesystem, validates it again, and then replaces the active file atomically.
 - The Backup & Audit page requires an explicit confirmation and warns operators to stop other processes writing to the local SQLite database during restore.
 - Restore is limited to 250 MB and is not a migration tool; backups from a different or newer schema version are rejected. The workspace remains local-first and single-user.
+
+
+### XLSX upload archive safety
+
+- XLSX uploads are inspected as ZIP containers before openpyxl parses them. The reader rejects malformed workbooks, duplicate or unsafe archive paths, encrypted entries, excessive member counts, expansion above 100 MB, and compression ratios above the configured threshold.
+- External workbook links are not retained, and defusedxml is installed for hardened XML parsing. CSV and XLSX data remain preview-only until mapping and validation are explicitly completed.
