@@ -435,3 +435,10 @@ Implementation changes have been committed and selected files/workflows have bee
 - Empty data uploads return EMPTY_DATASET without creating an import event or changing existing records, including when the operator selected Replace. This prevents a header-only workbook/CSV from clearing a populated dataset.
 - Regression tests cover selected-sheet persistence, ambiguous/reused source mappings, and empty upload behavior for both upsert and replace modes.
 - These are source-level implementation changes; the final test phase must execute the focused and complete suites and verify the Streamlit interaction.
+
+
+## Restore destination privacy — 2026-11-25
+
+- Restore now creates a missing workspace parent directory with restrictive POSIX permissions (0700). The restore database is staged using a private temporary file before atomic replacement.
+- POSIX regression coverage asserts the restored directory is 0700 and the restored database is 0600.
+- This does not replace host-level disk encryption, backups outside the machine, access control or a tested disaster-recovery procedure.
