@@ -339,6 +339,29 @@ class ProjectStore:
                 }
         return results
 
+    def get_metadata(self, key: str) -> str | None:
+        key = str(key).strip()
+        if not key:
+            raise ValueError("metadata key is required")
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT value FROM store_metadata WHERE key=?", (key,)
+            ).fetchone()
+        return str(row["value"]) if row is not None else None
+
+    def set_metadata(self, key: str, value: str) -> None:
+        key = str(key).strip()
+        if not key or key == "schema_version":
+            raise ValueError("metadata key is empty or reserved")
+        if not isinstance(value, str):
+            raise TypeError("metadata value must be text")
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO store_metadata(key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
+            )
+
     def list_project_ids(self) -> list[str]:
         """List project IDs with a saved project_master record, in stable order."""
         with self._connect() as db:
