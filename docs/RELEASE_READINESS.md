@@ -420,3 +420,9 @@ Implementation changes have been committed and selected files/workflows have bee
 
 - Executive escalation messages are truncated using a UTF-16 code-unit budget below Telegram's 4,096-unit ceiling, preserving a safe suffix and avoiding a split surrogate pair.
 - The transport adapter also validates the UTF-16 length before sending. Regression coverage includes emoji-heavy messages.
+
+
+### Local workspace file permissions
+
+- On POSIX systems, newly created workspace directories use owner-only permissions and SQLite database files are restricted to owner read/write (0700 directory, 0600 database).
+- Pre-restore safety snapshots are also restricted to owner read/write. Windows ACLs remain governed by the local account and machine policy.
