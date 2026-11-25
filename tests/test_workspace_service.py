@@ -1,3 +1,4 @@
+import pytest
 from ai_project_control.project_store import ProjectStore
 from ai_project_control.workspace_service import build_workspace_overview
 
@@ -88,3 +89,38 @@ def test_workspace_without_approved_baseline_reports_missing_baseline(tmp_path):
     result = build_workspace_overview(db, "P4")
     assert result["active_schedule_baseline"] is None
     assert result["schedule_variance"]["status"] == "NO_APPROVED_BASELINE"
+
+
+def test_workspace_uses_project_configured_cumulative_evm_record_modes(tmp_path):
+    db = tmp_path / "evm-snapshot-workspace.sqlite3"
+    store = ProjectStore(db)
+    store.save_dataset("P5", "project_master", [{
+        "project_id": "P5", "project_name": "Snapshot EVM", "currency": "IDR",
+        "bac": 2000, "progress_record_mode": "cumulative_snapshot",
+        "actual_cost_record_mode": "cumulative_snapshot",
+    }])
+    store.save_dataset("P5", "progress", [
+        {"project_id": "P5", "activity_id": "A1", "period": "2026-01",
+         "planned_value": 100, "earned_value": 80},
+        {"project_id": "P5", "activity_id": "A1", "period": "2026-02",
+         "planned_value": 150, "earned_value": 120},
+    ])
+    store.save_dataset("P5", "actual_cost", [
+        {"project_id": "P5", "period": "2026-01", "cost_code": "C1", "actual_cost": 90},
+        {"project_id": "P5", "period": "2026-02", "cost_code": "C1", "actual_cost": 140},
+    ])
+
+    result = build_workspace_overview(db, "P5")
+    assert result["evm"]["PV"] == 150
+    assert result["evm"]["EV"] == 120
+    assert result["evm"]["AC"] == 140
+    assert result["evm"]["source_record_counts"] == {"progress": 1, "actual_cost": 1}
+
+
+def test_workspace_rejects_unsupported_project_evm_record_mode(tmp_path):
+    db = tmp_path / "invalid-evm-mode.sqlite3"
+    store = ProjectStore(db)
+    with pytest.raises(ValueError, match="INVALID_EVM_RECORD_MODE"):
+        store.save_dataset("P6", "project_master", [{
+            "project_id": "P6", "progress_record_mode": "guess_from_data",
+        }])
