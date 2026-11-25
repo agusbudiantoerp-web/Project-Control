@@ -13,7 +13,6 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-os.chdir(ROOT)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -22,7 +21,7 @@ from ai_project_control.workspace_config import get_workspace_database_path
 
 
 def create_backup(destination: Path, retention_days: int) -> Path:
-    if isinstance(retention_days, bool) or retention_days < 1:
+    if isinstance(retention_days, bool) or not isinstance(retention_days, int) or retention_days < 1:
         raise ValueError("retention_days must be at least 1")
     database = Path(get_workspace_database_path()).expanduser().resolve()
     if not database.is_file():
@@ -34,14 +33,14 @@ def create_backup(destination: Path, retention_days: int) -> Path:
     if not destination.is_absolute():
         destination = ROOT / destination
     destination = destination.resolve()
-    if destination == database or database in destination.parents:
+    if destination == database:
         raise ValueError("Backup destination cannot be the workspace database or a folder containing it.")
     destination.mkdir(parents=True, exist_ok=True)
     if os.name != "nt":
         destination.chmod(0o700)
 
     payload = build_workspace_backup(database)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     target = destination / f"ai_project_control_{timestamp}.sqlite3"
     temp_path: Path | None = None
     try:
