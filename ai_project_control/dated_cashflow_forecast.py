@@ -28,7 +28,12 @@ def build_dated_cashflow_forecast(
         currency = str(raw_currency).strip().upper()
         if not currency:
             raise ValueError("opening balance currency is required")
-        amount = float(raw_amount)
+        if isinstance(raw_amount, bool):
+            raise ValueError(f"opening cash must be numeric, not boolean for {currency}")
+        try:
+            amount = float(raw_amount)
+        except (TypeError, ValueError):
+            raise ValueError(f"opening cash must be numeric for {currency}") from None
         if not math.isfinite(amount):
             raise ValueError(f"opening cash must be finite for {currency}")
         if currency in opening:
@@ -48,6 +53,8 @@ def build_dated_cashflow_forecast(
         if tx_id in seen_ids:
             raise ValueError(f"duplicate transaction_id: {tx_id}")
         seen_ids.add(tx_id)
+        if isinstance(row.get("amount"), bool):
+            raise ValueError(f"amount must be numeric, not boolean for {tx_id}")
         try:
             day = date.fromisoformat(str(row.get("date", "")))
             amount = float(row.get("amount"))
@@ -82,8 +89,12 @@ def build_dated_cashflow_forecast(
         bucket = "actual" if item["status"] == "ACTUAL" else "forecast"
         flow = "inflow" if item["direction"] == "INFLOW" else "outflow"
         key = f"{bucket}_{flow}"
-        daily[(item["currency"], item["date"])][key] += item["amount"]
-        monthly[(item["currency"], item["date"][:7])][key] += item["amount"]
+        daily_bucket = daily[(item["currency"], item["date"])]
+        monthly_bucket = monthly[(item["currency"], item["date"][:7])]
+        daily_bucket[key] += item["amount"]
+        monthly_bucket[key] += item["amount"]
+        if not math.isfinite(daily_bucket[key]) or not math.isfinite(monthly_bucket[key]):
+            raise ValueError(f"Cash-flow aggregation exceeds the supported numeric range for {item['currency']}")
 
     currency_views = {}
     for currency, opening_balance in sorted(opening.items()):
@@ -96,6 +107,8 @@ def build_dated_cashflow_forecast(
             actual_net = flows["actual_inflow"] - flows["actual_outflow"]
             forecast_net = flows["forecast_inflow"] - flows["forecast_outflow"]
             balance += actual_net + forecast_net
+            if not math.isfinite(balance):
+                raise ValueError(f"Projected cash balance exceeds the supported numeric range for {currency}")
             row = {
                 "date": day,
                 **{key: round(value, 2) for key, value in flows.items()},
