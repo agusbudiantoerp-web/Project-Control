@@ -42,6 +42,7 @@ jobs:
             tests/test_data_quality_validation.py \
             tests/test_import_mapping.py \
             tests/test_upload_reader.py \
+            tests/test_advanced_import_service.py \
             tests/test_dashboard_metrics_regressions.py \
             tests/test_project_store.py \
             tests/test_import_service.py \
