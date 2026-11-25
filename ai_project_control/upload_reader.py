@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import csv
 import io
+import zipfile
+from pathlib import PurePosixPath
 from typing import Any
 
 from .import_mapping import map_import_rows, suggest_column_mapping
@@ -15,6 +17,9 @@ from .import_mapping import map_import_rows, suggest_column_mapping
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_ROWS = 20_000
 MAX_COLUMNS = 200
+MAX_XLSX_MEMBERS = 2_000
+MAX_XLSX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
+MAX_XLSX_COMPRESSION_RATIO = 100
 
 
 
@@ -32,6 +37,34 @@ def _validate_headers(headers: list[str]) -> None:
     if duplicates:
         raise ValueError("Duplicate column headers: " + ", ".join(duplicates))
     headers[:] = normalized
+
+
+def _validate_xlsx_container(raw: bytes) -> None:
+    """Reject malformed, encrypted, path-like and decompression-bomb XLSX archives."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            members = archive.infolist()
+            if len(members) > MAX_XLSX_MEMBERS:
+                raise ValueError("XLSX contains too many archive members.")
+            names = [member.filename for member in members]
+            if len(names) != len(set(names)):
+                raise ValueError("XLSX contains duplicate archive member names.")
+            if not {"[Content_Types].xml", "xl/workbook.xml"}.issubset(names):
+                raise ValueError("File is not a valid XLSX workbook.")
+            total_size = 0
+            for member in members:
+                member_path = PurePosixPath(member.filename)
+                if member_path.is_absolute() or ".." in member_path.parts:
+                    raise ValueError("XLSX contains an unsafe archive path.")
+                if member.flag_bits & 0x1:
+                    raise ValueError("Encrypted XLSX workbooks are not supported.")
+                total_size += member.file_size
+                if total_size > MAX_XLSX_UNCOMPRESSED_BYTES:
+                    raise ValueError("XLSX expands beyond the 100 MB safety limit.")
+                if member.file_size and member.file_size / max(member.compress_size, 1) > MAX_XLSX_COMPRESSION_RATIO:
+                    raise ValueError("XLSX compression ratio exceeds the safety limit.")
+    except zipfile.BadZipFile:
+        raise ValueError("XLSX file is not a valid ZIP workbook.") from None
 
 
 def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) -> dict[str, Any]:
@@ -78,11 +111,12 @@ def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) ->
             rows.append({str(k): v for k, v in row.items()})
         selected_sheet = None
     else:
+        _validate_xlsx_container(bytes(raw))
         try:
             from openpyxl import load_workbook
         except ImportError as exc:
             raise RuntimeError("Reading .xlsx requires openpyxl. Install it before importing Excel files.") from exc
-        workbook = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+        workbook = load_workbook(io.BytesIO(raw), read_only=True, data_only=True, keep_links=False)
         try:
             available = workbook.sheetnames
             if not available:
