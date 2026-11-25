@@ -222,7 +222,7 @@ def test_boq_and_progress_wbs_consistency_is_enforced():
         ],
         "activities": [{"project_id": "P1", "activity_id": "A1", "wbs_id": "W1"}],
         "boq": [{"project_id": "P1", "boq_id": "B1", "wbs_id": "W2",
-                 "quantity": 1, "unit_rate": 10, "amount": 10}],
+                 "activity_id": "A1", "quantity": 1, "unit_rate": 10, "amount": 10}],
         "progress": [{"project_id": "P1", "activity_id": "A1", "boq_id": "B1",
                       "period": "2026-11"}],
     })
