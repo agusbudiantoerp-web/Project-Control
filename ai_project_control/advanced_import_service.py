@@ -427,14 +427,46 @@ def analyze_drawing_page_with_gemini(
                 "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
             },
             timeout=numeric_timeout,
+            stream=True,
         )
-        response.raise_for_status()
-        payload = response.json()
-        raw_text = payload["candidates"][0]["content"]["parts"][0]["text"]
-        if not isinstance(raw_text, str) or len(raw_text) > MAX_GEMINI_RESPONSE_CHARS:
-            raise ValueError("Gemini drawing response exceeds the supported output limit")
-        text = raw_text.strip()
-    except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+        try:
+            response.raise_for_status()
+            headers = getattr(response, "headers", {}) or {}
+            try:
+                content_length = headers.get("Content-Length")
+            except AttributeError:
+                content_length = None
+            if content_length is not None:
+                try:
+                    if int(content_length) > MAX_GEMINI_RESPONSE_CHARS:
+                        raise ValueError("Gemini drawing response exceeds the supported output limit")
+                except (TypeError, ValueError):
+                    if str(content_length).strip().isdigit() and int(content_length) > MAX_GEMINI_RESPONSE_CHARS:
+                        raise ValueError("Gemini drawing response exceeds the supported output limit")
+            iter_content = getattr(response, "iter_content", None)
+            if callable(iter_content):
+                chunks = []
+                response_size = 0
+                for chunk in iter_content(chunk_size=64 * 1024):
+                    if not chunk:
+                        continue
+                    response_size += len(chunk)
+                    if response_size > MAX_GEMINI_RESPONSE_CHARS:
+                        raise ValueError("Gemini drawing response exceeds the supported output limit")
+                    chunks.append(chunk)
+                payload = json.loads(b"".join(chunks).decode("utf-8"))
+            else:
+                # Lightweight compatibility for test doubles; real requests responses stream above.
+                payload = response.json()
+            raw_text = payload["candidates"][0]["content"]["parts"][0]["text"]
+            if not isinstance(raw_text, str) or len(raw_text) > MAX_GEMINI_RESPONSE_CHARS:
+                raise ValueError("Gemini drawing response exceeds the supported output limit")
+            text = raw_text.strip()
+        finally:
+            close_response = getattr(response, "close", None)
+            if callable(close_response):
+                close_response()
+    except (requests.RequestException, KeyError, IndexError, TypeError, ValueError, AttributeError):
         raise RuntimeError("Gemini drawing analysis failed; check API configuration and provider response.") from None
     if text.startswith("```"):
         text = "\n".join(text.splitlines()[1:-1])
