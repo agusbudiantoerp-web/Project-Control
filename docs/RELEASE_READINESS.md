@@ -308,3 +308,15 @@ Compared the following files on `main` and `ai-project-control-integration`:
 - Added regression tests for these cases and included the new test files in the focused workflow manifest.
 - Added one root Windows launcher for the documented root Streamlit application; the historical nested launcher delegates to it.
 - These are implementation and test-coverage additions only. They have not yet been executed as a final test run on one commit SHA.
+
+
+## Advanced source intake and unified primary storage — 2026-11-25
+
+- Added Primavera P6 XER parsing with explicit source-project selection for multi-project files.
+- Added atomic multi-dataset SQLite commits so Project Master, WBS and Activities are saved together or rolled back together.
+- Added a primary-workspace XER import page with preview, Upsert/Replace choice and an explicit destructive-replacement confirmation.
+- Added PDF drawing-page preview and Gemini draft takeoff. Transmission requires explicit consent; every row remains PENDING_REVIEW until a quantity surveyor verifies it. Saved BOQ quantity is retained while unit rate and amount remain blank.
+- Centralized the primary SQLite path across root app, import page, financial page, COO cockpit, backup page and advanced intake page via `PROJECT_CONTROL_DB`.
+- Added PyMuPDF dependency and optional `GEMINI_API_KEY` configuration example.
+- The historical V1 launcher remains separate for compatibility and uses `%LOCALAPPDATA%\\AIProjectControl\\project_control.db`; it is not synchronized with the primary workspace. The root launcher is the primary workspace entry point.
+- Added focused tests for XER parsing, multi-project scoping, atomic workspace import and Gemini input validation. These tests have not yet been executed.
