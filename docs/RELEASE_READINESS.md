@@ -337,7 +337,7 @@ Additional defensive changes recorded during the implementation audit:
 
 ### Verification boundary
 
-The above changes have been committed to the integration branch and their file contents were re-read through the repository API. This is source-level verification only. The new and existing tests have **not** been executed in this implementation phase; no passing CI result is claimed for the latest branch head. The final test phase remains blocked until implementation freeze and must verify test collection, full-suite execution, UI startup, representative end-to-end project data, backup/restore, and deployment controls.
+The above changes have been committed to the integration branch and their file contents were re-read through the repository API. GitHub Actions has executed the focused project-control suite successfully on commit 97e995f (464 passed, 11 warnings). The recovery test workflow also completed successfully on that commit. Subsequent commits added primary-app/page smoke tests and further Telegram message-length coverage; their CI runs are still pending, so this result is not a pass claim for the latest branch head. The remaining release gate is to obtain green CI on the frozen final SHA, review any warnings, and perform representative end-to-end data and local Windows launch/restore checks.
 
 ### Integration boundary
 
