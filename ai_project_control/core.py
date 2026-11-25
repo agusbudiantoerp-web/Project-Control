@@ -339,7 +339,10 @@ def calculate_cpm(activities: pd.DataFrame):
         records.append({"id":r["activity_id"],
           "duration":float(r["duration_days"]),
           "predecessors":",".join(predecessors)})
-    from pmcontrols.network import cpm
+    try:
+        from .pmcontrols.network import cpm
+    except ImportError:
+        from pmcontrols.network import cpm
     result=cpm(records)
     out=result.table.copy()
     out=out.rename(columns={"activity":"activity_id","duration":"duration_days",
