@@ -9,7 +9,11 @@ from __future__ import annotations
 from datetime import date
 import numpy as np
 import pandas as pd
-from core import calculate_cpm, build_cost_cashflow
+try:
+    from .core import calculate_cpm, build_cost_cashflow
+except ImportError:
+    # Preserve direct-module execution used by the legacy V1 launcher/tests.
+    from core import calculate_cpm, build_cost_cashflow
 
 
 def _number(frame: pd.DataFrame, column: str, default: float = 0.0) -> pd.Series:
