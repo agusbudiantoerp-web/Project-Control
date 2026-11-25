@@ -134,6 +134,7 @@ def test_schedule_change_rejects_unknown_status():
 def test_change_request_rejects_baseline_when_project_has_no_baseline_records():
     result = validate_project_control_data({
         "project_master": [{"project_id": "P1"}],
+        "schedule_baselines": [],
         "schedule_changes": [{
             "project_id": "P1", "change_id": "CR-1", "baseline_id": "BL-MISSING",
         }],
