@@ -92,11 +92,12 @@ with st.expander("A. Import Primavera P6 XER", expanded=True):
             confirm_replace = True
             if mode == "replace":
                 st.warning("Replace menghapus seluruh WBS dan Activities lama untuk Project ID ini sebelum menyimpan hasil XER.")
-                replace_nonce_key = f"pc_xer_replace_nonce_{target_project_id}"
+                xer_scope = hashlib.sha256(xer_bytes).hexdigest()[:10] + "_" + str(source_project_id or "all")
+                replace_nonce_key = f"pc_xer_replace_nonce_{target_project_id}_{xer_scope}"
                 replace_nonce = st.session_state.get(replace_nonce_key, 0)
                 confirm_replace = st.checkbox(
                     "Saya mengonfirmasi penggantian seluruh dataset WBS dan Activities proyek ini.",
-                    key=f"pc_xer_confirm_replace_{target_project_id}_{replace_nonce}",
+                    key=f"pc_xer_confirm_replace_{target_project_id}_{xer_scope}_{replace_nonce}",
                 )
 
             prepared = prepare_xer_workspace_import(
@@ -228,7 +229,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                             "asumsi dan confidence terhadap gambar sumber. Set review_status menjadi VERIFIED "
                             "hanya setelah pemeriksaan quantity surveyor."
                         )
-                        verified_nonce_key = f"pc_gemini_verified_nonce_{file_signature[:10]}_{page_number}"
+                        verified_nonce_key = f"pc_gemini_verified_nonce_{target_project}_{file_signature[:10]}_{page_number}"
                         verified_nonce = st.session_state.get(verified_nonce_key, 0)
                         verified = st.checkbox(
                             "Saya telah memeriksa semua baris dan menyetujui penyimpanan BOQ draft.",
