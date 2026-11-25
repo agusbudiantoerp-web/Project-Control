@@ -52,3 +52,27 @@ def test_duplicate_ids_and_missing_opening_currency_rejected():
         build_dated_cashflow_forecast([row, row], {"IDR": 100})
     with pytest.raises(ValueError, match="opening cash"):
         build_dated_cashflow_forecast([row], {"USD": 100})
+
+
+@pytest.mark.parametrize("bad_opening", [True, "not-a-number"])
+def test_invalid_opening_cash_rejected(bad_opening):
+    with pytest.raises(ValueError, match="opening cash"):
+        build_dated_cashflow_forecast([], {"IDR": bad_opening})
+
+
+def test_boolean_transaction_amount_rejected():
+    row = {"transaction_id": "T1", "date": "2026-12-01", "project_id": "P1",
+           "currency": "IDR", "direction": "OUTFLOW", "amount": True, "status": "ACTUAL"}
+    with pytest.raises(ValueError, match="not boolean"):
+        build_dated_cashflow_forecast([row], {"IDR": 100})
+
+
+def test_overflowing_daily_cashflow_aggregation_rejected():
+    rows = [
+        {"transaction_id": "T1", "date": "2026-12-01", "project_id": "P1",
+         "currency": "IDR", "direction": "INFLOW", "amount": 1e308, "status": "ACTUAL"},
+        {"transaction_id": "T2", "date": "2026-12-01", "project_id": "P1",
+         "currency": "IDR", "direction": "INFLOW", "amount": 1e308, "status": "ACTUAL"},
+    ]
+    with pytest.raises(ValueError, match="aggregation exceeds"):
+        build_dated_cashflow_forecast(rows, {"IDR": 0})
