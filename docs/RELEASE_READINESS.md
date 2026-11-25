@@ -615,3 +615,34 @@ These results establish automated CI success for the tested branch commit only. 
   - Additional automated tests: **SUCCESS**. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875266
 
 The green CI verifies code-level automated checks on this branch. It does not validate live Telegram/Gemini credentials, real project reference calculations, Windows operator acceptance, or production deployment controls.
+
+
+## Clean release candidate checkpoint — 2026-11-26
+
+### Branch and integration hygiene
+- The original working branch `ai-project-control-integration` contains a divergent historical commit graph relative to `main`; the old PR #1 is closed and was not merged.
+- To avoid importing that unrelated history, a clean candidate branch `ai-project-control-release-candidate` was created directly from the current `main` commit `9e799ff8bd3373f55000d73047c7594d2ba31193`.
+- The candidate contains the 221 application, page, test, configuration and documentation files compared from the integration branch. It is one clean commit on top of main; main itself remains unchanged.
+- Draft PR #4: https://github.com/agusbudiantoerp-web/Project-Control/pull/4
+- PR #4 currently reports mergeable/clean at creation, but remains a draft and must not be merged until all candidate CI and operational acceptance gates pass.
+
+### Candidate commit
+- Candidate SHA at branch creation: `cc244dfcc54d6b3893539c68e396eade7ea63a8a`.
+- The release candidate includes the primary root `app.py`, nine Streamlit pages, shared workspace services, domain engines, tests, Windows launcher, installation guide, user guide and third-party notices.
+- Windows user-guide dependency installation was aligned to install both `requirements.txt` and `ai_project_control/requirements.txt`.
+
+### Automated test evidence from the source branch
+- Source branch commit `f57605957575692f2ade4a89f4f705e3db7e3a4b`: 548 focused tests passed and 775 full-repository tests passed. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875176
+- Integrated engine CI: 188 tests passed. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875192
+- Recovery and additional automated workflows succeeded: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875243 and https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45714875266
+- These results are from the source branch SHA, not proof that the clean candidate SHA has passed. Candidate pull-request CI must be independently green.
+
+### Remaining release blockers
+- Run and record candidate PR CI for the exact candidate head.
+- Perform clean Windows 10/11 installation and launch acceptance using Python 3.11.
+- Validate BOQ, WBS, CPM, EVM, cashflow, resources, risk, Monte Carlo and recovery outputs against owner-approved reference calculations and real sample datasets.
+- Complete SQLite backup and restore drill, secrets scan and dependency/security review.
+- Perform live Groq/Gemini and Telegram checks only with user-supplied credentials and explicit consent; current automated provider tests use mocks.
+- Confirm data protection, user authentication/authorization, shared database, backup, monitoring and incident response before any hosted multi-user production deployment.
+
+**Release status: NOT FINAL / NOT PRODUCTION-READY.** Automated source-branch CI is green, but clean-candidate CI and operator acceptance remain required. No claim of live provider connectivity or real-world project validation is made.
