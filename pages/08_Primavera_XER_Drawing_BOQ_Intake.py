@@ -80,9 +80,11 @@ with st.expander("A. Import Primavera P6 XER", expanded=True):
             confirm_replace = True
             if mode == "replace":
                 st.warning("Replace menghapus seluruh WBS dan Activities lama untuk Project ID ini sebelum menyimpan hasil XER.")
+                replace_nonce_key = f"pc_xer_replace_nonce_{target_project_id}"
+                replace_nonce = st.session_state.get(replace_nonce_key, 0)
                 confirm_replace = st.checkbox(
                     "Saya mengonfirmasi penggantian seluruh dataset WBS dan Activities proyek ini.",
-                    key=f"pc_xer_confirm_replace_{target_project_id}",
+                    key=f"pc_xer_confirm_replace_{target_project_id}_{replace_nonce}",
                 )
 
             prepared = prepare_xer_workspace_import(
@@ -122,6 +124,8 @@ with st.expander("A. Import Primavera P6 XER", expanded=True):
                     f"XER imported: {result['saved']['wbs']['saved_count']} WBS and "
                     f"{result['saved']['activities']['saved_count']} activities saved."
                 )
+                if mode == "replace":
+                    st.session_state[replace_nonce_key] = replace_nonce + 1
         except (TypeError, ValueError, OSError) as exc:
             st.error("XER could not be prepared: " + str(exc))
 
@@ -163,7 +167,12 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                             api_key = str(st.secrets.get("GEMINI_API_KEY", ""))
                         except Exception:
                             api_key = ""
-                    consent_key = f"pc_gemini_consent_{target_project}_{hashlib.sha256(pdf_bytes).hexdigest()[:10]}_{page_number}"
+                    consent_nonce_key = (
+                        f"pc_gemini_consent_nonce_{target_project}_"
+                        f"{hashlib.sha256(pdf_bytes).hexdigest()[:10]}_{page_number}"
+                    )
+                    consent_nonce = st.session_state.get(consent_nonce_key, 0)
+                    consent_key = f"{consent_nonce_key}_{consent_nonce}"
                     consent = st.checkbox(
                         "Saya menyetujui halaman gambar terpilih dikirim ke Google Gemini untuk membuat draft takeoff.",
                         key=consent_key,
@@ -183,6 +192,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                             "page": int(page_number),
                             "rows": rows,
                         }
+                        st.session_state[consent_nonce_key] = consent_nonce + 1
                         st.success("Draft takeoff diterima. Periksa dan edit setiap baris sebelum disimpan.")
 
                     draft_state = st.session_state.get(analyze_key)
@@ -206,9 +216,11 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                             "asumsi dan confidence terhadap gambar sumber. Set review_status menjadi VERIFIED "
                             "hanya setelah pemeriksaan quantity surveyor."
                         )
+                        verified_nonce_key = f"pc_gemini_verified_nonce_{file_signature[:10]}_{page_number}"
+                        verified_nonce = st.session_state.get(verified_nonce_key, 0)
                         verified = st.checkbox(
                             "Saya telah memeriksa semua baris dan menyetujui penyimpanan BOQ draft.",
-                            key=f"pc_gemini_verified_{file_signature[:10]}_{page_number}",
+                            key=f"{verified_nonce_key}_{verified_nonce}",
                         )
                         if st.button(
                             "Save reviewed BOQ draft to Project Workspace",
@@ -261,6 +273,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                     st.error(error)
                             elif boq_rows:
                                 saved = store.save_dataset(target_project, "boq", boq_rows, mode="upsert")
+                                st.session_state[verified_nonce_key] = verified_nonce + 1
                                 st.success(f"Saved {saved['saved_count']} reviewed BOQ draft rows for {target_project}.")
                 except ImportError:
                     st.error("PDF drawing preview requires PyMuPDF. Install dependencies from the root requirements.txt.")
