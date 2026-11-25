@@ -339,3 +339,43 @@ def test_gemini_rejects_nested_or_oversized_takeoff_text(monkeypatch):
         import_service.analyze_drawing_page_with_gemini(
             b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
         )
+
+
+def test_xer_import_rejects_duplicate_wbs_ids():
+    duplicate = SINGLE_PROJECT_XER + (
+        "%R\\tP6-1\\tW1\\t\\tDuplicate WBS\\n".encode("ascii")
+    )
+    with pytest.raises(ValueError, match="duplicate WBS IDs"):
+        import_service.prepare_xer_workspace_import(
+            duplicate, project_id="P1", project_name="Plant Upgrade",
+            currency="IDR", source_project_id="P6-1",
+        )
+
+
+def test_xer_replace_does_not_clear_existing_wbs_when_source_has_none():
+    class Store:
+        def __init__(self):
+            self.saved = None
+
+        def load_dataset(self, project_id, dataset):
+            if dataset == "wbs":
+                return [{"wbs_id": "KEEP"}]
+            return []
+
+        def save_datasets(self, project_id, datasets, mode):
+            self.saved = (project_id, datasets, mode)
+            return {"project_id": project_id}
+
+    store = Store()
+    source_without_wbs = SINGLE_PROJECT_XER.replace(
+        b"%T\\tPROJWBS\\n%F\\tproj_id\\twbs_id\\tparent_wbs_id\\twbs_name\\n"
+        b"%R\\tP6-1\\tW1\\t\\tCivil Works\\n",
+        b"",
+    )
+    with pytest.raises(ValueError, match="existing WBS dataset was left unchanged"):
+        import_service.import_xer_to_workspace(
+            store, source_without_wbs, project_id="P1",
+            project_name="Plant Upgrade", currency="IDR",
+            source_project_id="P6-1", mode="replace",
+        )
+    assert store.saved is None
