@@ -45,6 +45,7 @@ def calculate_evm(
     actual_cost_rows: list[dict[str, Any]],
     *,
     as_of_period: str | None = None,
+    progress_mode: str = "period_deltas",
 ) -> dict[str, Any]:
     """Calculate cumulative EVM metrics through an optional ISO-like period key."""
     project_id = str(project.get("project_id", "")).strip()
@@ -52,6 +53,8 @@ def calculate_evm(
         raise ValueError("project.project_id is required")
     if not isinstance(progress_rows, list) or not isinstance(actual_cost_rows, list):
         raise TypeError("progress_rows and actual_cost_rows must be lists")
+    if progress_mode not in {"period_deltas", "cumulative_snapshots"}:
+        raise ValueError("progress_mode must be 'period_deltas' or 'cumulative_snapshots'")
 
     progress = [
         dict(row) for row in progress_rows
@@ -63,6 +66,20 @@ def calculate_evm(
         if str(row.get("project_id", "")).strip() == project_id
         and (as_of_period is None or str(row.get("period", "")) <= as_of_period)
     ]
+    progress_mode_gap = None
+    if progress_mode == "cumulative_snapshots" and progress:
+        if any(not str(row.get("activity_id", "")).strip() or not str(row.get("period", "")).strip() for row in progress):
+            progress = []
+            progress_mode_gap = "CUMULATIVE_PROGRESS_REQUIRES_ACTIVITY_ID_AND_PERIOD"
+        else:
+            latest_by_activity = {}
+            for row in progress:
+                activity_id = str(row["activity_id"]).strip()
+                period = str(row["period"]).strip()
+                previous = latest_by_activity.get(activity_id)
+                if previous is None or period > str(previous.get("period", "")):
+                    latest_by_activity[activity_id] = row
+            progress = list(latest_by_activity.values())
 
     pv = _sum_field(progress, "planned_value")
     ev = _sum_field(progress, "earned_value")
@@ -81,6 +98,8 @@ def calculate_evm(
             else None)
 
     gaps = []
+    if progress_mode_gap:
+        gaps.append(progress_mode_gap)
     for name, value in (("PV", pv), ("EV", ev), ("AC", ac), ("BAC", bac)):
         if value is None:
             gaps.append(name)
@@ -107,6 +126,7 @@ def calculate_evm(
     return {
         "project_id": project_id,
         "as_of_period": as_of_period,
+        "progress_mode": progress_mode,
         "source_record_counts": {"progress": len(progress), "actual_cost": len(costs)},
         "PV": rounded(pv), "EV": rounded(ev), "AC": rounded(ac), "BAC": rounded(bac),
         "SV": rounded(sv), "CV": rounded(cv), "SPI": rounded(spi), "CPI": rounded(cpi),
@@ -123,8 +143,9 @@ def calculate_evm(
             "TCPI": "(BAC - EV) / (BAC - AC), when BAC > AC",
         },
         "limitations": [
-            "Progress records must contain cumulative or period values consistently; this function sums supplied rows.",
-            "If records are periodic deltas, summing them is appropriate; if they are cumulative snapshots, callers must select only the latest snapshot per activity.",
+            "progress_mode=period_deltas sums supplied period values; use it only when each row is a period increment.",
+            "progress_mode=cumulative_snapshots selects the latest available progress row per activity through the as-of period before summing PV and EV.",
+            "Actual-cost rows are summed as transactions/period deltas in either progress mode; do not supply cumulative AC snapshots.",
             "EAC is a simple CPI-based forecast and does not model remaining schedule, risk, commitments or change orders.",
             "Missing PV, EV, AC or BAC is not treated as zero.",
         ],
