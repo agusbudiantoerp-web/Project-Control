@@ -29,6 +29,31 @@ jobs:
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt -r ai_project_control/requirements.txt
       - name: Compile root app, pages and application modules
         run: python -m compileall -q app.py ai_project_control pages
+      - name: Smoke-start primary Streamlit application
+        shell: bash
+        run: |
+          set -e
+          python -m streamlit run app.py --server.headless true --server.address 127.0.0.1 --server.port 8501 > streamlit-smoke.log 2>&1 &
+          APP_PID=$!
+          cleanup() {
+            kill "$APP_PID" 2>/dev/null || true
+            wait "$APP_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8501/_stcore/health >/dev/null; then
+              echo "Primary Streamlit health endpoint responded successfully."
+              exit 0
+            fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              cat streamlit-smoke.log
+              exit 1
+            fi
+            sleep 1
+          done
+          cat streamlit-smoke.log
+          echo "Primary Streamlit app did not become healthy within 30 seconds."
+          exit 1
       - name: Run focused project-control tests
         run: |
           python -m pytest -q \
