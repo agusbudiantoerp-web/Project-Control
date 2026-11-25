@@ -203,3 +203,35 @@ def test_multi_dataset_save_commits_new_project_and_related_data_together(tmp_pa
     assert store.list_project_ids() == ["P2"]
     assert len(store.load_dataset("P2", "wbs")) == 1
     assert len(store.load_dataset("P2", "activities")) == 1
+
+
+def test_multi_dataset_database_failure_rolls_back_entire_batch(tmp_path):
+    import sqlite3
+
+    database = tmp_path / "atomic-rollback.sqlite3"
+    store = ProjectStore(database)
+    connection = sqlite3.connect(database)
+    connection.execute("""
+        CREATE TRIGGER fail_activity_insert
+        BEFORE INSERT ON project_records
+        WHEN NEW.dataset = 'activities'
+        BEGIN
+            SELECT RAISE(ABORT, 'forced activity insert failure');
+        END;
+    """)
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(sqlite3.IntegrityError, match="forced activity insert failure"):
+        store.save_datasets("P3", {
+            "project_master": [{
+                "project_id": "P3", "project_name": "Atomic Test", "currency": "IDR",
+            }],
+            "wbs": [{"project_id": "P3", "wbs_id": "W1"}],
+            "activities": [{
+                "project_id": "P3", "activity_id": "A1", "duration_days": 1,
+            }],
+        })
+    assert store.load_dataset("P3", "project_master") == []
+    assert store.load_dataset("P3", "wbs") == []
+    assert store.load_dataset("P3", "activities") == []
