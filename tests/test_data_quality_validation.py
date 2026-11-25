@@ -128,3 +128,39 @@ def test_risk_score_is_validated_when_supplied():
     })
     assert result["status"] == "INVALID"
     assert any(issue["code"] == "RISK_SCORE_OUT_OF_RANGE" for issue in result["issues"])
+
+
+def test_boq_amount_must_match_quantity_times_unit_rate():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "boq": [{
+            "project_id": "P1", "boq_id": "B1",
+            "quantity": 12.5, "unit_rate": 250000, "amount": 3000000,
+        }],
+    })
+    assert result["status"] == "VALID"
+    assert not any(issue["code"] == "BOQ_AMOUNT_MISMATCH" for issue in result["issues"])
+
+
+def test_boq_amount_mismatch_is_rejected():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "boq": [{
+            "project_id": "P1", "boq_id": "B1",
+            "quantity": 12.5, "unit_rate": 250000, "amount": 2500000,
+        }],
+    })
+    assert result["status"] == "INVALID"
+    issue = next(issue for issue in result["issues"] if issue["code"] == "BOQ_AMOUNT_MISMATCH")
+    assert issue["field"] == "amount"
+
+
+def test_boq_amount_check_allows_rounding_tolerance():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "boq": [{
+            "project_id": "P1", "boq_id": "B1",
+            "quantity": 3, "unit_rate": 100.3333, "amount": 301,
+        }],
+    })
+    assert result["status"] == "VALID"
