@@ -1181,7 +1181,6 @@ def analyze_drawing_page_gemini(image_bytes: bytes, api_key: str, model='gemini-
     return pd.DataFrame(rows)
 
 
-me(rows)
 
 def takeoff_to_boq_draft(takeoff: pd.DataFrame):
     """Convert reviewed takeoff rows to a non-priced, explicitly provisional BOQ."""
