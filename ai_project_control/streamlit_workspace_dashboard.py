@@ -37,7 +37,12 @@ def _performance_display_value(summary: dict[str, Any], projects: list[dict[str,
     if not summary.get("assessed_count") or not projects:
         return "Not assessed"
     score = projects[0].get("performance_score")
-    return score if score is not None else "Not assessed"
+    if score is None or isinstance(score, bool):
+        return "Not assessed"
+    try:
+        return score if math.isfinite(float(score)) else "Not assessed"
+    except (TypeError, ValueError):
+        return "Not assessed"
 
 from .portfolio_monitoring import PortfolioMonitoringStore
 from .project_recovery_intelligence import build_project_recovery_intelligence
