@@ -129,3 +129,32 @@ def test_schedule_change_rejects_unknown_status():
         }],
     })
     assert any(issue["code"] == "INVALID_CHANGE_STATUS" for issue in result["issues"])
+
+
+def test_change_request_rejects_baseline_when_project_has_no_baseline_records():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "schedule_changes": [{
+            "project_id": "P1", "change_id": "CR-1", "baseline_id": "BL-MISSING",
+        }],
+    })
+    assert any(issue["code"] == "UNKNOWN_CHANGE_BASELINE" for issue in result["issues"])
+
+
+def test_progress_activity_must_match_linked_boq_activity():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "activities": [
+            {"project_id": "P1", "activity_id": "A1", "wbs_id": "W1"},
+            {"project_id": "P1", "activity_id": "A2", "wbs_id": "W1"},
+        ],
+        "boq": [{
+            "project_id": "P1", "boq_id": "B1", "activity_id": "A1", "wbs_id": "W1",
+            "quantity": 1,
+        }],
+        "progress": [{
+            "project_id": "P1", "activity_id": "A2", "boq_id": "B1",
+            "period": "2026-11", "earned_value": 10,
+        }],
+    })
+    assert any(issue["code"] == "PROGRESS_ACTIVITY_BOQ_MISMATCH" for issue in result["issues"])
