@@ -753,3 +753,25 @@ def test_gemini_drawing_rejects_too_many_takeoff_items(monkeypatch):
     monkeypatch.setattr(requests, "post", lambda *args, **kwargs: Response())
     with pytest.raises(ValueError, match="review limit"):
         analyze_drawing_page_gemini(b"png", "secret-key")
+
+
+def test_drawing_takeoff_boQ_is_provisional_and_never_prices_items():
+    from core import takeoff_to_boq_draft
+
+    draft = takeoff_to_boq_draft(pd.DataFrame([{
+        "item_code": "C-01", "description": "Concrete", "unit": "m3",
+        "quantity": 12.5, "wbs_id": "WBS-01",
+    }]))
+    assert draft.loc[0, "budget_quantity"] == 12.5
+    assert draft.loc[0, "unit_rate"] == ""
+    assert draft.loc[0, "budget_amount"] == ""
+    assert draft.loc[0, "review_status"] == "Pending Review"
+
+
+@pytest.mark.parametrize("quantity", [-1, float("inf"), "not-a-number"])
+def test_drawing_takeoff_rejects_invalid_quantities(quantity):
+    from core import takeoff_to_boq_draft
+
+    takeoff = pd.DataFrame([{"item_code": "C-01", "quantity": quantity}])
+    with pytest.raises(ValueError, match="quantity"):
+        takeoff_to_boq_draft(takeoff)
