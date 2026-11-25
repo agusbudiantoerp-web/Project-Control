@@ -562,3 +562,18 @@ Latest verified application commit: `f7217d561eef38b1e347215755e78e0aa62f6b1d`.
 - Drawing-to-BOQ review now allows an explicit optional Activity ID mapping in addition to WBS mapping.
 
 These results verify automated tests and compile checks on the stated SHA. They do not verify a clean Windows installation, real owner data, Gemini API connectivity, Telegram bot delivery, backup/restore drill, authentication or production deployment. Do not describe the product as production-ready until those acceptance gates are completed.
+
+
+## CI evidence update — 2026-11-25 (AI Advisor and import integration)
+
+Latest verified application SHA with the saved-workspace AI advisor page and its AppTest smoke check: `a517014ccebc50b9c38341245a185cfefba23f02`.
+
+- Project Control focused workflow: **543 passed**; full repository suite: **769 passed**. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45621938626
+- Recovery regression workflow: success. Run: https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45621938701
+- Root app, primary pages and application modules compiled successfully.
+- Added the primary **AI Project Advisor — Groq / Gemini** page. It reads saved project EVM, schedule, risk, resource and action evidence; requires explicit consent before sending evidence to a provider; and does not mutate project data.
+- Groq and Gemini advisor requests validate model/timeout inputs and send API keys through request headers. Mocked provider tests cover credential handling, timeouts and error redaction.
+- Drawing takeoff now supports optional explicit Activity ID mapping in addition to WBS mapping.
+- Cross-dataset import preflight and atomic multi-dataset validation are covered by the current test suite.
+
+The tests use mocks for provider requests. No live Groq/Gemini account request or live Telegram bot delivery has been confirmed. The current branch head may advance for documentation-only commits; the above test evidence applies to the stated SHA. Production release remains blocked pending clean Windows acceptance, real owner-data reconciliation, external API validation, backup/restore drill, authentication/authorization and deployment review.
