@@ -72,7 +72,7 @@ def build_stored_project_financial_control(
         "data_validation": store.validate_workspace(project_id),
         "limitations": [
             "This report reads records already saved in the local SQLite workspace; it does not import or modify data.",
-            "The EVM engine sums supplied period values. Period deltas are suitable; cumulative snapshots must be reduced to the latest snapshot per activity first.",
+            "The EVM engine supports period-delta aggregation or selecting the latest cumulative progress snapshot per activity. Actual-cost rows remain transaction/period deltas in both modes.",
             "Rows without a currency field inherit the project-level currency assumption; rows with an explicit different currency are rejected.",
             "EAC scenarios are estimates, not approved budget changes, cash commitments or a dated cash forecast.",
             "SQLite is local to this machine and is not a multi-user synchronized database.",
