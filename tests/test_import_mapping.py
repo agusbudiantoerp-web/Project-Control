@@ -113,3 +113,28 @@ def test_maps_project_evm_record_modes_from_master_import():
     }], result["mapping"])
     assert mapped["rows"][0]["progress_record_mode"] == "cumulative_snapshot"
     assert mapped["rows"][0]["actual_cost_record_mode"] == "period_delta"
+
+
+def test_maps_wbs_activity_and_boq_crosswalk_fields():
+    boq = suggest_column_mapping("boq", [
+        "Project ID", "BOQ ID", "WBS ID", "Activity Code", "Qty"
+    ])
+    assert boq["mapping"]["wbs_id"] == "WBS ID"
+    assert boq["mapping"]["activity_id"] == "Activity Code"
+
+    activities = suggest_column_mapping("activities", [
+        "Project ID", "Activity ID", "WBS Code", "Predecessors", "Duration"
+    ])
+    assert activities["mapping"]["wbs_id"] == "WBS Code"
+    assert activities["mapping"]["predecessor_ids"] == "Predecessors"
+
+    progress = suggest_column_mapping("progress", [
+        "Project ID", "Activity ID", "BOQ ID", "Period", "EV"
+    ])
+    assert progress["mapping"]["boq_id"] == "BOQ ID"
+
+    costs = suggest_column_mapping("actual_cost", [
+        "Project ID", "Period", "Cost Code", "AC", "BOQ ID", "WBS ID"
+    ])
+    assert costs["mapping"]["boq_id"] == "BOQ ID"
+    assert costs["mapping"]["wbs_id"] == "WBS ID"
