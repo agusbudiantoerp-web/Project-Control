@@ -81,7 +81,7 @@ def test_executive_sender_rejects_non_text_credentials():
 
 
 def test_executive_sender_rejects_token_whitespace():
-    token = "secret\\nINJECTED"
+    token = "secret\nINJECTED"
     with pytest.raises(ValueError, match="invalid whitespace") as captured:
         send_telegram_executive_message(
             bot_token=token, chat_id="123", message="report"
