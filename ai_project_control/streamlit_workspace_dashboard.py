@@ -784,6 +784,8 @@ def render_project_workspace_dashboard(
         st.metric("Calculated network duration (working days)", schedule["project_duration_days"])
         st.caption("Critical activities: " + ", ".join(schedule["critical_path"]))
         st.dataframe(schedule["activities"], use_container_width=True, hide_index=True)
+        for assumption in schedule.get("assumptions", []):
+            st.caption("• " + assumption)
     elif schedule["status"] == "NO_ACTIVITIES":
         st.info("No activity network is stored. Critical Path cannot yet be assessed.")
     else:
