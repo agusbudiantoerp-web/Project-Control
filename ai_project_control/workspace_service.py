@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 from typing import Any
 
 from .data_quality_validation import TABLE_KEYS
@@ -44,13 +45,27 @@ def build_workspace_overview(database_path: str | Path, project_id: str) -> dict
         baseline for baseline in workspace.get("schedule_baselines", [])
         if str(baseline.get("status", "")).upper() == "APPROVED"
     ]
-    approved_baselines.sort(
-        key=lambda item: (
-            int(item.get("version", 0) or 0),
+    def baseline_sort_key(item: dict[str, Any]) -> tuple[int, str, str]:
+        raw_version = item.get("version", 0)
+        try:
+            numeric_version = float(raw_version)
+        except (TypeError, ValueError, OverflowError):
+            numeric_version = math.nan
+        version = (
+            int(numeric_version)
+            if not isinstance(raw_version, bool)
+            and math.isfinite(numeric_version)
+            and numeric_version >= 1
+            and numeric_version.is_integer()
+            else 0
+        )
+        return (
+            version,
             str(item.get("approved_at", "")),
             str(item.get("baseline_id", "")),
         )
-    )
+
+    approved_baselines.sort(key=baseline_sort_key)
     active_baseline = approved_baselines[-1] if approved_baselines else None
     schedule_variance = (
         compare_schedule_to_baseline(active_baseline, workspace["activities"])
