@@ -164,3 +164,68 @@ def test_boq_amount_check_allows_rounding_tolerance():
         }],
     })
     assert result["status"] == "VALID"
+
+
+def test_unknown_wbs_parent_and_hierarchy_cycle_are_rejected():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "wbs": [
+            {"project_id": "P1", "wbs_id": "W1", "parent_wbs_id": "W2"},
+            {"project_id": "P1", "wbs_id": "W2", "parent_wbs_id": "W1"},
+        ],
+    })
+    codes = {issue["code"] for issue in result["issues"]}
+    assert "WBS_HIERARCHY_CYCLE" in codes
+
+
+def test_activity_wbs_and_predecessor_links_must_exist():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "wbs": [{"project_id": "P1", "wbs_id": "W1"}],
+        "activities": [
+            {"project_id": "P1", "activity_id": "A1", "wbs_id": "MISSING",
+             "predecessor_ids": "A2"},
+            {"project_id": "P1", "activity_id": "A2", "wbs_id": "W1",
+             "predecessor_ids": "UNKNOWN"},
+        ],
+    })
+    codes = {issue["code"] for issue in result["issues"]}
+    assert "UNKNOWN_ACTIVITY_WBS" in codes
+    assert "UNKNOWN_ACTIVITY_PREDECESSOR" in codes
+
+
+def test_boq_progress_and_actual_cost_links_are_checked():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "wbs": [{"project_id": "P1", "wbs_id": "W1"}],
+        "activities": [{"project_id": "P1", "activity_id": "A1", "wbs_id": "W1"}],
+        "boq": [{"project_id": "P1", "boq_id": "B1", "wbs_id": "W1",
+                 "quantity": 1, "unit_rate": 10, "amount": 10}],
+        "progress": [{"project_id": "P1", "activity_id": "MISSING", "boq_id": "B2",
+                      "period": "2026-11"}],
+        "actual_cost": [{"project_id": "P1", "period": "2026-11", "cost_code": "C1",
+                         "boq_id": "B3", "wbs_id": "W2", "actual_cost": 5}],
+    })
+    codes = {issue["code"] for issue in result["issues"]}
+    assert "UNKNOWN_PROGRESS_ACTIVITY" in codes
+    assert "UNKNOWN_PROGRESS_BOQ" in codes
+    assert "UNKNOWN_COST_BOQ" in codes
+    assert "UNKNOWN_COST_WBS" in codes
+
+
+def test_boq_and_progress_wbs_consistency_is_enforced():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "wbs": [
+            {"project_id": "P1", "wbs_id": "W1"},
+            {"project_id": "P1", "wbs_id": "W2"},
+        ],
+        "activities": [{"project_id": "P1", "activity_id": "A1", "wbs_id": "W1"}],
+        "boq": [{"project_id": "P1", "boq_id": "B1", "wbs_id": "W2",
+                 "quantity": 1, "unit_rate": 10, "amount": 10}],
+        "progress": [{"project_id": "P1", "activity_id": "A1", "boq_id": "B1",
+                      "period": "2026-11"}],
+    })
+    codes = {issue["code"] for issue in result["issues"]}
+    assert "BOQ_ACTIVITY_WBS_MISMATCH" in codes
+    assert "PROGRESS_ACTIVITY_BOQ_WBS_MISMATCH" in codes
