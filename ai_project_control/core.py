@@ -1286,6 +1286,9 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
     if assignments.empty:
         return pd.DataFrame(), pd.DataFrame()
     a = assignments.copy()
+    if "task_id" not in a or a["task_id"].isna().any() or a["task_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("Every resource assignment must have a non-blank task_id.")
+    a["task_id"] = a["task_id"].astype(str).str.strip()
     if "rsrc_id" not in a or a["rsrc_id"].isna().any() or a["rsrc_id"].astype(str).str.strip().eq("").any():
         raise ValueError("Every resource assignment must have a non-blank rsrc_id.")
     a["rsrc_id"] = a["rsrc_id"].astype(str).str.strip()
@@ -1338,6 +1341,8 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
     caps = r[["rsrc_id"]].copy()
     if "capacity_per_day" in r:
         raw_capacity = r["capacity_per_day"]
+        if raw_capacity.map(lambda value: isinstance(value, (bool, np.bool_))).any():
+            raise ValueError("capacity_per_day must be numeric, not boolean.")
         caps["capacity_per_day"] = pd.to_numeric(raw_capacity, errors="coerce")
         invalid_text = raw_capacity.notna() & raw_capacity.astype(str).str.strip().ne("") & caps["capacity_per_day"].isna()
         invalid_capacity = invalid_text | (caps["capacity_per_day"].notna() & (~np.isfinite(caps["capacity_per_day"].fillna(0)) | (caps["capacity_per_day"] <= 0)))
