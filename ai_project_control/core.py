@@ -345,9 +345,17 @@ def calculate_cpm(activities: pd.DataFrame):
     out=out.rename(columns={"activity":"activity_id","duration":"duration_days",
       "es":"early_start_day","ef":"early_finish_day","ls":"late_start_day",
       "lf":"late_finish_day","slack":"total_float_days","critical":"is_critical"})
-    lookup=activities.set_index("activity_id")
-    out["activity_name"]=out["activity_id"].map(lookup["activity_name"])
-    out["wbs_id"]=out["activity_id"].map(lookup["wbs_id"])
+    # Use the normalized frame so IDs with surrounding whitespace still map
+    # back to their source metadata. Name/WBS are optional in CPM-only imports.
+    lookup=frame.set_index("activity_id")
+    if "activity_name" in lookup.columns:
+        out["activity_name"]=out["activity_id"].map(lookup["activity_name"])
+    else:
+        out["activity_name"]=out["activity_id"]
+    if "wbs_id" in lookup.columns:
+        out["wbs_id"]=out["activity_id"].map(lookup["wbs_id"])
+    else:
+        out["wbs_id"]=None
     return out, result.stats
 
 def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataFrame,
@@ -667,13 +675,21 @@ def calculate_xer_cpm(tables: dict[str,pd.DataFrame], hours_per_day=8):
     task=tables.get("TASK",pd.DataFrame()).copy()
     rel=tables.get("TASKPRED",pd.DataFrame()).copy()
     if task.empty: raise ValueError("XER TASK table is empty.")
+    if isinstance(hours_per_day, (bool, np.bool_)):
+        raise ValueError("hours_per_day must be a finite number greater than zero.")
+    try:
+        hours_per_day=float(hours_per_day)
+    except (TypeError, ValueError):
+        raise ValueError("hours_per_day must be a finite number greater than zero.") from None
     if not np.isfinite(hours_per_day) or hours_per_day<=0:
         raise ValueError("hours_per_day must be a finite number greater than zero.")
     if "task_id" not in task:
         raise ValueError("XER TASK table is missing task_id.")
     if task["task_id"].isna().any() or task["task_id"].astype(str).str.strip().eq("").any() or task["task_id"].astype(str).str.strip().duplicated().any():
         raise ValueError("XER TASK contains a blank task_id.")
-    ids=task["task_id"].astype(str).tolist()
+    # Normalize P6 identifiers once, then use the same keys for TASKPRED joins.
+    task["task_id"]=task["task_id"].astype(str).str.strip()
+    ids=task["task_id"].tolist()
     if len(set(ids)) != len(ids):
         raise ValueError("XER TASK contains duplicate task_id values.")
     index={v:i for i,v in enumerate(ids)}
