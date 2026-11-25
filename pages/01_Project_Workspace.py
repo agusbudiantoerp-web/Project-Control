@@ -1,11 +1,11 @@
 """Primary Streamlit entry point for persistent Project Workspace data."""
 from __future__ import annotations
 
-import os
 import streamlit as st
 
 from ai_project_control.streamlit_persistent_import_ui import render_persistent_import_ui
 from ai_project_control.streamlit_workspace_dashboard import render_project_workspace_dashboard
+from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(page_title="Project Workspace", page_icon="🏗️", layout="wide")
 st.title("Project Workspace")
@@ -14,7 +14,7 @@ st.caption(
     "then review project and portfolio controls from the same SQLite database."
 )
 
-database_path = os.getenv("PROJECT_CONTROL_DB", ".project_control/project_control.sqlite3")
+database_path = get_workspace_database_path()
 
 render_persistent_import_ui(database_path)
 project_id = st.session_state.get("pc_persist_project_id", "").strip()
