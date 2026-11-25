@@ -460,9 +460,9 @@ def analyze_drawing_page_with_gemini(
                 parsed_quantity = float(raw_quantity)
                 if math.isfinite(parsed_quantity) and parsed_quantity >= 0:
                     quantity = parsed_quantity
-            except (TypeError, ValueError):
+            except (OverflowError, TypeError, ValueError):
                 pass
-        confidence = str(item.get("confidence", "Low")).title()
+        confidence = bounded_text(item, "confidence", 20).title() or "Low"
         if confidence not in {"High", "Medium", "Low"}:
             confidence = "Low"
         rows.append({
