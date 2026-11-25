@@ -99,3 +99,34 @@ jobs:
         # The legacy V1 app has its own nested tests and CI workflow under ai_project_control/.
         # Scope this run to the root workspace tests to avoid duplicate test module basenames.
         run: python -m pytest -q tests
+
+  windows-backup-acceptance:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install workspace dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt -r ai_project_control/requirements.txt
+      - name: Compile backup utility
+        run: python -m py_compile scripts/backup_workspace.py
+      - name: Run Windows-compatible backup and restore tests
+        run: python -m pytest -q tests/test_workspace_backup.py tests/test_backup_workspace_script.py
+      - name: Validate Task Scheduler installer PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD/INSTALL_DAILY_BACKUP_TASK.ps1",
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            throw "PowerShell syntax validation failed."
+          }
