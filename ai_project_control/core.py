@@ -1328,9 +1328,12 @@ def calculate_resource_load(resources: pd.DataFrame, assignments: pd.DataFrame):
     if assignments.empty:
         return pd.DataFrame(), pd.DataFrame()
     a = assignments.copy()
-    if "task_id" not in a or a["task_id"].isna().any() or a["task_id"].astype(str).str.strip().eq("").any():
-        raise ValueError("Every resource assignment must have a non-blank task_id.")
-    a["task_id"] = a["task_id"].astype(str).str.strip()
+    # Legacy resource ledgers may not carry task_id; validate it when supplied.
+    # Resource-level summaries remain supported for these aggregate records.
+    if "task_id" in a:
+        if a["task_id"].isna().any() or a["task_id"].astype(str).str.strip().eq("").any():
+            raise ValueError("Every resource assignment must have a non-blank task_id when provided.")
+        a["task_id"] = a["task_id"].astype(str).str.strip()
     if "rsrc_id" not in a or a["rsrc_id"].isna().any() or a["rsrc_id"].astype(str).str.strip().eq("").any():
         raise ValueError("Every resource assignment must have a non-blank rsrc_id.")
     a["rsrc_id"] = a["rsrc_id"].astype(str).str.strip()
