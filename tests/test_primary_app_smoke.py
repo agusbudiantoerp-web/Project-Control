@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def _run_page(path: Path, tmp_path, monkeypatch):
     monkeypatch.setenv("PROJECT_CONTROL_DB", str(tmp_path / "workspace.sqlite3"))
     app = AppTest.from_file(str(path), default_timeout=45).run()
-    assert not app.exception, "\\n".join(str(error.message) for error in app.exception)
+    assert not app.exception, "\n".join(str(error.message) for error in app.exception)
 
 
 def test_primary_workspace_app_renders_without_uncaught_exception(tmp_path, monkeypatch):
