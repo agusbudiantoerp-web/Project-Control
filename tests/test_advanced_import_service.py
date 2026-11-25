@@ -210,3 +210,12 @@ def test_gemini_invalid_quantity_remains_blank_for_human_review(monkeypatch):
     rows = service.analyze_drawing_page_with_gemini(b"png-bytes", "test-key")
     assert rows[0]["quantity"] is None
     assert rows[0]["review_status"] == "PENDING_REVIEW"
+
+
+def test_xer_import_rejects_cyclic_activity_dependencies():
+    cyclic = SINGLE_PROJECT_XER + "%R\tP6-1\tT1\tT2\n".encode("ascii")
+    with pytest.raises(ValueError, match="valid finish-to-start CPM network"):
+        prepare_xer_workspace_import(
+            cyclic, project_id="P1", project_name="Plant Upgrade",
+            currency="IDR", source_project_id="P6-1",
+        )
