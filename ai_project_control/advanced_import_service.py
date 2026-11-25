@@ -121,10 +121,13 @@ def prepare_xer_workspace_import(
         if selected_source not in source_ids:
             raise ValueError("Selected P6 source project does not match the TASK records")
     elif source_project_id and not source_ids:
-        # Some XER exports omit proj_id on TASK rows; in that case the file
-        # itself is the only safe scope and all available TASK rows are used.
+        if len(available) > 1:
+            raise ValueError(
+                "XER has multiple PROJECT records but TASK rows omit proj_id; "
+                "the source project cannot be safely isolated."
+            )
         selected_source = ""
-    elif len(source_ids) > 1:
+    elif len(source_ids) > 1 or (not source_ids and len(available) > 1):
         raise ValueError("XER contains multiple projects; select one P6 source project before importing")
     else:
         selected_source = source_ids[0] if source_ids else ""
