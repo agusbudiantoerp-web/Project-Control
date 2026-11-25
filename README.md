@@ -5,6 +5,8 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 ## Scope
 
 - Project workspace and structured dataset import/validation
+- Primavera P6 XER import into the primary ProjectStore (WBS and Activities)
+- PDF drawing-page takeoff drafts with Gemini, explicit data-sharing consent and quantity-surveyor verification before BOQ save
 - BOQ, schedule, resource and manpower/equipment planning
 - EVM performance review (SPI, CPI, EAC and related indicators)
 - Cost and schedule forecasting, Monte Carlo risk assessment
@@ -38,7 +40,11 @@ python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The default SQLite workspace is created at `.project_control/project_control.sqlite3`.
+The primary application uses one shared SQLite workspace path across the root app and all primary pages. By default it is `.project_control/project_control.sqlite3`; set `PROJECT_CONTROL_DB` to override it consistently.
+
+For Gemini drawing takeoff, set `GEMINI_API_KEY` securely as an environment variable or Streamlit secret. The selected PDF page is transmitted to Google only after the in-app consent checkbox and Analyze button are used. Never commit real API keys.
+
+The historical V1 application remains available from `ai_project_control/START_AI_PROJECT_CONTROL.bat` for compatibility. It uses a separate database under `%LOCALAPPDATA%\\AIProjectControl\\project_control.db` and is not synchronized with the primary workspace. Use the root launcher for the primary unified workspace.
 Keep this folder backed up. Do not commit live project data, credentials, exports or database files.
 
 ## Historical performance workflow
@@ -141,3 +147,8 @@ The Saved Portfolio COO Cockpit includes a Project Director decision matrix and 
 
 
 The COO portfolio cockpit includes a dated snapshot trend-warning view and a recovery decision review. Trend forecasts require at least three dated observations per metric; missing Monte Carlo or recovery scenario evidence is explicitly surfaced as incomplete.
+
+
+## Primavera P6 and drawing intake
+
+Open **Primavera P6 XER & Drawing-to-BOQ Intake** from the sidebar. A selected XER project is imported atomically into Project Master, WBS and Activities. A selected PDF drawing page can be sent to Gemini for a quantity-takeoff draft only after explicit consent. Review and verify every quantity before saving it to BOQ; unit rates and amounts remain blank until supplied and approved.
