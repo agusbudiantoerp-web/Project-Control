@@ -810,6 +810,9 @@ def render_project_workspace_dashboard(
             capture_baseline = st.form_submit_button("Capture current schedule as draft")
         if capture_baseline:
             try:
+                if any(str(row.get("baseline_id", "")) == baseline_id_input.strip()
+                       for row in baseline_rows):
+                    raise ValueError("Baseline ID already exists. Use a new ID to preserve the recorded snapshot.")
                 new_baseline = create_schedule_baseline(
                     project_id, baseline_id_input, result["workspace"]["activities"],
                     baseline_name=baseline_name_input, created_by=baseline_creator_input,
