@@ -105,6 +105,8 @@ def restore_workspace_backup(
                 handle.write(safety_bytes)
                 handle.flush()
                 os.fsync(handle.fileno())
+            if os.name != "nt":
+                os.chmod(safety_path, 0o600)
 
         destination_temp = None
         try:
