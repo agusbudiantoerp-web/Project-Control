@@ -76,3 +76,29 @@ def test_empty_portfolio_is_insufficient_data():
     result = build_portfolio_risk_resource_view([], [])
     assert result["status"] == "INSUFFICIENT_DATA"
     assert result["expected_exposure_by_currency"] == {}
+
+
+def test_boolean_risk_and_resource_values_are_unassessed():
+    result = build_portfolio_risk_resource_view(
+        [{"project_id": "P1", "risk_id": "R1", "currency": "IDR",
+          "probability": True, "impact": 100}],
+        [{"project_id": "P1", "resource_id": "EX-01", "period": "2026-12",
+          "unit": "hours", "planned_units": True, "capacity_units": 100}],
+    )
+    assert result["risk_count_assessed"] == 0
+    assert result["risk_count_unassessed"] == 1
+    assert len(result["unassessed_resources"]) == 1
+
+
+def test_shared_resource_aggregate_overflow_is_unassessed():
+    result = build_portfolio_risk_resource_view(
+        [],
+        [
+            {"project_id": "P1", "resource_id": "EX-01", "period": "2026-12",
+             "unit": "hours", "planned_units": 1e308, "capacity_units": 1e308},
+            {"project_id": "P2", "resource_id": "EX-01", "period": "2026-12",
+             "unit": "hours", "planned_units": 1e308, "capacity_units": 1e308},
+        ],
+    )
+    assert result["shared_resource_conflict_count"] == 0
+    assert any("supported numeric range" in row["reason"] for row in result["unassessed_resources"])
