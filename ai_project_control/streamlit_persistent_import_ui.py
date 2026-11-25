@@ -64,7 +64,7 @@ def render_persistent_import_ui(database_path: str | Path = ".project_control/pr
         st.warning("Replace will remove existing records for this project and dataset before saving the uploaded rows.")
         confirm_replace = st.checkbox(
             "I confirm that I want to replace this project's entire selected dataset.",
-            key=f"pc_persist_confirm_replace_{dataset}",
+            key=f"pc_persist_confirm_replace_{project_id}_{dataset}",
         )
 
     if not st.button(
