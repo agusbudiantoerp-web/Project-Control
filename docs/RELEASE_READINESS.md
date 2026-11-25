@@ -320,3 +320,25 @@ Compared the following files on `main` and `ai-project-control-integration`:
 - Added PyMuPDF dependency and optional `GEMINI_API_KEY` configuration example.
 - The historical V1 launcher remains separate for compatibility and uses `%LOCALAPPDATA%\\AIProjectControl\\project_control.db`; it is not synchronized with the primary workspace. The root launcher is the primary workspace entry point.
 - Added focused tests for XER parsing, multi-project scoping, atomic workspace import and Gemini input validation. These tests have not yet been executed.
+
+
+## Engineering audit update — 2026-11-25 (integration branch)
+
+Additional defensive changes recorded during the implementation audit:
+
+- CSV/Excel upload headers are validated before row processing. Blank headers, duplicate headers after whitespace/case normalization, and excessive column counts are rejected. CSV rows containing more values than the header are rejected instead of silently dropping overflow values.
+- Focused CI explicitly includes the Telegram notification regression tests, including token-redaction behavior.
+- SQLite project storage closes per-operation connections after transaction completion, retains a shared in-memory database for the lifetime of an in-memory store, and refuses to open a database whose recorded schema version is newer than the application.
+- Dashboard EVM forecasts treat zero CPI and invalid/non-positive BAC as unassessed rather than dividing by zero or publishing unsupported forecasts. Non-finite ratio/percentage outputs are suppressed.
+- The EVM engine requires positive BAC before issuing EAC/VAC forecasts and records the data gap.
+- Cost forecast allows a valid zero actual-cost input: the budget-rate scenario remains available, while CPI-based scenarios are unassessed because CPI cannot be calculated from zero AC.
+- Dated cash-flow validation rejects boolean/non-numeric opening balances and boolean transaction amounts, and guards daily/monthly aggregation and running balances against numeric overflow.
+- Regression tests were added for the above edge cases and the focused workflow includes the new dashboard EVM regression test.
+
+### Verification boundary
+
+The above changes have been committed to the integration branch and their file contents were re-read through the repository API. This is source-level verification only. The new and existing tests have **not** been executed in this implementation phase; no passing CI result is claimed for the latest branch head. The final test phase remains blocked until implementation freeze and must verify test collection, full-suite execution, UI startup, representative end-to-end project data, backup/restore, and deployment controls.
+
+### Integration boundary
+
+The integration branch remains divergent from main. Main-only commits and file-level differences must be reconciled deliberately; do not merge, reset or overwrite the larger integrated application with main as a shortcut. Local SQLite remains a single-user/local-first store, not a production multi-user database. Monte Carlo cost and schedule percentiles remain separate marginal distributions, not a correlated joint forecast.
