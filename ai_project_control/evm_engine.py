@@ -64,9 +64,22 @@ def calculate_evm(
         and (as_of_period is None or str(row.get("period", "")) <= as_of_period)
     ]
 
-    pv = _sum_field(progress, "planned_value")
-    ev = _sum_field(progress, "earned_value")
-    ac = _sum_field(costs, "actual_cost")
+    project_currency = str(project.get("currency", "")).strip().upper()
+    progress_currency_mismatch = bool(project_currency) and any(
+        str(row.get("currency", "")).strip()
+        and str(row.get("currency", "")).strip().upper() != project_currency
+        for row in progress
+    )
+    actual_cost_currency_mismatch = bool(project_currency) and any(
+        str(row.get("currency", "")).strip()
+        and str(row.get("currency", "")).strip().upper() != project_currency
+        for row in costs
+    )
+
+    # Never combine monetary values explicitly labelled in another currency.
+    pv = None if progress_currency_mismatch else _sum_field(progress, "planned_value")
+    ev = None if progress_currency_mismatch else _sum_field(progress, "earned_value")
+    ac = None if actual_cost_currency_mismatch else _sum_field(costs, "actual_cost")
     bac = _number(project.get("BAC", project.get("bac", project.get("budget_at_completion"))))
 
     spi = _safe_ratio(ev, pv) if ev is not None and pv is not None and pv > 0 else None
@@ -81,6 +94,10 @@ def calculate_evm(
             else None)
 
     gaps = []
+    if progress_currency_mismatch:
+        gaps.append("PROGRESS_CURRENCY_MISMATCH")
+    if actual_cost_currency_mismatch:
+        gaps.append("ACTUAL_COST_CURRENCY_MISMATCH")
     for name, value in (("PV", pv), ("EV", ev), ("AC", ac), ("BAC", bac)):
         if value is None:
             gaps.append(name)
