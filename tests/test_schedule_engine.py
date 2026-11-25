@@ -115,14 +115,7 @@ def test_negative_relationship_lag_is_supported():
     assert rows["B"]["early_finish"] == 14
 
 
-def test_invalid_relationship_type_and_duplicate_predecessor_are_reported():
-    invalid = calculate_critical_path([
-        {"activity_id": "A", "duration_days": 1},
-        {"activity_id": "B", "duration_days": 1, "relationship_details": [
-            {"predecessor_id": "A", "type": "XX", "lag_days": 0},
-        ]},
-    ])
-    assert invalid["status"] == "INVALID_DEPENDENCIES"
+def test_invalid_relationship_type_is_rejected():
     with pytest.raises(ValueError, match="unsupported relationship type"):
         calculate_critical_path([
             {"activity_id": "A", "duration_days": 1},
@@ -130,3 +123,15 @@ def test_invalid_relationship_type_and_duplicate_predecessor_are_reported():
                 {"predecessor_id": "A", "type": "XX", "lag_days": 0},
             ]},
         ])
+
+
+def test_duplicate_predecessor_relationships_are_reported():
+    result = calculate_critical_path([
+        {"activity_id": "A", "duration_days": 1},
+        {"activity_id": "B", "duration_days": 1, "relationship_details": [
+            {"predecessor_id": "A", "type": "FS", "lag_days": 0},
+            {"predecessor_id": "A", "type": "SS", "lag_days": 0},
+        ]},
+    ])
+    assert result["status"] == "INVALID_DEPENDENCIES"
+    assert "multiple relationship types" in result["issues"][0]
