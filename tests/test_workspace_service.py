@@ -52,3 +52,39 @@ def test_missing_spi_cpi_remains_insufficient_data(tmp_path):
     result = build_workspace_overview(db, "P2")
     assert result["scorecard"]["projects"][0]["status"] == "INSUFFICIENT_DATA"
     assert result["scorecard"]["summary"]["insufficient_data_count"] == 1
+
+
+def test_workspace_overview_compares_current_schedule_with_latest_approved_baseline(tmp_path):
+    db = tmp_path / "baseline-workspace.sqlite3"
+    store = ProjectStore(db)
+    store.save_dataset("P3", "project_master", [{"project_id": "P3", "project_name": "Baseline Project"}])
+    store.save_dataset("P3", "activities", [{
+        "project_id": "P3", "activity_id": "A1", "planned_start": "2026-12-02",
+        "planned_finish": "2026-12-12", "duration_days": 11,
+    }])
+    store.save_dataset("P3", "schedule_baselines", [{
+        "project_id": "P3", "baseline_id": "BL-1", "version": 1,
+        "status": "APPROVED", "approved_at": "2026-11-25T10:00:00+00:00",
+        "activities_snapshot": [{
+            "activity_id": "A1", "planned_start": "2026-12-01",
+            "planned_finish": "2026-12-10", "duration_days": 10,
+        }],
+    }])
+
+    result = build_workspace_overview(db, "P3")
+    assert result["active_schedule_baseline"]["baseline_id"] == "BL-1"
+    assert result["schedule_variance"]["status"] == "VARIANCE_DETECTED"
+    assert result["schedule_variance"]["changed_count"] == 1
+
+
+def test_workspace_without_approved_baseline_reports_missing_baseline(tmp_path):
+    db = tmp_path / "no-approved-baseline.sqlite3"
+    store = ProjectStore(db)
+    store.save_dataset("P4", "project_master", [{"project_id": "P4"}])
+    store.save_dataset("P4", "schedule_baselines", [{
+        "project_id": "P4", "baseline_id": "BL-DRAFT", "version": 1,
+        "status": "DRAFT", "activities_snapshot": [],
+    }])
+    result = build_workspace_overview(db, "P4")
+    assert result["active_schedule_baseline"] is None
+    assert result["schedule_variance"]["status"] == "NO_APPROVED_BASELINE"
