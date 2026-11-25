@@ -426,3 +426,12 @@ Implementation changes have been committed and selected files/workflows have bee
 
 - On POSIX systems, newly created workspace directories use owner-only permissions and SQLite database files are restricted to owner read/write (0700 directory, 0600 database).
 - Pre-restore safety snapshots are also restricted to owner read/write. Windows ACLs remain governed by the local account and machine policy.
+
+
+## Import workflow hardening — 2026-11-25
+
+- XLSX imports expose an explicit worksheet selector when a workbook contains multiple sheets. The selected worksheet is passed through to the persistence service, so the saved data matches the preview.
+- Column mapping rejects empty source-column names and reuse of one source column for multiple target fields. The Streamlit import form warns about missing required fields or reused columns and disables submission until corrected.
+- Empty data uploads return EMPTY_DATASET without creating an import event or changing existing records, including when the operator selected Replace. This prevents a header-only workbook/CSV from clearing a populated dataset.
+- Regression tests cover selected-sheet persistence, ambiguous/reused source mappings, and empty upload behavior for both upsert and replace modes.
+- These are source-level implementation changes; the final test phase must execute the focused and complete suites and verify the Streamlit interaction.
