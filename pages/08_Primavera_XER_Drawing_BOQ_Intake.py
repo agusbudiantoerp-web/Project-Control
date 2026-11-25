@@ -170,11 +170,9 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                 "Polling getUpdates memerlukan bot tanpa webhook aktif."
             )
             telegram_pdf_key = "pc_telegram_pdf_intake"
-            telegram_offset_key = (
-                "pc_telegram_update_offset_"
-                + hashlib.sha256(telegram_chat.encode("utf-8")).hexdigest()[:12]
-            )
-            persistent_offset_key = f"telegram_update_offset:{telegram_chat}"
+            bot_fingerprint = hashlib.sha256(telegram_token.encode("utf-8")).hexdigest()[:12]
+            telegram_offset_key = f"pc_telegram_update_offset_{bot_fingerprint}"
+            persistent_offset_key = f"telegram_update_offset:{bot_fingerprint}"
             if not telegram_token or not telegram_chat:
                 st.warning("Konfigurasikan TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID terlebih dahulu.")
             if st.button(
