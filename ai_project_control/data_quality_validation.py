@@ -128,6 +128,39 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                                    "table": table, "record": str(index), "field": field,
                                    "message": f"{field} cannot be negative"})
 
+            if table == "boq":
+                raw_quantity = row.get("quantity")
+                raw_unit_rate = row.get("unit_rate")
+                raw_amount = row.get("amount")
+                if all(value not in (None, "") for value in (
+                    raw_quantity, raw_unit_rate, raw_amount
+                )):
+                    try:
+                        quantity = float(raw_quantity)
+                        unit_rate = float(raw_unit_rate)
+                        amount = float(raw_amount)
+                    except (TypeError, ValueError, OverflowError):
+                        pass  # Field-level numeric checks above report invalid values.
+                    else:
+                        if all(math.isfinite(value) for value in (
+                            quantity, unit_rate, amount
+                        )):
+                            expected_amount = quantity * unit_rate
+                            if not math.isclose(
+                                amount, expected_amount, rel_tol=1e-6, abs_tol=0.01
+                            ):
+                                issues.append({
+                                    "severity": "ERROR",
+                                    "code": "BOQ_AMOUNT_MISMATCH",
+                                    "table": table,
+                                    "record": str(index),
+                                    "field": "amount",
+                                    "message": (
+                                        "amount must equal quantity multiplied by unit_rate "
+                                        "(tolerance: 0.01 currency unit or 0.0001%)."
+                                    ),
+                                })
+
     if normalized["project_master"]:
         for table in PROJECT_LINKED:
             for index, row in enumerate(normalized[table]):
