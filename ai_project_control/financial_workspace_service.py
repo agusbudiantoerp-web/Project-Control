@@ -15,6 +15,7 @@ def build_stored_project_financial_control(
     *,
     as_of_period: str | None = None,
     warning_threshold_pct: float = 5.0,
+    progress_mode: str = "period_deltas",
 ) -> dict[str, Any]:
     """Calculate EVM and cost scenarios from one project's persisted workspace."""
     project_id = str(project_id).strip()
@@ -44,6 +45,7 @@ def build_stored_project_financial_control(
     evm = calculate_evm(
         project, workspace["progress"], workspace["actual_cost"],
         as_of_period=as_of_period,
+        progress_mode=progress_mode,
     )
     forecast = build_cost_forecast(evm, warning_threshold_pct=warning_threshold_pct)
     alerts = []
@@ -59,6 +61,7 @@ def build_stored_project_financial_control(
         "project_name": project.get("project_name", project_id),
         "currency": project_currency,
         "as_of_period": as_of_period,
+        "progress_mode": progress_mode,
         "evm": evm,
         "cost_forecast": forecast,
         "management_alerts": alerts,
