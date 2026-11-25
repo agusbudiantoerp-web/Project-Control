@@ -252,7 +252,7 @@ def test_gemini_rejects_non_string_or_oversized_response_text(monkeypatch):
 
     monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: Response())
     with pytest.raises(RuntimeError, match="drawing analysis failed"):
-        analyze_drawing_page_with_gemini(b"png", "test-key")
+        analyze_drawing_page_with_gemini(b"\x89PNG\r\n\x1a\nfake-png", "test-key")
 
 
 def test_gemini_rejects_takeoff_response_over_review_limit(monkeypatch):
