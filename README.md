@@ -17,6 +17,7 @@ Integrated Streamlit workspace for project execution control, portfolio governan
 - Portfolio command center, snapshot monitoring, portfolio-wide risk aggregation by currency, cross-project shared-resource capacity checks, currency-safe portfolio cost/cashflow analysis, COO executive decision brief and executive reporting
 - Historical KPI snapshot store, next-snapshot dataset export, chronological Random Forest baseline evaluation and trend-based early warning
 - Telegram executive reporting and authorized-chat PDF document intake (requires explicit bot configuration and user action)
+- Saved-workspace AI Project Advisor using Groq or Gemini, with explicit data-sharing consent and evidence-only context
 
 ## Panduan
 
@@ -157,3 +158,8 @@ Open **Primavera P6 XER & Drawing-to-BOQ Intake** from the sidebar. A selected X
 ### Telegram drawing intake
 
 Send a PDF to the configured private bot chat as a Document, then use **Fetch latest Telegram PDF** on the drawing intake page. The bot token and allowed chat ID are read from environment variables or Streamlit secrets. The page polls with `getUpdates`, so an active webhook must be disabled for polling. Telegram PDF bytes stay in the Streamlit session; a selected page is sent to Gemini only after explicit consent.
+
+
+## Saved-workspace AI Project Advisor
+
+Open **AI Project Advisor — Groq / Gemini** to select a project from the primary SQLite workspace and request an evidence-grounded management narrative. The page supplies saved EVM, schedule, risk, resource and action-register records to the selected provider only after the explicit consent checkbox and Generate button are used. Configure `GROQ_API_KEY` or `GEMINI_API_KEY` through environment variables or Streamlit secrets. API keys are sent in request headers and are not stored in ProjectStore. AI output is a review aid; it does not update project records or approve actions.
