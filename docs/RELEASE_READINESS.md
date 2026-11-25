@@ -386,3 +386,11 @@ Implementation changes have been committed and selected files/workflows have bee
 - Gemini drawing requests validate the model identifier, API key, and image size before sending. Provider response text is bounded to 1 MB and takeoff output is capped at 500 rows.
 - Gemini takeoff values are treated as untrusted suggestions. Invalid, negative, boolean, or non-finite quantities are left blank; generated BOQ drafts have blank unit rates and amounts and remain marked **Pending Review**.
 - These controls do not certify quantities. Drawing scale, measurement method, scope, units, WBS assignment, and every quantity still require professional review.
+
+
+### Primary application entry point and local launch
+
+- The repository-root app.py is the primary unified workspace and loads the shared ProjectStore through ai_project_control.streamlit_workspace_dashboard.
+- The root Windows launcher now installs both requirements.txt and ai_project_control/requirements.txt before starting the root app. The PowerShell instructions in the root README use the same dependency set.
+- ai_project_control/app.py and its nested launcher are retained as a historical V1 compatibility application. They use a separate local database and are not synchronized with the primary workspace; use the repository-root launcher for the current application.
+- The primary P6 XER and drawing-to-BOQ workflow is the root pages/08_Primavera_XER_Drawing_BOQ_Intake.py page. Drawing PDF preview is bounded by a 20 MB / 300-page intake limit in the UI; rendered images are capped at 12 MB. Gemini transmission requires explicit page-specific consent. BOQ rows require a valid project WBS, explicit VERIFIED review status, quantity, description and unit before persistence.
