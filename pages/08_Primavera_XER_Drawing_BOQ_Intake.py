@@ -170,7 +170,11 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                 "Polling getUpdates memerlukan bot tanpa webhook aktif."
             )
             telegram_pdf_key = "pc_telegram_pdf_intake"
-            telegram_offset_key = "pc_telegram_update_offset"
+            telegram_offset_key = (
+                "pc_telegram_update_offset_"
+                + hashlib.sha256(telegram_chat.encode("utf-8")).hexdigest()[:12]
+            )
+            persistent_offset_key = f"telegram_update_offset:{telegram_chat}"
             if not telegram_token or not telegram_chat:
                 st.warning("Konfigurasikan TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID terlebih dahulu.")
             if st.button(
@@ -179,12 +183,20 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                 key="pc_telegram_fetch_pdf",
             ):
                 try:
+                    current_offset = st.session_state.get(telegram_offset_key)
+                    if current_offset is None:
+                        stored_offset = store.get_metadata(persistent_offset_key)
+                        if stored_offset is not None:
+                            try:
+                                current_offset = int(stored_offset)
+                            except ValueError:
+                                current_offset = None
                     fetched = fetch_latest_telegram_pdf(
-                        telegram_token, telegram_chat,
-                        offset=st.session_state.get(telegram_offset_key),
+                        telegram_token, telegram_chat, offset=current_offset,
                     )
                     if fetched["next_offset"] is not None:
                         st.session_state[telegram_offset_key] = fetched["next_offset"]
+                        store.set_metadata(persistent_offset_key, str(fetched["next_offset"]))
                     if fetched["status"] == "PDF_READY":
                         st.session_state[telegram_pdf_key] = fetched
                         st.success("PDF diterima dari Telegram: " + fetched["file_name"])
