@@ -97,7 +97,7 @@ def test_import_uses_explicit_selected_xlsx_worksheet(store):
 
 
 def test_import_rejects_source_column_reused_for_multiple_fields(store):
-    upload = Upload("boq.csv", b"Project ID,Shared\\nP1,B1\\n")
+    upload = Upload("boq.csv", b"Project ID,Shared\nP1,B1\n")
     with pytest.raises(ValueError, match="cannot be mapped to multiple"):
         import_uploaded_dataset(
             store, "P1", "boq", upload,
@@ -115,7 +115,7 @@ def test_empty_upload_never_commits_or_clears_existing_dataset(store, mode):
     store.save_dataset("P1", "boq", [
         {"project_id": "P1", "boq_id": "KEEP", "quantity": 3}
     ])
-    upload = Upload("empty-data.csv", b"Project ID,BOQ ID,Quantity\\n")
+    upload = Upload("empty-data.csv", b"Project ID,BOQ ID,Quantity\n")
     result = import_uploaded_dataset(store, "P1", "boq", upload, mode=mode)
     assert result["status"] == "EMPTY_DATASET"
     assert result["saved_count"] == 0
