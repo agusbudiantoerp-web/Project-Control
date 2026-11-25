@@ -491,3 +491,13 @@ Implementation changes have been committed and selected files/workflows have bee
 - Regression coverage includes Windows-style single and doubled backslash paths and a smaller configured download limit.
 - These changes have source-level regression tests; execution on the current branch head is still pending. No live Telegram bot credentials or network download were used in this review.
 
+
+
+## Telegram PDF bounded streaming — 2026-11-25
+
+- Telegram PDF download now uses streamed HTTP responses and enforces the configured byte ceiling while consuming chunks, rather than downloading an unbounded response into memory first.
+- A declared Content-Length above the configured limit is rejected before reading the response body; the streaming counter still enforces the cap if the header is absent, invalid or inaccurate.
+- The response test double now supports streamed chunks. Regression tests cover an oversized streamed body and an oversized Content-Length header.
+- Telegram path validation also rejects Windows separators and actual carriage-return/newline characters.
+- Source and regression tests are committed, but no passing CI run or live Telegram download has been verified for this branch head.
+
