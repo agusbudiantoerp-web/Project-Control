@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 import json
 import os
+import re
 import sqlite3
 import numpy as np
 import pandas as pd
@@ -1080,37 +1081,104 @@ def predict_project_trend(project, activities, boq, progress, actual_cost):
       "trend_slope_pct_per_day":float(slope*100),"trend_finish_forecast":finish_forecast,
       "trend_EAC":float(eac) if pd.notna(eac) else np.nan,
       "method":"Linear trend on cumulative earned-value progress; minimum 3 reporting periods"}
-    return result,history
+    return result,MAX_DRAWING_PDF_BYTES = 50 * 1024 * 1024
+MAX_DRAWING_PDF_PAGES = 500
+MAX_DRAWING_IMAGE_BYTES = 12 * 1024 * 1024
+MAX_DRAWING_TAKEOFF_ITEMS = 500
+MAX_GEMINI_RESPONSE_CHARS = 1_000_000
 
 
 def render_pdf_page(raw: bytes, page_number: int, zoom=1.5):
+    """Render one bounded PDF page without retaining the document handle."""
     import fitz
-    doc=fitz.open(stream=raw,filetype='pdf')
-    if page_number<0 or page_number>=len(doc): raise ValueError('PDF page number is out of range.')
-    page=doc.load_page(page_number)
-    pix=page.get_pixmap(matrix=fitz.Matrix(zoom,zoom),alpha=False)
-    return pix.tobytes('png'),page.get_text('text'),len(doc)
+
+    if not isinstance(raw, (bytes, bytearray)) or not raw:
+        raise ValueError("PDF upload is empty or invalid.")
+    if len(raw) > MAX_DRAWING_PDF_BYTES:
+        raise ValueError("PDF upload exceeds the 50 MB drawing limit.")
+    if isinstance(page_number, bool) or not isinstance(page_number, int) or page_number < 0:
+        raise ValueError("PDF page number must be a non-negative integer.")
+    if isinstance(zoom, bool) or not isinstance(zoom, (int, float)) or not np.isfinite(float(zoom)) or not 0.25 <= float(zoom) <= 4.0:
+        raise ValueError("PDF render zoom must be between 0.25 and 4.0.")
+    doc = fitz.open(stream=bytes(raw), filetype="pdf")
+    try:
+        page_count = len(doc)
+        if page_count < 1 or page_count > MAX_DRAWING_PDF_PAGES:
+            raise ValueError("PDF must contain between 1 and 500 pages.")
+        if page_number >= page_count:
+            raise ValueError("PDF page number is out of range.")
+        page = doc.load_page(page_number)
+        pix = page.get_pixmap(matrix=fitz.Matrix(float(zoom), float(zoom)), alpha=False)
+        image_bytes = pix.tobytes("png")
+        if len(image_bytes) > MAX_DRAWING_IMAGE_BYTES:
+            raise ValueError("Rendered drawing page exceeds the 12 MB image limit.")
+        return image_bytes, page.get_text("text"), page_count
+    finally:
+        doc.close()
+
 
 def analyze_drawing_page_gemini(image_bytes: bytes, api_key: str, model='gemini-2.5-flash'):
-    import base64, requests
+    """Return bounded, untrusted Gemini takeoff rows for mandatory human review."""
+    import base64
+    import requests
+
+    if not isinstance(image_bytes, (bytes, bytearray)) or not image_bytes:
+        raise ValueError("Drawing page image is empty.")
+    if len(image_bytes) > MAX_DRAWING_IMAGE_BYTES:
+        raise ValueError("Drawing page image exceeds the 12 MB limit.")
+    if not isinstance(api_key, str) or not api_key.strip():
+        raise ValueError("Gemini API key is required.")
+    if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", model.strip()):
+        raise ValueError("Gemini model name contains unsupported characters.")
     prompt=('You are a construction quantity surveyor. Inspect this engineering drawing page and extract only items whose dimensions, counts, schedules or quantities are explicitly visible. Do not invent dimensions, scale, thickness, lengths or quantities. If a required dimension is missing, set quantity to null and explain what must be measured. Return ONLY valid JSON: an array of objects with keys discipline,item_code,description,unit,quantity,measurement_method,confidence,assumptions. Use SI units where supported. Confidence must be High, Medium or Low. Every quantity is a draft and must be checked by a human quantity surveyor.')
-    response=requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
-      headers={'x-goog-api-key':api_key},
-      json={'contents':[{'parts':[{'text':prompt},{'inline_data':{'mime_type':'image/png','data':base64.b64encode(image_bytes).decode('ascii')}}]}],
-      'generationConfig':{'temperature':0.1,'responseMimeType':'application/json'}},timeout=120)
-    response.raise_for_status()
-    text=response.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-    if text.startswith('```'): text=text.splitlines()[1:-1]; text='\n'.join(text)
-    data=json.loads(text)
-    if not isinstance(data,list): raise ValueError('Gemini response was not a JSON array.')
+    try:
+        response=requests.post(f'https://generativelanguage.googleapis.com/v1beta/models/{model.strip()}:generateContent',
+          headers={'x-goog-api-key':api_key.strip()},
+          json={'contents':[{'parts':[{'text':prompt},{'inline_data':{'mime_type':'image/png','data':base64.b64encode(bytes(image_bytes)).decode('ascii')}}]}],
+          'generationConfig':{'temperature':0.1,'responseMimeType':'application/json'}},timeout=120)
+        response.raise_for_status()
+        payload=response.json()
+        raw_text=payload['candidates'][0]['content']['parts'][0]['text']
+        if not isinstance(raw_text,str) or len(raw_text)>MAX_GEMINI_RESPONSE_CHARS:
+            raise ValueError("Gemini drawing response exceeds the supported output limit.")
+        text=raw_text.strip()
+    except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+        raise RuntimeError("Gemini drawing analysis failed; check API configuration and provider response.") from None
+    if text.startswith(chr(96)*3):
+        text='\n'.join(text.splitlines()[1:-1])
+    try:
+        data=json.loads(text)
+    except json.JSONDecodeError:
+        raise ValueError("Gemini returned unreadable drawing-analysis JSON.") from None
+    if not isinstance(data,list):
+        raise ValueError("Gemini response was not a JSON array.")
+    if len(data)>MAX_DRAWING_TAKEOFF_ITEMS:
+        raise ValueError(f"Gemini response exceeds the {MAX_DRAWING_TAKEOFF_ITEMS} item review limit.")
     rows=[]
     for i,item in enumerate(data,1):
-        rows.append({'drawing_id':'DWG-UPLOAD','page':None,'wbs_id':'','discipline':item.get('discipline',''),
-          'item_code':item.get('item_code') or f'TAKEOFF-{i:03d}','description':item.get('description',''),
-          'unit':item.get('unit',''),'quantity':item.get('quantity'),
-          'measurement_method':item.get('measurement_method',''),'confidence':item.get('confidence','Low'),
-          'assumptions':item.get('assumptions',''),'review_status':'Pending Review'})
+        if not isinstance(item,dict):
+            continue
+        raw_quantity=item.get('quantity')
+        quantity=None
+        if raw_quantity not in (None,'') and not isinstance(raw_quantity,bool):
+            try:
+                parsed=float(raw_quantity)
+                if np.isfinite(parsed) and parsed>=0:
+                    quantity=parsed
+            except (TypeError,ValueError):
+                pass
+        confidence=str(item.get('confidence','Low')).title()
+        if confidence not in {'High','Medium','Low'}:
+            confidence='Low'
+        rows.append({'drawing_id':'DWG-UPLOAD','page':None,'wbs_id':'','discipline':str(item.get('discipline','')),
+          'item_code':str(item.get('item_code') or f'TAKEOFF-{i:03d}'),'description':str(item.get('description','')),
+          'unit':str(item.get('unit','')),'quantity':quantity,
+          'measurement_method':str(item.get('measurement_method','')),'confidence':confidence,
+          'assumptions':str(item.get('assumptions','')),'review_status':'Pending Review'})
     return pd.DataFrame(rows)
+
+
+me(rows)
 
 def takeoff_to_boq_draft(takeoff: pd.DataFrame):
     if takeoff.empty: return pd.DataFrame()
