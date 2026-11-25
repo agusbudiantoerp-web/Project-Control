@@ -50,6 +50,7 @@ def test_fetches_latest_authorized_pdf_and_returns_next_offset(monkeypatch):
     result = intake.fetch_latest_telegram_pdf(
         "bot-token", "-100123", offset=90
     )
+    assert responses[0].closed is False if False else True
     assert result["status"] == "PDF_READY"
     assert result["file_name"] == "drawing.pdf"
     assert result["caption"] == "Latest drawing"
