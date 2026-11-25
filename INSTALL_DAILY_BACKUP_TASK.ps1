@@ -17,8 +17,9 @@ try {
 $Action = New-ScheduledTaskAction -Execute $PythonLauncher -Argument "-3.11 `"$BackupScript`"" -WorkingDirectory $RepoRoot
 $Trigger = New-ScheduledTaskTrigger -Daily -At ([datetime]::Today.Add($RunTime))
 $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew
+$Principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Description "Daily verified SQLite backup for the local AI Project Control workspace." -Force | Out-Null
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal -Description "Daily verified SQLite backup for the local AI Project Control workspace." -Force | Out-Null
 
 Write-Host "Scheduled task '$TaskName' installed. Daily run time: $At"
 Write-Host "Backup folder: $RepoRoot\.project_control\backups"
