@@ -1181,14 +1181,29 @@ def analyze_drawing_page_gemini(image_bytes: bytes, api_key: str, model='gemini-
 me(rows)
 
 def takeoff_to_boq_draft(takeoff: pd.DataFrame):
-    if takeoff.empty: return pd.DataFrame()
+    """Convert reviewed takeoff rows to a non-priced, explicitly provisional BOQ."""
+    if not isinstance(takeoff, pd.DataFrame):
+        raise TypeError("Takeoff must be a pandas DataFrame.")
+    if takeoff.empty:
+        return pd.DataFrame()
+    if len(takeoff) > MAX_DRAWING_TAKEOFF_ITEMS:
+        raise ValueError(f"Takeoff exceeds the {MAX_DRAWING_TAKEOFF_ITEMS} item review limit.")
     rows=[]
     for i,(_,r) in enumerate(takeoff.iterrows(),1):
         wbs_value=r.get('wbs_id','')
         wbs_id='' if pd.isna(wbs_value) else str(wbs_value).strip()
-        rows.append({'boq_id':f'BOQ-DRAFT-{i:03d}','wbs_id':wbs_id,'item_code':r.get('item_code',''),
-          'description':r.get('description',''),'unit':r.get('unit',''),'budget_quantity':r.get('quantity'),
-          'unit_rate':'','budget_amount':''})
+        raw_quantity=r.get('quantity')
+        quantity=None
+        if raw_quantity not in (None,'') and not pd.isna(raw_quantity):
+            try:
+                quantity=float(raw_quantity)
+            except (TypeError,ValueError):
+                raise ValueError(f"Takeoff row {i} has a non-numeric quantity.") from None
+            if not np.isfinite(quantity) or quantity < 0:
+                raise ValueError(f"Takeoff row {i} quantity must be finite and non-negative.")
+        rows.append({'boq_id':f'BOQ-DRAFT-{i:03d}','wbs_id':wbs_id,'item_code':str(r.get('item_code','') or '').strip(),
+          'description':str(r.get('description','') or '').strip(),'unit':str(r.get('unit','') or '').strip(),
+          'budget_quantity':quantity,'unit_rate':'','budget_amount':'','review_status':'Pending Review'})
     return pd.DataFrame(rows)
 
 
