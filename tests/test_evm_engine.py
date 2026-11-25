@@ -185,3 +185,47 @@ def test_evm_currency_comparison_is_case_insensitive_and_missing_currency_remain
     assert result["EV"] == 80
     assert result["AC"] == 90
     assert result["status"] == "ASSESSED"
+
+
+def test_cumulative_snapshot_mode_uses_latest_period_instead_of_summing_snapshots():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000, "currency": "IDR"},
+        [
+            {"project_id": "P1", "period": "2026-01", "planned_value": 100, "earned_value": 80},
+            {"project_id": "P1", "period": "2026-02", "planned_value": 250, "earned_value": 200},
+        ],
+        [
+            {"project_id": "P1", "period": "2026-01", "actual_cost": 90},
+            {"project_id": "P1", "period": "2026-02", "actual_cost": 220},
+        ],
+        progress_record_mode="cumulative_snapshot",
+        actual_cost_record_mode="cumulative_snapshot",
+    )
+    assert result["PV"] == 250
+    assert result["EV"] == 200
+    assert result["AC"] == 220
+    assert result["source_record_counts"] == {"progress": 1, "actual_cost": 1}
+
+
+def test_snapshot_mode_rejects_missing_periods_without_fabricating_totals():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000},
+        [{"project_id": "P1", "planned_value": 100, "earned_value": 80}],
+        [{"project_id": "P1", "actual_cost": 90}],
+        progress_record_mode="cumulative_snapshot",
+        actual_cost_record_mode="cumulative_snapshot",
+    )
+    assert result["PV"] is None
+    assert result["EV"] is None
+    assert result["AC"] is None
+    assert result["status"] == "INSUFFICIENT_DATA"
+
+
+def test_unknown_evm_record_mode_is_rejected():
+    with pytest.raises(ValueError):
+        calculate_evm(
+            {"project_id": "P1", "BAC": 1000},
+            [{"project_id": "P1", "period": "2026-01", "planned_value": 100, "earned_value": 80}],
+            [{"project_id": "P1", "period": "2026-01", "actual_cost": 90}],
+            progress_record_mode="cumulative",
+        )
