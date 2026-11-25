@@ -27,3 +27,13 @@ Use the mode that matches the source export. Do not select snapshot mode for add
 Snapshot mode requires a nonblank `period` in every row. Progress identity is activity + BOQ when both are present, otherwise activity identity is used. Actual-cost identity uses available transaction/cost identifiers. If the source does not provide stable identity fields, review the import mapping before relying on the result.
 
 The workspace displays the configured modes beside EVM metrics. Missing values remain unavailable; the system does not silently convert missing PV, EV, AC, or BAC to zero.
+
+
+## Progress detail level and BOQ identity
+
+Progress can be recorded at either of two levels for one activity and period:
+
+- Activity total: one progress row without `boq_id`.
+- BOQ detail: one row per `boq_id` for that activity and period.
+
+Do not mix these two levels for the same activity and period. The workspace rejects mixed activity-total and BOQ-detail rows because adding both would double-count PV/EV. When BOQ-detail rows are used, each activity + BOQ + period combination must be unique. Project Workspace stores and aggregates those BOQ rows independently.
