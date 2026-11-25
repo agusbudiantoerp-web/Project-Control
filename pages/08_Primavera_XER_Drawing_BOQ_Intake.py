@@ -13,6 +13,7 @@ from ai_project_control.advanced_import_service import (
     MAX_DRAWING_IMAGE_BYTES,
     import_xer_to_workspace,
     list_xer_source_projects,
+    list_project_wbs_ids,
     prepare_xer_workspace_import,
 )
 from ai_project_control.project_store import ProjectStore
@@ -287,11 +288,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                         draft_frame = pd.DataFrame(draft_state["rows"])
                         if "wbs_id" not in draft_frame.columns:
                             draft_frame["wbs_id"] = ""
-                        project_wbs = store.load_dataset(target_project, "wbs")
-                        valid_wbs_ids = sorted({
-                            _text_cell(value) for value in project_wbs.get("wbs_id", [])
-                            if _text_cell(value)
-                        }) if not project_wbs.empty else []
+                        valid_wbs_ids = list_project_wbs_ids(store, target_project)
                         if not valid_wbs_ids:
                             st.warning("Impor WBS proyek terlebih dahulu. Draft BOQ tidak dapat disimpan tanpa pemetaan WBS yang valid.")
                         edited = st.data_editor(
