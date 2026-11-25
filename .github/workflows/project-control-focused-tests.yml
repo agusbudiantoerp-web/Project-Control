@@ -4,29 +4,62 @@ on:
   push:
     branches:
       - ai-project-control-integration
+      - ai-project-control-release
   pull_request:
     branches:
       - ai-project-control-integration
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   focused-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Install test runner and Excel reader
-        run: python -m pip install --upgrade pip pytest openpyxl
-      - name: Compile application Python modules
-        run: python -m compileall -q ai_project_control
-      - name: Run portfolio and recovery tests
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt -r ai_project_control/requirements.txt
+      - name: Compile root app, pages and application modules
+        run: python -m compileall -q app.py ai_project_control pages
+      - name: Smoke-start primary Streamlit application
+        shell: bash
+        run: |
+          set -e
+          python -m streamlit run app.py --server.headless true --server.address 127.0.0.1 --server.port 8501 > streamlit-smoke.log 2>&1 &
+          APP_PID=$!
+          cleanup() {
+            kill "$APP_PID" 2>/dev/null || true
+            wait "$APP_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8501/_stcore/health >/dev/null; then
+              echo "Primary Streamlit health endpoint responded successfully."
+              exit 0
+            fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              cat streamlit-smoke.log
+              exit 1
+            fi
+            sleep 1
+          done
+          cat streamlit-smoke.log
+          echo "Primary Streamlit app did not become healthy within 30 seconds."
+          exit 1
+      - name: Run focused project-control tests
         run: |
           python -m pytest -q \
             tests/test_project_director_decision_matrix.py \
+            tests/test_project_director_review.py \
+            tests/test_portfolio_command_center.py \
             tests/test_portfolio_health_monitoring.py \
             tests/test_executive_action_register.py \
             tests/test_project_recovery_control.py \
@@ -34,6 +67,135 @@ jobs:
             tests/test_integrated_executive_report.py \
             tests/test_integrated_project_intelligence.py \
             tests/test_telegram_executive_reporting.py \
+            tests/test_telegram_notifications.py \
+            tests/test_telegram_document_intake.py \
+            tests/test_executive_report_export.py \
             tests/test_data_quality_validation.py \
             tests/test_import_mapping.py \
-            tests/test_upload_reader.py \\\n            tests/test_project_store.py \\\n            tests/test_import_service.py
+            tests/test_upload_reader.py \
+            tests/test_primary_app_smoke.py \
+            tests/test_advanced_import_service.py \
+            tests/test_dashboard_metrics_regressions.py \
+            tests/test_project_store.py \
+            tests/test_workspace_config.py \
+            tests/test_import_service.py \
+            tests/test_workspace_service.py \
+            tests/test_evm_engine.py \
+            tests/test_schedule_engine.py \
+            tests/test_schedule_forecast.py \
+            tests/test_resource_optimization.py \
+            tests/test_resource_loading_summary.py \
+            tests/test_manpower_equipment_planner.py \
+            tests/test_boq_schedule_resource_integration.py \
+            tests/test_cost_forecast.py \
+            tests/test_risk_cost_simulation.py \
+            tests/test_action_register_store.py \
+            tests/test_action_escalation.py \
+            tests/test_portfolio_monitoring.py \
+            tests/test_project_recovery_intelligence.py \
+            tests/test_recovery_execution.py \
+            tests/test_recovery_effectiveness.py \
+            tests/test_recovery_evm_bridge.py \
+            tests/test_schedule_cost_outlook.py \
+            tests/test_schedule_risk_simulation.py \
+            tests/test_risk_adjusted_project_outlook.py \
+            tests/test_risk_exposure_matrix.py \
+            tests/test_recovery_resource_planner.py \
+            tests/test_recovery_decision_engine.py \
+            tests/test_predictive_early_warning.py \
+            tests/test_project_performance_history.py \
+            tests/test_historical_ml_training.py \
+            tests/test_risk_mitigation_store.py \
+            tests/test_risk_governance_bridge.py \
+            tests/test_portfolio_risk_resource_intelligence.py \
+            tests/test_portfolio_workspace_intelligence.py \
+            tests/test_coo_portfolio_decision_brief.py \
+            tests/test_portfolio_cashflow_intelligence.py \
+            tests/test_portfolio_cashflow_workspace.py \
+            tests/test_dated_cashflow_forecast.py \
+            tests/test_financial_control_brief.py \
+            tests/test_financial_workspace_service.py \
+            tests/test_portfolio_workspace_service.py \
+            tests/test_workspace_backup.py \
+            tests/test_backup_workspace_script.py \
+            tests/test_project_workspace_page.py \
+            tests/test_workspace_dashboard_display.py
+      - name: Run complete primary workspace test suite
+        # The legacy V1 app has its own nested tests and CI workflow under ai_project_control/.
+        # Scope this run to the root workspace tests to avoid duplicate test module basenames.
+        run: python -m pytest -q tests
+
+  windows-backup-acceptance:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install workspace dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt -r ai_project_control/requirements.txt
+      - name: Compile primary application on Windows
+        run: python -m compileall -q app.py ai_project_control pages
+      - name: Smoke-start primary Streamlit application on Windows
+        shell: pwsh
+        run: |
+          $stdout = Join-Path $env:RUNNER_TEMP "project-control-streamlit.stdout.log"
+          $stderr = Join-Path $env:RUNNER_TEMP "project-control-streamlit.stderr.log"
+          $arguments = @(
+            "-m", "streamlit", "run", "app.py",
+            "--server.headless", "true",
+            "--server.address", "127.0.0.1",
+            "--server.port", "8501"
+          )
+          $process = Start-Process -FilePath "python" -ArgumentList $arguments -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            $healthy = $false
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              if ($process.HasExited) {
+                Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
+                throw "Streamlit process exited before becoming healthy."
+              }
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:8501/_stcore/health" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) {
+                  $healthy = $true
+                  break
+                }
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (-not $healthy) {
+              Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
+              throw "Streamlit health endpoint did not respond within 30 seconds."
+            }
+            Write-Host "Windows Streamlit health endpoint responded successfully."
+          } finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+              $process.WaitForExit()
+            }
+          }
+      - name: Run complete primary workspace tests on Windows
+        run: python -m pytest -q tests
+      - name: Compile backup utility
+        run: python -m py_compile scripts/backup_workspace.py
+      - name: Run Windows-compatible backup and restore tests
+        run: python -m pytest -q tests/test_workspace_backup.py tests/test_backup_workspace_script.py
+      - name: Validate Task Scheduler installer PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD/INSTALL_DAILY_BACKUP_TASK.ps1",
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            throw "PowerShell syntax validation failed."
+          }

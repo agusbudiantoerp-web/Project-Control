@@ -29,6 +29,14 @@ def test_import_csv_maps_validates_and_persists(store):
     assert store.load_dataset("P1", "boq")[0]["boq_id"] == "B1"
 
 
+def test_import_rewinds_upload_stream_before_parsing(store):
+    upload = Upload("boq.csv", b"Project ID,BOQ ID,Quantity\nP1,B1,12\n")
+    upload.seek(10)
+    result = import_uploaded_dataset(store, "P1", "boq", upload)
+    assert result["status"] == "COMMITTED"
+    assert store.load_dataset("P1", "boq")[0]["boq_id"] == "B1"
+
+
 def test_missing_or_ambiguous_mapping_stops_without_saving(store):
     upload = Upload("boq.csv", b"Project ID,Project Code,Quantity\nP1,P1,12\n")
     result = import_uploaded_dataset(store, "P1", "boq", upload)
@@ -64,3 +72,51 @@ def test_unknown_dataset_and_invalid_mode_rejected(store):
         import_uploaded_dataset(store, "P1", "unknown", upload)
     with pytest.raises(ValueError):
         import_uploaded_dataset(store, "P1", "boq", upload, mode="delete")
+
+
+def test_import_uses_explicit_selected_xlsx_worksheet(store):
+    openpyxl = pytest.importorskip("openpyxl")
+    workbook = openpyxl.Workbook()
+    first = workbook.active
+    first.title = "Instructions"
+    first.append(["Notes"])
+    first.append(["Do not import this sheet"])
+    selected = workbook.create_sheet("BOQ Data")
+    selected.append(["Project ID", "BOQ ID", "Quantity"])
+    selected.append(["P1", "B-SELECTED", 15])
+    stream = BytesIO()
+    workbook.save(stream)
+
+    upload = Upload("multi-sheet.xlsx", stream.getvalue())
+    result = import_uploaded_dataset(
+        store, "P1", "boq", upload, sheet_name="BOQ Data"
+    )
+    assert result["status"] == "COMMITTED"
+    saved = store.load_dataset("P1", "boq")
+    assert [row["boq_id"] for row in saved] == ["B-SELECTED"]
+
+
+def test_import_rejects_source_column_reused_for_multiple_fields(store):
+    upload = Upload("boq.csv", b"Project ID,Shared\nP1,B1\n")
+    with pytest.raises(ValueError, match="cannot be mapped to multiple"):
+        import_uploaded_dataset(
+            store, "P1", "boq", upload,
+            mapping={
+                "project_id": "Project ID",
+                "boq_id": "Shared",
+                "quantity": "Shared",
+            },
+        )
+    assert store.load_dataset("P1", "boq") == []
+
+
+@pytest.mark.parametrize("mode", ["upsert", "replace"])
+def test_empty_upload_never_commits_or_clears_existing_dataset(store, mode):
+    store.save_dataset("P1", "boq", [
+        {"project_id": "P1", "boq_id": "KEEP", "quantity": 3}
+    ])
+    upload = Upload("empty-data.csv", b"Project ID,BOQ ID,Quantity\n")
+    result = import_uploaded_dataset(store, "P1", "boq", upload, mode=mode)
+    assert result["status"] == "EMPTY_DATASET"
+    assert result["saved_count"] == 0
+    assert [row["boq_id"] for row in store.load_dataset("P1", "boq")] == ["KEEP"]

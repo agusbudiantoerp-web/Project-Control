@@ -1,3 +1,6 @@
+import os
+import stat
+
 import pytest
 
 from ai_project_control.project_store import ProjectStore
@@ -82,3 +85,173 @@ def test_rejects_duplicate_keys_in_same_import(store):
             {"project_id": "P1", "boq_id": "B1"},
             {"project_id": "P1", "boq_id": "B1"},
         ])
+
+
+def test_in_memory_store_persists_across_operation_connections():
+    memory_store = ProjectStore(":memory:")
+    seed_project(memory_store)
+    memory_store.save_dataset("P1", "boq", [
+        {"project_id": "P1", "boq_id": "B1", "quantity": 7}
+    ])
+    assert memory_store.load_dataset("P1", "boq")[0]["quantity"] == 7
+
+
+def test_store_connections_are_closed_after_operations(tmp_path):
+    store = ProjectStore(tmp_path / "closed.sqlite3")
+    seed_project(store)
+    assert store.list_project_ids() == ["P1"]
+    assert store._memory_keeper is None
+
+
+def test_rejects_database_with_newer_schema_version(tmp_path):
+    import sqlite3
+
+    database = tmp_path / "future.sqlite3"
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "CREATE TABLE store_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
+    connection.execute(
+        "INSERT INTO store_metadata(key, value) VALUES ('schema_version', '999')"
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(RuntimeError, match="newer than this application"):
+        ProjectStore(database)
+
+    check = sqlite3.connect(database)
+    tables = {
+        row[0] for row in check.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    check.close()
+    assert "project_records" not in tables
+    assert "import_events" not in tables
+
+
+def test_in_memory_store_can_release_keeper_connection():
+    import sqlite3
+
+    memory_store = ProjectStore(":memory:")
+    seed_project(memory_store)
+    keeper = memory_store._memory_keeper
+    assert keeper is not None
+    memory_store.close()
+    assert memory_store._memory_keeper is None
+    with pytest.raises(sqlite3.ProgrammingError):
+        keeper.execute("SELECT 1")
+    with pytest.raises(RuntimeError, match="ProjectStore is closed"):
+        memory_store.list_project_ids()
+
+
+def test_project_store_context_manager_closes_in_memory_database():
+    with ProjectStore(":memory:") as memory_store:
+        seed_project(memory_store)
+        assert memory_store.list_project_ids() == ["P1"]
+    assert memory_store._memory_keeper is None
+
+
+def test_rejects_older_schema_without_claiming_migration(tmp_path):
+    import sqlite3
+
+    database = tmp_path / "old.sqlite3"
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "CREATE TABLE store_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
+    connection.execute(
+        "INSERT INTO store_metadata(key, value) VALUES ('schema_version', '0')"
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(RuntimeError, match="older than this application"):
+        ProjectStore(database)
+
+
+def test_multi_dataset_save_is_atomic_when_one_dataset_is_invalid(tmp_path):
+    database = tmp_path / "atomic.sqlite3"
+    store = ProjectStore(database)
+    seed_project(store)
+    with pytest.raises(ValueError, match="validation failed|Multi-dataset validation failed"):
+        store.save_datasets("P1", {
+            "boq": [{
+                "project_id": "P1", "boq_id": "B1", "quantity": 10,
+            }],
+            "risk": [{
+                "project_id": "P1", "risk_id": "R1", "probability": 2, "impact": 100,
+            }],
+        })
+    assert store.load_dataset("P1", "boq") == []
+    assert store.load_dataset("P1", "risk") == []
+
+
+def test_multi_dataset_save_commits_new_project_and_related_data_together(tmp_path):
+    store = ProjectStore(tmp_path / "atomic-new.sqlite3")
+    result = store.save_datasets("P2", {
+        "project_master": [{
+            "project_id": "P2", "project_name": "XER Import", "currency": "IDR",
+        }],
+        "wbs": [{
+            "project_id": "P2", "wbs_id": "W1", "wbs_name": "Civil",
+        }],
+        "activities": [{
+            "project_id": "P2", "activity_id": "A1", "duration_days": 5,
+            "predecessors": [],
+        }],
+    })
+    assert set(result) == {"project_master", "wbs", "activities"}
+    assert store.list_project_ids() == ["P2"]
+    assert len(store.load_dataset("P2", "wbs")) == 1
+    assert len(store.load_dataset("P2", "activities")) == 1
+
+
+def test_multi_dataset_database_failure_rolls_back_entire_batch(tmp_path):
+    import sqlite3
+
+    database = tmp_path / "atomic-rollback.sqlite3"
+    store = ProjectStore(database)
+    connection = sqlite3.connect(database)
+    connection.execute("""
+        CREATE TRIGGER fail_activity_insert
+        BEFORE INSERT ON project_records
+        WHEN NEW.dataset = 'activities'
+        BEGIN
+            SELECT RAISE(ABORT, 'forced activity insert failure');
+        END;
+    """)
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(sqlite3.IntegrityError, match="forced activity insert failure"):
+        store.save_datasets("P3", {
+            "project_master": [{
+                "project_id": "P3", "project_name": "Atomic Test", "currency": "IDR",
+            }],
+            "wbs": [{"project_id": "P3", "wbs_id": "W1"}],
+            "activities": [{
+                "project_id": "P3", "activity_id": "A1", "duration_days": 1,
+            }],
+        })
+    assert store.load_dataset("P3", "project_master") == []
+    assert store.load_dataset("P3", "wbs") == []
+    assert store.load_dataset("P3", "activities") == []
+
+
+def test_workspace_metadata_persists_and_protects_schema_version(tmp_path):
+    store = ProjectStore(tmp_path / "metadata.sqlite3")
+    assert store.get_metadata("telegram_update_offset:123") is None
+    store.set_metadata("telegram_update_offset:123", "42")
+    assert store.get_metadata("telegram_update_offset:123") == "42"
+    with pytest.raises(ValueError, match="reserved"):
+        store.set_metadata("schema_version", "999")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file permission semantics only")
+def test_workspace_database_and_new_parent_directory_are_private(tmp_path):
+    database = tmp_path / "private_workspace" / "workspace.sqlite3"
+    ProjectStore(database)
+    assert stat.S_IMODE(database.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(database.stat().st_mode) == 0o600
