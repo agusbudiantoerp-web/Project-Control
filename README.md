@@ -163,3 +163,7 @@ Send a PDF to the configured private bot chat as a Document, then use **Fetch la
 ## Saved-workspace AI Project Advisor
 
 Open **AI Project Advisor — Groq / Gemini** to select a project from the primary SQLite workspace and request an evidence-grounded management narrative. The page supplies saved EVM, schedule, risk, resource and action-register records to the selected provider only after the explicit consent checkbox and Generate button are used. Configure `GROQ_API_KEY` or `GEMINI_API_KEY` through environment variables or Streamlit secrets. API keys are sent in request headers and are not stored in ProjectStore. AI output is a review aid; it does not update project records or approve actions.
+
+## Windows UAT
+
+- **Windows UAT checklist:** [`docs/UAT_CHECKLIST_WINDOWS.md`](docs/UAT_CHECKLIST_WINDOWS.md) — step-by-step acceptance checks for imports, BOQ/WBS, CPM/XER, EVM, risk, AI/Telegram, backup/restore and sign-off.
