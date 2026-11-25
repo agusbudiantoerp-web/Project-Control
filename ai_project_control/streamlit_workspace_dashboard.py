@@ -732,8 +732,25 @@ def render_project_workspace_dashboard(
     if not project_id:
         st.info("Enter a Project ID to inspect its stored workspace.")
         return None
+    period_col, mode_col = st.columns(2)
+    as_of_period = period_col.text_input(
+        "EVM reporting cut-off (optional)",
+        placeholder="YYYY-MM",
+        key="pc_workspace_evm_cutoff",
+        help="Kosongkan untuk memakai seluruh periode yang tersedia.",
+    ).strip() or None
+    progress_mode_label = mode_col.selectbox(
+        "Progress data convention",
+        ["Period deltas (sum each period)", "Cumulative snapshots (latest per activity)"],
+        key="pc_workspace_evm_progress_mode",
+        help="Pilih sesuai struktur data progress yang disimpan. Actual cost tetap transaksi/delta.",
+    )
+    progress_mode = "cumulative_snapshots" if progress_mode_label.startswith("Cumulative") else "period_deltas"
     try:
-        result = build_workspace_overview(database_path, project_id)
+        result = build_workspace_overview(
+            database_path, project_id,
+            as_of_period=as_of_period, progress_mode=progress_mode,
+        )
     except (ValueError, OSError) as exc:
         st.warning(str(exc))
         return {"status": "NOT_AVAILABLE", "message": str(exc)}
@@ -760,6 +777,7 @@ def render_project_workspace_dashboard(
         column.metric(label, f"{value:,.2f}" if value is not None else "Not available")
     if evm["status"] != "ASSESSED":
         st.warning("EVM is incomplete: " + ", ".join(evm["data_gaps"]))
+    st.caption(f"Progress convention: {progress_mode_label} | Cut-off: {as_of_period or 'All available periods'}")
     st.caption("EAC uses BAC/CPI and assumes current cost efficiency continues. Review method limitations before using forecasts.")
 
     st.markdown("#### Cost Forecast Scenarios")
