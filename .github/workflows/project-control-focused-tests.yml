@@ -95,5 +95,7 @@ jobs:
             tests/test_backup_workspace_script.py \
             tests/test_project_workspace_page.py \
             tests/test_workspace_dashboard_display.py
-      - name: Run complete repository test suite
-        run: python -m pytest -q
+      - name: Run complete primary workspace test suite
+        # The legacy V1 app has its own nested tests and CI workflow under ai_project_control/.
+        # Scope this run to the root workspace tests to avoid duplicate test module basenames.
+        run: python -m pytest -q tests
