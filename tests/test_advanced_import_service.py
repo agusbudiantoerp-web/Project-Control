@@ -299,3 +299,43 @@ def test_xer_parser_enforces_line_length_limit(monkeypatch):
     raw = b"%T\tTASK\n"
     with pytest.raises(ValueError, match="line length"):
         import_service.parse_xer_tables(raw)
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan"), True, 10**1000])
+def test_gemini_rejects_invalid_timeout_values(timeout):
+    with pytest.raises(ValueError, match="finite positive"):
+        import_service.analyze_drawing_page_with_gemini(
+            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key", timeout=timeout
+        )
+
+
+def test_gemini_rejects_non_object_takeoff_rows(monkeypatch):
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": '[{"description":"ok"}, "bad-row"]}]}}]}
+
+    monkeypatch.setattr(import_service.requests, "post", lambda *args, **kwargs: Response())
+    with pytest.raises(RuntimeError, match="item 2 must be a JSON object"):
+        import_service.analyze_drawing_page_with_gemini(
+            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+        )
+
+
+def test_gemini_rejects_nested_or_oversized_takeoff_text(monkeypatch):
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{
+                "text": '[{"description":{"unexpected":"object"}}]'
+            }]}}]}
+
+    monkeypatch.setattr(import_service.requests, "post", lambda *args, **kwargs: Response())
+    with pytest.raises(RuntimeError, match="invalid description"):
+        import_service.analyze_drawing_page_with_gemini(
+            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+        )
