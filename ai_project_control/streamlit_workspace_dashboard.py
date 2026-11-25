@@ -20,6 +20,7 @@ from .portfolio_command_center import build_portfolio_command_center
 from .portfolio_workspace_intelligence import build_stored_portfolio_risk_resource_view
 from .coo_portfolio_decision_brief import build_coo_portfolio_decision_brief
 from .portfolio_cashflow_workspace import build_stored_portfolio_cashflow_view
+from .workspace_config import get_workspace_database_path
 
 def _finite_metric_display(value: Any) -> str:
     """Render missing or non-finite metrics as unavailable, never as 'nan'."""
@@ -73,7 +74,7 @@ from .executive_report_export import (
 
 
 def render_project_workspace_dashboard(
-    database_path: str | Path = ".project_control/project_control.sqlite3",
+    database_path: str | Path | None = None,
     project_id: str | None = None,
 ) -> dict[str, Any] | None:
     try:
@@ -81,6 +82,8 @@ def render_project_workspace_dashboard(
     except ImportError as exc:
         raise RuntimeError("Streamlit is required to render this component.") from exc
 
+    if database_path is None:
+        database_path = get_workspace_database_path()
     portfolio: dict[str, Any] = {"projects": []}
     portfolio_intelligence: dict[str, Any] = {"top_risks": [], "shared_resource_conflicts": [], "expected_exposure_by_currency": {}, "risk_count_unassessed": 0, "unassessed_resources": []}
     portfolio_actions: dict[str, Any] = {"actions": [], "summary": {"action_count": 0, "open_count": 0, "in_progress_count": 0, "blocked_count": 0, "overdue_count": 0}}
