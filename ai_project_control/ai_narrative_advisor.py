@@ -92,7 +92,7 @@ def generate_narrative_advice(
                     "contents": [{"role": "user", "parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.2},
                 },
-                timeout=timeout,
+                timeout=numeric_timeout,
             )
             response.raise_for_status()
             data = response.json()
@@ -104,7 +104,7 @@ def generate_narrative_advice(
             return {"ok": False, "provider": provider, "error": "Provider harus Groq atau Gemini."}
         if not isinstance(answer, str) or not answer.strip():
             return {"ok": False, "provider": provider, "error": "Provider mengembalikan jawaban kosong."}
-        return {"ok": True, "provider": provider, "model": groq_model if provider_key == "groq" else gemini_model, "text": answer.strip()}
+        return {"ok": True, "provider": provider, "model": groq_model.strip() if provider_key == "groq" else gemini_model.strip(), "text": answer.strip()}
     except requests.Timeout:
         return {"ok": False, "provider": provider, "error": "Permintaan AI melewati batas waktu. Coba kembali."}
     except requests.RequestException as exc:
