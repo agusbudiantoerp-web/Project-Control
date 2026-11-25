@@ -295,7 +295,7 @@ def test_xer_parser_enforces_row_limit(monkeypatch):
 
 
 def test_xer_parser_enforces_line_length_limit(monkeypatch):
-    monkeypatch.setattr(import_service, "MAX_XER_LINE_CHARS", 8)
+    monkeypatch.setattr(import_service, "MAX_XER_LINE_CHARS", 6)
     raw = b"%T\\tTASK\\n"
     with pytest.raises(ValueError, match="line length"):
         import_service.parse_xer_tables(raw)
