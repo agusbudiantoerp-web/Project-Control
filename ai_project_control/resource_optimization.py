@@ -1,0 +1,184 @@
+"""Resource capacity smoothing scenarios; recommendations never overwrite baseline data."""
+from __future__ import annotations
+import pandas as pd
+import numpy as np
+from core import calculate_cpm
+
+
+def simulate_resource_smoothing(
+    activities: pd.DataFrame,
+    resources: pd.DataFrame,
+    assignments: pd.DataFrame,
+    max_shift_days: int = 30,
+) -> dict:
+    """Greedy, auditable what-if allocation within CPM total float.
+
+    It shifts resource demand only; it does not alter activity logic, durations,
+    or approved baseline dates. A result is a planning suggestion, not leveling.
+    """
+    if activities.empty or assignments.empty or resources.empty:
+        return {"available": False, "reason": "Activities, resources, and assignments are required.",
+                "baseline_overloaded_days": 0, "scenario_overloaded_days": 0,
+                "scenario": pd.DataFrame(), "summary": pd.DataFrame()}
+    required_a={"task_id","rsrc_id","target_qty","target_start_date","target_end_date"}
+    required_r={"rsrc_id","capacity_per_day"}
+    if not isinstance(max_shift_days,(int,np.integer)) or max_shift_days < 0:
+        raise ValueError("max_shift_days must be a non-negative integer.")
+    if required_a-set(assignments.columns):
+        raise ValueError("Resource assignments missing: "+", ".join(sorted(required_a-set(assignments.columns))))
+    if required_r-set(resources.columns):
+        raise ValueError("Resources missing: "+", ".join(sorted(required_r-set(resources.columns))))
+    cpm_frame=activities.copy()
+    if "activity_name" not in cpm_frame:
+        cpm_frame["activity_name"]=cpm_frame["activity_id"].astype(str)
+    if "wbs_id" not in cpm_frame:
+        cpm_frame["wbs_id"]=""
+    cpm,_=calculate_cpm(cpm_frame)
+    float_map=dict(zip(cpm["activity_id"].astype(str),pd.to_numeric(cpm["total_float_days"],errors="coerce").fillna(0).clip(lower=0)))
+    cap_map=dict(zip(resources["rsrc_id"].astype(str),pd.to_numeric(resources["capacity_per_day"],errors="coerce")))
+    rows=assignments.copy().reset_index(drop=True)
+    if rows["task_id"].isna().any() or rows["task_id"].astype(str).str.strip().eq("").any():
+        raise ValueError("Resource assignment task_id must be non-blank.")
+    rows["task_id"]=rows["task_id"].astype(str).str.strip()
+    rows["rsrc_id"]=rows["rsrc_id"].astype(str).str.strip()
+    known_tasks=set(cpm["activity_id"].astype(str))
+    unknown_tasks=set(rows["task_id"])-known_tasks
+    if unknown_tasks:
+        raise ValueError("Resource assignments reference unknown activities: "+", ".join(sorted(unknown_tasks)))
+    rows["target_qty"]=pd.to_numeric(rows["target_qty"],errors="coerce")
+    rows["base_start"]=pd.to_datetime(rows["target_start_date"],errors="coerce").dt.normalize()
+    rows["base_finish"]=pd.to_datetime(rows["target_end_date"],errors="coerce").dt.normalize()
+    if rows[["target_qty","base_start","base_finish"]].isna().any().any() or (rows["target_qty"]<0).any() or (rows["base_finish"]<rows["base_start"]).any():
+        raise ValueError("Resource assignment quantity/date range is invalid.")
+    unknown=set(rows["rsrc_id"])-set(cap_map)
+    if unknown: raise ValueError("Unknown resource IDs: "+", ".join(sorted(unknown)))
+    if any(pd.isna(cap_map[x]) or not np.isfinite(cap_map[x]) or cap_map[x]<=0 for x in rows["rsrc_id"].unique()):
+        raise ValueError("Resource capacity must be finite and greater than zero.")
+    rows["float_days"]=rows["task_id"].map(float_map).fillna(0).clip(lower=0).astype(int)
+    rows["critical"]=rows["float_days"].eq(0)
+    # Baseline daily demand map
+    def daily_map(frame, start_col, finish_col):
+        load={}
+        for row in frame.itertuples():
+            days=pd.date_range(getattr(row,start_col),getattr(row,finish_col),freq="D")
+            per_day=float(row.target_qty)/len(days)
+            for day in days:
+                key=(row.rsrc_id,day)
+                load[key]=load.get(key,0.0)+per_day
+        return load
+    baseline=daily_map(rows,"base_start","base_finish")
+    # Place critical work first, then least-float tasks; ties preserve original order.
+    ordered=rows.sort_values(["critical","float_days"],ascending=[False,True],kind="stable")
+    placed={}
+    scenario_load={}
+    for idx,row in ordered.iterrows():
+        duration=int((row["base_finish"]-row["base_start"]).days)+1
+        allowance=min(int(row["float_days"]),int(max_shift_days))
+        best=None
+        for shift in range(allowance+1):
+            start=row["base_start"]+pd.Timedelta(days=shift)
+            finish=start+pd.Timedelta(days=duration-1)
+            demand=float(row["target_qty"])/duration
+            keys=[(row["rsrc_id"],d) for d in pd.date_range(start,finish,freq="D")]
+            overload=sum(max(0.0,scenario_load.get(k,0.0)+demand-cap_map[row["rsrc_id"]]) for k in keys)
+            if best is None or overload<best[0]:
+                best=(overload,shift,start,finish,keys,demand)
+            if overload<=1e-9: break
+        _,shift,start,finish,keys,demand=best
+        for key in keys: scenario_load[key]=scenario_load.get(key,0.0)+demand
+        placed[idx]={"suggested_start":start,"suggested_finish":finish,"shift_days":shift,
+                     "remaining_float_days":max(0,int(row["float_days"])-shift)}
+    out=rows.copy()
+    for idx,vals in placed.items():
+        for k,v in vals.items(): out.loc[idx,k]=v
+    out["baseline_start"]=out["base_start"]
+    out["baseline_finish"]=out["base_finish"]
+    out["status"]=np.where(out["shift_days"]>0,"Suggested shift","No shift")
+    def overloaded_days(load):
+        count=0
+        for (rid,day),qty in load.items():
+            if qty>cap_map[rid]+1e-9: count+=1
+        return count
+    baseline_over=overloaded_days(baseline)
+    scenario_over=overloaded_days(scenario_load)
+    summary=pd.DataFrame([
+        {"scenario":"Baseline","overloaded_resource_days":baseline_over},
+        {"scenario":"Smoothed suggestion","overloaded_resource_days":scenario_over},
+    ])
+    return {"available":True,"reason":"What-if only; original baseline and activity logic remain unchanged.",
+            "baseline_overloaded_days":baseline_over,"scenario_overloaded_days":scenario_over,
+            "scenario":out[["task_id","rsrc_id","target_qty","baseline_start","baseline_finish","suggested_start","suggested_finish","float_days","shift_days","remaining_float_days","status"]],
+            "summary":summary}
+
+def compare_shift_capacity_scenarios(
+    resources: pd.DataFrame,
+    assignments: pd.DataFrame,
+    capacity_factors: dict[int, float],
+) -> pd.DataFrame:
+    """Compare daily resource capacity under user-supplied shift factors.
+
+    Factors must be provided by the project team; this function does not assume
+    that adding shifts increases productivity linearly or estimate labor cost.
+    """
+    if resources.empty or assignments.empty:
+        raise ValueError("Resources and resource assignments are required.")
+    required_r = {"rsrc_id", "capacity_per_day"}
+    required_a = {"rsrc_id", "target_qty", "target_start_date", "target_end_date"}
+    if required_r - set(resources.columns) or required_a - set(assignments.columns):
+        raise ValueError("Resource or assignment columns are incomplete.")
+    if not isinstance(capacity_factors, dict) or 1 not in capacity_factors:
+        raise ValueError("Provide explicit capacity factors including a one-shift baseline.")
+    factors = {}
+    for shifts, factor in capacity_factors.items():
+        if not isinstance(shifts, int) or shifts < 1:
+            raise ValueError("Shift counts must be positive integers.")
+        value = float(factor)
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError("Capacity factors must be finite and greater than zero.")
+        factors[shifts] = value
+    if not np.isclose(factors[1], 1.0):
+        raise ValueError("One-shift baseline factor must equal 1.0.")
+
+    caps = resources.copy()
+    caps["capacity_per_day"] = pd.to_numeric(caps["capacity_per_day"], errors="coerce")
+    if caps["capacity_per_day"].isna().any() or (~np.isfinite(caps["capacity_per_day"])).any() or (caps["capacity_per_day"] <= 0).any():
+        raise ValueError("Resource daily capacity must be finite and positive.")
+    cap_map = dict(zip(caps["rsrc_id"].astype(str), caps["capacity_per_day"]))
+    rows = assignments.copy()
+    rows["rsrc_id"] = rows["rsrc_id"].astype(str)
+    rows["target_qty"] = pd.to_numeric(rows["target_qty"], errors="coerce")
+    rows["start"] = pd.to_datetime(rows["target_start_date"], errors="coerce")
+    rows["finish"] = pd.to_datetime(rows["target_end_date"], errors="coerce")
+    if rows[["target_qty", "start", "finish"]].isna().any().any() or (rows["target_qty"] < 0).any() or (rows["finish"] < rows["start"]).any():
+        raise ValueError("Assignment quantities or date ranges are invalid.")
+    unknown = set(rows["rsrc_id"]) - set(cap_map)
+    if unknown:
+        raise ValueError("Unknown resource IDs: " + ", ".join(sorted(unknown)))
+
+    demand = {}
+    for row in rows.itertuples():
+        days = pd.date_range(row.start.normalize(), row.finish.normalize(), freq="D")
+        per_day = float(row.target_qty) / len(days)
+        for day in days:
+            key = (row.rsrc_id, day)
+            demand[key] = demand.get(key, 0.0) + per_day
+
+    results = []
+    for shifts, factor in sorted(factors.items()):
+        overloaded = 0
+        peak_pct = 0.0
+        for (resource_id, _day), quantity in demand.items():
+            capacity = cap_map[resource_id] * factor
+            utilization = quantity / capacity * 100.0
+            peak_pct = max(peak_pct, utilization)
+            if quantity > capacity + 1e-9:
+                overloaded += 1
+        results.append({
+            "shifts_per_day": shifts,
+            "capacity_factor": factor,
+            "overloaded_resource_days": overloaded,
+            "peak_capacity_utilization_pct": peak_pct,
+            "incremental_cost": np.nan,
+            "cost_status": "Not calculated: shift labor/equipment cost inputs are not supplied",
+        })
+    return pd.DataFrame(results)
