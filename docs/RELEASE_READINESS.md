@@ -496,3 +496,11 @@ Implementation changes have been committed and selected files/workflows have bee
 - Extended P6 XER intake to preserve relationship type and lag_hours / 8 as lag_days in each activity's relationship_details.
 - Updated regression coverage for each CPM relationship type and for XER imports carrying SS and non-zero FS lag.
 - This remains calendar-neutral CPM. P6 calendars, exceptions, constraints, resource leveling, actual dates and native P6 recalculation are not claimed as reproduced. The new tests are part of the implementation freeze candidate and have not yet been executed in this phase.
+
+
+## EVM progress aggregation completion — 2026-11-25
+
+- Added an explicit operator choice between period-delta progress and cumulative progress snapshots in Saved Project Financial Control.
+- Cumulative mode selects the latest snapshot per activity through the as-of period; actual-cost records remain transaction/period deltas in both modes.
+- Added regression coverage for latest-per-activity selection, cut-off behavior and missing activity/period keys.
+- Default behavior remains period-delta aggregation for compatibility. These tests have not yet been executed during this implementation phase.
