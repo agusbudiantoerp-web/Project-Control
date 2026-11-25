@@ -131,19 +131,14 @@ def fetch_latest_telegram_pdf(
         download_response.raise_for_status()
         headers = getattr(download_response, "headers", {}) or {}
         content_length = headers.get("Content-Length") if isinstance(headers, dict) else None
+        declared_size = None
         if content_length is not None:
             try:
                 declared_size = int(content_length)
             except (TypeError, ValueError):
                 declared_size = None
-            if declared_size is not None and declared_size > max_bytes:
-                raw = None
-            else:
-                raw = b"".join(
-                    chunk
-                    for chunk in download_response.iter_content(chunk_size=64 * 1024)
-                    if chunk
-                )
+        if declared_size is not None and declared_size > max_bytes:
+            raw = None
         else:
             chunks = []
             downloaded_size = 0
