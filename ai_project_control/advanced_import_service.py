@@ -386,9 +386,10 @@ def analyze_drawing_page_with_gemini(
         )
         response.raise_for_status()
         payload = response.json()
-        text = payload["candidates"][0]["content"]["parts"][0]["text"].strip()
-        if not isinstance(text, str) or len(text) > MAX_GEMINI_RESPONSE_CHARS:
+        raw_text = payload["candidates"][0]["content"]["parts"][0]["text"]
+        if not isinstance(raw_text, str) or len(raw_text) > MAX_GEMINI_RESPONSE_CHARS:
             raise ValueError("Gemini drawing response exceeds the supported output limit")
+        text = raw_text.strip()
     except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
         raise RuntimeError("Gemini drawing analysis failed; check API configuration and provider response.") from None
     if text.startswith("```"):
