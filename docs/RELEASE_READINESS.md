@@ -442,3 +442,13 @@ Implementation changes have been committed and selected files/workflows have bee
 - Restore now creates a missing workspace parent directory with restrictive POSIX permissions (0700). The restore database is staged using a private temporary file before atomic replacement.
 - POSIX regression coverage asserts the restored directory is 0700 and the restored database is 0600.
 - This does not replace host-level disk encryption, backups outside the machine, access control or a tested disaster-recovery procedure.
+
+
+## Drawing takeoff and XER import safeguards — 2026-11-25
+
+- Gemini takeoff response rows must be JSON objects. Nested/non-scalar text fields are rejected, and item code, discipline, description, unit, measurement method and assumptions have explicit character limits before they reach the review editor.
+- Gemini request timeout is validated as a finite positive number, including oversized numeric input handling.
+- Primavera XER import rejects duplicate WBS IDs.
+- Replace mode refuses to clear a populated WBS dataset when the selected XER has no WBS rows; the import is stopped before the atomic save.
+- Regression tests cover malformed Gemini rows, timeout edge cases, duplicate WBS IDs and safe XER Replace behavior.
+- These are source changes and test additions only. CI execution and real Primavera/Gemini integration remain to be verified during the final test phase.
