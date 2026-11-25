@@ -129,39 +129,38 @@ def fetch_latest_telegram_pdf(
             stream=True,
         )
         download_response.raise_for_status()
-        headers = getattr(download_response, "headers", {}) or {}
         try:
-            content_length = headers.get("Content-Length")
-        except AttributeError:
-            content_length = None
-        declared_size = None
-        if content_length is not None:
+            headers = getattr(download_response, "headers", {}) or {}
             try:
-                declared_size = int(content_length)
-            except (TypeError, ValueError):
-                declared_size = None
-        if declared_size is not None and declared_size > max_bytes:
-            raw = None
+                content_length = headers.get("Content-Length")
+            except AttributeError:
+                content_length = None
+            declared_size = None
+            if content_length is not None:
+                try:
+                    declared_size = int(content_length)
+                except (TypeError, ValueError):
+                    declared_size = None
+            if declared_size is not None and declared_size > max_bytes:
+                raw = None
+            else:
+                chunks = []
+                downloaded_size = 0
+                for chunk in download_response.iter_content(chunk_size=64 * 1024):
+                    if not chunk:
+                        continue
+                    downloaded_size += len(chunk)
+                    if downloaded_size > max_bytes:
+                        chunks = []
+                        raw = None
+                        break
+                    chunks.append(chunk)
+                else:
+                    raw = b"".join(chunks)
+        finally:
             close_response = getattr(download_response, "close", None)
             if callable(close_response):
                 close_response()
-        else:
-            chunks = []
-            downloaded_size = 0
-            for chunk in download_response.iter_content(chunk_size=64 * 1024):
-                if not chunk:
-                    continue
-                downloaded_size += len(chunk)
-                if downloaded_size > max_bytes:
-                    chunks = []
-                    raw = None
-                    close_response = getattr(download_response, "close", None)
-                    if callable(close_response):
-                        close_response()
-                    break
-                chunks.append(chunk)
-            else:
-                raw = b"".join(chunks)
 
     except (requests.RequestException, ValueError, TypeError, RuntimeError, AttributeError):
         raise RuntimeError("Telegram PDF download failed; check bot access and file availability.") from None
