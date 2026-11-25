@@ -401,7 +401,7 @@ Implementation changes have been committed and selected files/workflows have bee
 - Workspace restore now validates the SQLite file header, integrity check, required ProjectStore tables and exact supported schema version before touching the active database.
 - Restore creates a timestamped pre-restore SQLite safety snapshot when a current database exists, writes the candidate to the same filesystem, validates it again, and then replaces the active file atomically.
 - The Backup & Audit page requires an explicit confirmation and warns operators to stop other processes writing to the local SQLite database during restore.
-- Restore is limited to 250 MB and is not a migration tool; backups from a different or newer schema version are rejected. The workspace remains local-first and single-user.
+- Restore is limited to 200 MB and is not a migration tool; backups from a different or newer schema version are rejected. The workspace remains local-first and single-user.
 
 
 ### XLSX upload archive safety
