@@ -147,3 +147,15 @@ def test_xer_import_rejects_nonzero_relationship_lags():
             lagged, project_id="P1", project_name="Plant Upgrade",
             currency="IDR", source_project_id="P6-1",
         )
+
+
+def test_xer_import_rejects_missing_wbs_parent_links():
+    invalid = SINGLE_PROJECT_XER.replace(
+        b"%R\tP6-1\tW1\t\tCivil Works",
+        b"%R\tP6-1\tW1\tMISSING\tCivil Works",
+    )
+    with pytest.raises(ValueError, match="missing parent WBS"):
+        prepare_xer_workspace_import(
+            invalid, project_id="P1", project_name="Plant Upgrade",
+            currency="IDR", source_project_id="P6-1",
+        )
