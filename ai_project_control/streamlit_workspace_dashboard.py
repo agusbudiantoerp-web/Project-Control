@@ -752,6 +752,14 @@ def render_project_workspace_dashboard(
     d.metric("Performance", _performance_display_value(summary, result["scorecard"]["projects"]))
 
     st.markdown("#### Earned Value Management")
+    evm_modes = result.get("evm_record_modes", {})
+    st.caption(
+        "Source record modes — Progress: "
+        + str(evm_modes.get("progress", "period_delta"))
+        + " | Actual cost: "
+        + str(evm_modes.get("actual_cost", "period_delta"))
+        + ". Configure these in Project Master to match the imported data structure."
+    )
     evm = result["evm"]
     evm_cols = st.columns(4)
     for column, label, key in zip(evm_cols, ["PV", "EV", "AC", "BAC"], ["PV", "EV", "AC", "BAC"]):
