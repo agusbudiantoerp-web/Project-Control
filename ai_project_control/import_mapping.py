@@ -141,6 +141,16 @@ def map_import_rows(
     if unknown_targets:
         raise ValueError(f"Unknown target fields for {table}: {', '.join(unknown_targets)}")
 
+    if any(not isinstance(source, str) or not source for source in mapping.values()):
+        raise ValueError("Every mapped source column must be a non-empty column name")
+    source_columns = list(mapping.values())
+    reused_sources = sorted({source for source in source_columns if source_columns.count(source) > 1})
+    if reused_sources:
+        raise ValueError(
+            "A source column cannot be mapped to multiple target fields: "
+            + ", ".join(reused_sources)
+        )
+
     mapped = []
     for row in source_rows:
         output = {}
