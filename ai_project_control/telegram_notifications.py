@@ -39,7 +39,8 @@ def format_escalation_message(result: dict[str, Any]) -> str:
     lines.append("\nPesan ini merupakan bahan tinjauan; bukan persetujuan atau perubahan status otomatis.")
     message = "\n".join(lines)
     if len(message) > 3900:
-        message = message[:3870] + "\n… pesan dipotong agar sesuai batas Telegram."
+        suffix = "\n… pesan dipotong agar sesuai batas Telegram."
+        message = message[:3900 - len(suffix)] + suffix
     return message
 
 
