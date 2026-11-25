@@ -133,3 +133,11 @@ def test_xlsx_skips_fully_blank_rows():
     result = read_tabular_upload(Upload("ok.xlsx", stream.getvalue()))
     assert result["row_count"] == 1
     assert result["rows"][0]["Project ID"] == "P1"
+
+
+def test_reader_preserves_upload_stream_for_repeated_preview():
+    upload = Upload("boq.csv", b"Project ID,BOQ ID,Quantity\nP1,B1,10\n")
+    first = read_tabular_upload(upload)
+    second = read_tabular_upload(upload)
+    assert first["rows"] == second["rows"]
+    assert upload.tell() == 0
