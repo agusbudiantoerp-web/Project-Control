@@ -574,8 +574,10 @@ def risk_analysis(risks: pd.DataFrame, iterations=10000, seed=42):
     """Independent Bernoulli Monte Carlo risk exposure; impacts are non-negative."""
     if risks.empty:
         raise ValueError("Risk register belum diimpor.")
-    if not isinstance(iterations, (int, np.integer)) or iterations < 100:
+    if isinstance(iterations,(bool,np.bool_)) or not isinstance(iterations, (int, np.integer)) or iterations < 100:
         raise ValueError("iterations harus bilangan bulat minimal 100.")
+    if isinstance(seed,(bool,np.bool_)) or not isinstance(seed,(int,np.integer)) or seed<0:
+        raise ValueError("seed harus bilangan bulat non-negatif.")
     required = {"risk_id", "probability", "cost_impact", "schedule_impact_days"}
     missing = required - set(risks.columns)
     if missing:
@@ -627,18 +629,58 @@ def risk_analysis(risks: pd.DataFrame, iterations=10000, seed=42):
     return r.sort_values("cost_exposure", ascending=False), stats, samples
 
 def optimize_crash(activities: pd.DataFrame, target_days: float):
-    required={"crash_duration_days","crash_cost_per_day"}
-    if not required.issubset(activities.columns): raise ValueError("Tambahkan kolom crash_duration_days dan crash_cost_per_day untuk aktivitas yang dapat dipercepat.")
+    """Validate schedule-crashing inputs before solving the cost/time LP."""
+    if activities.empty:
+        raise ValueError("Activities belum diimpor.")
+    required={"activity_id","duration_days","crash_duration_days","crash_cost_per_day"}
+    missing=required-set(activities.columns)
+    if missing:
+        raise ValueError("Kolom crashing belum lengkap: "+", ".join(sorted(missing)))
+    if isinstance(target_days,(bool,np.bool_)):
+        raise ValueError("target_days harus angka finite dan tidak negatif.")
+    try:
+        target=float(target_days)
+    except (TypeError,ValueError):
+        raise ValueError("target_days harus angka finite dan tidak negatif.") from None
+    if not np.isfinite(target) or target<0:
+        raise ValueError("target_days harus angka finite dan tidak negatif.")
+    frame=activities.copy()
+    ids=frame["activity_id"]
+    if ids.isna().any() or ids.astype(str).str.strip().eq("").any():
+        raise ValueError("activity_id crashing harus terisi dan unik.")
+    frame["activity_id"]=ids.astype(str).str.strip()
+    if frame["activity_id"].duplicated().any():
+        raise ValueError("activity_id crashing harus terisi dan unik.")
+    numeric={}
+    for col in ["duration_days","crash_duration_days","crash_cost_per_day"]:
+        if frame[col].map(lambda value:isinstance(value,(bool,np.bool_))).any():
+            raise ValueError(f"{col} harus angka finite yang valid, bukan boolean.")
+        numeric[col]=pd.to_numeric(frame[col],errors="coerce")
+        if numeric[col].isna().any() or not np.isfinite(numeric[col].to_numpy(dtype=float)).all():
+            raise ValueError(f"{col} harus angka finite yang valid.")
+    if (numeric["duration_days"]<0).any() or (numeric["crash_duration_days"]<0).any():
+        raise ValueError("Durasi normal dan crash tidak boleh negatif.")
+    if (numeric["crash_duration_days"]>numeric["duration_days"]).any():
+        raise ValueError("crash_duration_days tidak boleh melebihi duration_days.")
+    if (numeric["crash_cost_per_day"]<0).any():
+        raise ValueError("crash_cost_per_day tidak boleh negatif.")
     rows=[]
-    for _,r in activities.iterrows():
+    known=set(frame["activity_id"])
+    for pos,(_,r) in enumerate(frame.iterrows()):
         pred_raw=r.get("predecessor_ids","")
         pred_raw="" if pd.isna(pred_raw) else str(pred_raw)
-        rows.append({"id":str(r["activity_id"]),"duration":float(r["duration_days"]),
-          "predecessors":pred_raw,
-          "crash_duration":float(r["crash_duration_days"]),
-          "crash_cost":float(r["crash_cost_per_day"])})
+        predecessors=[p.strip() for p in pred_raw.split(",") if p.strip()]
+        if r["activity_id"] in predecessors:
+            raise ValueError(f"Aktivitas {r['activity_id']} tidak boleh menjadi predecessor dirinya sendiri.")
+        unknown=sorted(set(predecessors)-known)
+        if unknown:
+            raise ValueError(f"Predecessor tidak ditemukan untuk {r['activity_id']}: "+", ".join(unknown))
+        rows.append({"id":r["activity_id"],"duration":float(numeric["duration_days"].iloc[pos]),
+          "predecessors":",".join(predecessors),
+          "crash_duration":float(numeric["crash_duration_days"].iloc[pos]),
+          "crash_cost":float(numeric["crash_cost_per_day"].iloc[pos])})
     from pmcontrols.crash import crash
-    result=crash(rows,target=float(target_days))
+    result=crash(rows,target=target)
     return result.table,result.stats
 
 def export_workbook(datasets: dict[str,pd.DataFrame], analyses: dict[str,pd.DataFrame]):
