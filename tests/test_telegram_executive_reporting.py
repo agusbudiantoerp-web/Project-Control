@@ -43,3 +43,47 @@ def test_missing_credentials_are_rejected_before_network():
         send_telegram_executive_message(bot_token="", chat_id="123", message="hello")
     with pytest.raises(ValueError, match="chat ID"):
         send_telegram_executive_message(bot_token="123:abc", chat_id="", message="hello")
+
+
+def test_sender_redacts_bot_token_from_network_failures(monkeypatch):
+    import requests
+
+    token = "123456:TOP_SECRET_TOKEN"
+
+    def fail(*args, **kwargs):
+        raise requests.ConnectionError(
+            f"failed request https://api.telegram.org/bot{token}/sendMessage"
+        )
+
+    monkeypatch.setattr(requests, "post", fail)
+    with pytest.raises(RuntimeError, match="Telegram delivery failed") as captured:
+        send_telegram_executive_message(
+            bot_token=token, chat_id="123", message="report"
+        )
+    assert token not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__suppress_context__ is True
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan"), True])
+def test_executive_sender_rejects_invalid_timeout(timeout):
+    with pytest.raises(ValueError, match="finite positive"):
+        send_telegram_executive_message(
+            bot_token="secret", chat_id="123", message="report", timeout=timeout
+        )
+
+
+def test_executive_sender_rejects_non_text_credentials():
+    with pytest.raises(ValueError, match="text values"):
+        send_telegram_executive_message(
+            bot_token=123, chat_id="123", message="report"
+        )
+
+
+def test_executive_sender_rejects_token_whitespace():
+    token = "secret\\nINJECTED"
+    with pytest.raises(ValueError, match="invalid whitespace") as captured:
+        send_telegram_executive_message(
+            bot_token=token, chat_id="123", message="report"
+        )
+    assert token not in str(captured.value)
