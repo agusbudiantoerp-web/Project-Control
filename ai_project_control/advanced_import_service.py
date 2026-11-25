@@ -216,8 +216,14 @@ def prepare_xer_workspace_import(
             "source_task_id": source_task_id,
         })
 
+    raw_wbs_rows = tables.get("PROJWBS", [])
+    if len(available) > 1 and any(not str(row.get("proj_id", "")).strip() for row in raw_wbs_rows):
+        raise ValueError(
+            "XER has multiple projects but some WBS rows omit proj_id; "
+            "WBS records cannot be safely isolated."
+        )
     wbs_rows = []
-    for row in tables.get("PROJWBS", []):
+    for row in raw_wbs_rows:
         if selected_source and str(row.get("proj_id", "")).strip() not in {"", selected_source}:
             continue
         wbs_id = str(row.get("wbs_id", "")).strip()
