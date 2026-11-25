@@ -7,6 +7,7 @@ from typing import Any
 from .data_quality_validation import TABLE_KEYS
 from .import_mapping import suggest_column_mapping
 from .project_store import ProjectStore
+from .workspace_config import get_workspace_database_path
 from .upload_reader import read_tabular_upload
 from .import_service import import_uploaded_dataset
 
@@ -15,6 +16,8 @@ def render_persistent_import_ui(database_path: str | Path = ".project_control/pr
     """Render persistent import workflow; replace requires an explicit choice."""
     try:
         import streamlit as st
+    if database_path is None:
+        database_path = get_workspace_database_path()
     except ImportError as exc:
         raise RuntimeError("Streamlit is required to render this component.") from exc
 
