@@ -1,7 +1,8 @@
 """Telegram executive text reporting with explicit-send and credential safeguards."""
 from __future__ import annotations
 
-from typing import Any, Iterable
+import math
+from typing import Any
 
 TELEGRAM_TEXT_LIMIT = 4000
 
@@ -72,12 +73,23 @@ def send_telegram_executive_message(
     timeout: int = 30,
 ) -> list[dict[str, Any]]:
     """Send a message only when explicitly invoked by the host application."""
-    token = str(bot_token or "").strip()
-    target = str(chat_id or "").strip()
+    if not isinstance(bot_token, str) or not isinstance(chat_id, str):
+        raise ValueError("Telegram credentials must be text values")
+    token = bot_token.strip()
+    target = chat_id.strip()
     if not token:
         raise ValueError("Telegram bot token is not configured")
+    if any(character.isspace() for character in token):
+        raise ValueError("Telegram bot token contains invalid whitespace")
     if not target:
         raise ValueError("Telegram chat ID is not configured")
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not math.isfinite(float(timeout))
+        or timeout <= 0
+    ):
+        raise ValueError("Telegram timeout must be a finite positive number")
     chunks = split_telegram_message(message)
     if not chunks:
         raise ValueError("Telegram message is empty")
@@ -85,14 +97,25 @@ def send_telegram_executive_message(
 
     results = []
     for chunk in chunks:
-        response = requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            data={"chat_id": target, "text": chunk, "disable_web_page_preview": True},
-            timeout=timeout,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        try:
+            response = requests.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                data={"chat_id": target, "text": chunk, "disable_web_page_preview": True},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException:
+            # Request exceptions can include the API URL and therefore the bot token.
+            raise RuntimeError("Telegram delivery failed; check network and bot configuration.") from None
+        except (ValueError, TypeError):
+            raise RuntimeError("Telegram returned an unreadable response.") from None
+        if not isinstance(payload, dict):
+            raise RuntimeError("Telegram returned an unexpected response format.")
         if not payload.get("ok"):
-            raise RuntimeError(payload.get("description", "Telegram API rejected the message"))
+            description = str(payload.get("description", "Telegram API rejected the message"))
+            if token in description:
+                description = description.replace(token, "[redacted]")
+            raise RuntimeError(f"Telegram API rejected the message: {description}")
         results.append(payload)
     return results
