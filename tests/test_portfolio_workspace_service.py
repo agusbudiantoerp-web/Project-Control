@@ -315,3 +315,19 @@ def test_saved_portfolio_duplicate_snapshot_dates_are_review_required_for_predic
     ])
     result = build_saved_portfolio_report(db)
     assert result["predictive_early_warning"]["status"] == "REVIEW_REQUIRED"
+
+
+def test_saved_portfolio_keeps_coo_report_available_for_incomplete_risk_rows(tmp_path):
+    db = tmp_path / "portfolio.sqlite3"
+    store = ProjectStore(db)
+    add_project(store, "P1", "Project One", 500, 400, 500)
+    store.save_dataset("P1", "risk", [{
+        "project_id": "P1", "risk_id": "R1",
+        "description": "Risk record awaiting probability and impact assessment",
+    }])
+    result = build_saved_portfolio_report(db)
+    assert result["project_count"] == 1
+    assert result["risk_exposure_matrices"][0]["status"] == "REVIEW_REQUIRED"
+    assert result["recovery_decisions"][0]["status"] == "PARTIALLY_ASSESSED"
+    assert "RISK_REGISTER" in result["recovery_decisions"][0]["missing_inputs"]
+    assert result["risk_governance_summary"]["risk_count"] == 1
