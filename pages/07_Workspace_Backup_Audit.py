@@ -26,10 +26,18 @@ try:
     st.divider()
     st.subheader("Download workspace backup")
     st.warning("Backup dapat berisi data biaya, kontrak, dan informasi sensitif. Simpan file di lokasi terenkripsi dengan akses terbatas. Jangan unggah ke repository publik.")
+    backup_state_key = f"workspace_backup_bytes::{database_path}"
     if st.button("Prepare SQLite backup"):
-        backup_bytes = build_workspace_backup(database_path)
-        st.download_button("Download SQLite backup", data=backup_bytes,
-                           file_name="project_control_workspace_backup.sqlite3",
-                           mime="application/vnd.sqlite3")
+        st.session_state[backup_state_key] = build_workspace_backup(database_path)
+        st.success("Snapshot SQLite berhasil disiapkan. Unduh file melalui tombol di bawah.")
+
+    backup_bytes = st.session_state.get(backup_state_key)
+    if backup_bytes:
+        st.download_button(
+            "Download SQLite backup",
+            data=backup_bytes,
+            file_name="project_control_workspace_backup.sqlite3",
+            mime="application/vnd.sqlite3",
+        )
 except (OSError, ValueError) as exc:
     st.error("Workspace backup unavailable: " + str(exc))
