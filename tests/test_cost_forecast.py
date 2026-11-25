@@ -64,3 +64,13 @@ def test_overflowing_cpi_or_spi_makes_cost_forecast_unassessed():
     assert result["status"] == "INSUFFICIENT_DATA"
     assert "CPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE" in result["data_gaps"]
     assert "SPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE" in result["data_gaps"]
+
+
+def test_zero_actual_cost_keeps_budget_rate_scenario_but_marks_cpi_unassessed():
+    data = {"PV": 100, "EV": 0, "AC": 0, "BAC": 500, "currency": "IDR"}
+    result = build_cost_forecast(data)
+    assert result["status"] == "ASSESSED"
+    assert result["cpi"] is None
+    assert result["scenarios"][0]["status"] == "UNASSESSED"
+    assert result["scenarios"][1]["EAC"] == 500
+    assert result["scenarios"][2]["status"] == "UNASSESSED"
