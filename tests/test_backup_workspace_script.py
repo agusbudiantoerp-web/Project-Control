@@ -40,8 +40,10 @@ def test_backup_script_removes_only_expired_generated_backups(tmp_path, monkeypa
     destination.mkdir()
     expired = destination / "ai_project_control_20200101T000000000000Z.sqlite3"
     unrelated = destination / "keep-me.sqlite3"
+    non_generated = destination / "ai_project_control_manual.sqlite3"
     expired.write_bytes(b"old backup")
     unrelated.write_bytes(b"unrelated file")
+    non_generated.write_bytes(b"operator file")
     old_time = (datetime.now(timezone.utc) - timedelta(days=90)).timestamp()
     import os
     os.utime(expired, (old_time, old_time))
@@ -50,6 +52,7 @@ def test_backup_script_removes_only_expired_generated_backups(tmp_path, monkeypa
 
     assert not expired.exists()
     assert unrelated.exists()
+    assert non_generated.exists()
 
 
 def test_backup_script_rejects_invalid_retention_and_missing_database(tmp_path, monkeypatch):
