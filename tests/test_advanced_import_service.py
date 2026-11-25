@@ -544,8 +544,8 @@ def test_gemini_stops_reading_when_stream_exceeds_response_limit(monkeypatch):
 
 def test_xer_import_rejects_activity_linked_to_missing_wbs():
     invalid = SINGLE_PROJECT_XER.replace(
-        b"\\tPour Concrete\\tW1\\t40",
-        b"\\tPour Concrete\\tW-MISSING\\t40",
+        b"\tPour Concrete\tW1\t40",
+        b"\tPour Concrete\tW-MISSING\t40",
     )
     with pytest.raises(ValueError, match="WBS IDs not included"):
         prepare_xer_workspace_import(
@@ -559,13 +559,13 @@ def test_xer_import_rejects_activity_linked_to_missing_wbs():
 
 def test_xer_import_filters_wbs_rows_to_selected_source_project():
     multi = SINGLE_PROJECT_XER.replace(
-        b"%R\\tP6-1\\tW1\\t\\tCivil Works",
-        b"%R\\tP6-1\\tW1\\t\\tCivil Works\\n"
-        b"%R\\tP6-2\\tW2\\t\\tOther Project WBS",
+        b"%R\tP6-1\tW1\t\tCivil Works",
+        b"%R\tP6-1\tW1\t\tCivil Works\n"
+        b"%R\tP6-2\tW2\t\tOther Project WBS",
     ).replace(
-        b"%R\\tP6-1\\tT2\\tA2\\tPour Concrete\\tW1\\t40\\t2026-01-11 08:00\\t2026-01-15 17:00",
-        b"%R\\tP6-1\\tT2\\tA2\\tPour Concrete\\tW1\\t40\\t2026-01-11 08:00\\t2026-01-15 17:00\\n"
-        b"%R\\tP6-2\\tT3\\tB1\\tOther Project Task\\tW2\\t16\\t2026-02-01 08:00\\t2026-02-02 17:00",
+        b"%R\tP6-1\tT2\tA2\tPour Concrete\tW1\t40\t2026-01-11 08:00\t2026-01-15 17:00",
+        b"%R\tP6-1\tT2\tA2\tPour Concrete\tW1\t40\t2026-01-11 08:00\t2026-01-15 17:00\n"
+        b"%R\tP6-2\tT3\tB1\tOther Project Task\tW2\t16\t2026-02-01 08:00\t2026-02-02 17:00",
     )
     prepared = prepare_xer_workspace_import(
         multi,
