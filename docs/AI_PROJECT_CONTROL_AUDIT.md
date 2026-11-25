@@ -190,8 +190,8 @@ The following implementation has now been committed to the working branch. This 
 
 ### Known boundaries before production sign-off
 
-- No integrated runtime test suite has been executed yet; automated tests have been added and are intentionally awaiting the consolidated test phase.
-- CSV CPM uses FS relationships on relative working periods. XER CPM preserves FS/SS/FF/SF and lag but remains calendar-free. Neither replaces Primavera P6 native recalculation.
+- Consolidated automated tests have now passed in GitHub Actions for the root primary workspace and the legacy V1 engine; see docs/RELEASE_READINESS.md for exact run IDs and counts. The latest added Windows primary-app smoke/full-suite job is pending its own CI result.
+- CSV CPM uses FS relationships on relative working periods. XER CPM preserves FS/SS/FF/SF and lag but remains calendar-free. Neither replaces Primavera P6 native recalculation. Calendar-aware recalculation and native P6 reconciliation remain unimplemented.
 - Resource loading is a capacity-screening calculation, not a full P6 resource-leveling solver.
 - Drawing-to-BOQ is a draft extraction assistant. Quantities, scale, units, scope and assumptions require human quantity-surveyor verification.
 - Historical trend forecasting is a transparent linear trend projection, not a trained ML model. Reliable AI/ML prediction requires validated historical project outcomes.
@@ -205,3 +205,8 @@ The following implementation has now been committed to the working branch. This 
 3. Run the consolidated automated tests once feature development is frozen.
 4. Fix all test/runtime issues, then perform one integrated acceptance test.
 5. Produce the final Windows Standalone distribution and user guide.
+
+
+### Updated verification status (2026-11-25)
+
+Automated root and legacy test suites have passed on GitHub Actions. Windows backup/restore and PowerShell syntax checks have also passed. A new CI job now extends Windows verification to the primary Streamlit startup and the full root test suite. These checks are automated CI evidence, not a substitute for an acceptance run on the user's own Windows environment or a live Telegram/Gemini integration test.
