@@ -23,7 +23,7 @@ from ai_project_control.workspace_config import get_workspace_database_path
 def create_backup(destination: Path, retention_days: int) -> Path:
     if isinstance(retention_days, bool) or not isinstance(retention_days, int) or retention_days < 1:
         raise ValueError("retention_days must be at least 1")
-    database = Path(get_workspace_database_path()).expanduser().resolve()
+    database = Path(get_workspace_database_path()).expanduser()\n    if not database.is_absolute():\n        database = ROOT / database\n    database = database.resolve()
     if not database.is_file():
         raise FileNotFoundError(
             f"Workspace database not found: {database}. Open the application and save a project first."
