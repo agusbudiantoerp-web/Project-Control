@@ -1,7 +1,9 @@
 from io import BytesIO
+import zipfile
 
 import pytest
 
+import ai_project_control.upload_reader as upload_reader
 from ai_project_control.upload_reader import prepare_upload_for_table, read_tabular_upload
 
 
@@ -141,3 +143,45 @@ def test_reader_preserves_upload_stream_for_repeated_preview():
     second = read_tabular_upload(upload)
     assert first["rows"] == second["rows"]
     assert upload.tell() == 0
+
+
+def _zip_xlsx_members(members):
+    stream = BytesIO()
+    with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, payload in members:
+            archive.writestr(name, payload)
+    return stream.getvalue()
+
+
+def test_xlsx_rejects_malformed_zip_container():
+    with pytest.raises(ValueError, match="valid ZIP workbook"):
+        read_tabular_upload(Upload("bad.xlsx", b"not a zip archive"))
+
+
+def test_xlsx_rejects_unsafe_archive_paths():
+    raw = _zip_xlsx_members([
+        ("[Content_Types].xml", b"types"),
+        ("xl/workbook.xml", b"workbook"),
+        ("../outside.xml", b"unsafe"),
+    ])
+    with pytest.raises(ValueError, match="unsafe archive path"):
+        read_tabular_upload(Upload("bad.xlsx", raw))
+
+
+def test_xlsx_rejects_high_compression_ratio():
+    raw = _zip_xlsx_members([
+        ("[Content_Types].xml", b"types"),
+        ("xl/workbook.xml", b"A" * 20_000),
+    ])
+    with pytest.raises(ValueError, match="compression ratio"):
+        read_tabular_upload(Upload("bomb.xlsx", raw))
+
+
+def test_xlsx_rejects_excessive_uncompressed_size(monkeypatch):
+    raw = _zip_xlsx_members([
+        ("[Content_Types].xml", b"types"),
+        ("xl/workbook.xml", b"workbook content larger than ten bytes"),
+    ])
+    monkeypatch.setattr(upload_reader, "MAX_XLSX_UNCOMPRESSED_BYTES", 10)
+    with pytest.raises(ValueError, match="100 MB safety limit"):
+        read_tabular_upload(Upload("large.xlsx", raw))
