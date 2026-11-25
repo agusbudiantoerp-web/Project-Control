@@ -241,6 +241,102 @@ class ProjectStore:
         }
 
 
+    def save_datasets(
+        self,
+        project_id: str,
+        datasets: dict[str, list[dict[str, Any]]],
+        *,
+        mode: str = "upsert",
+    ) -> dict[str, dict[str, Any]]:
+        """Validate and commit multiple project datasets in one SQLite transaction."""
+        project_id = str(project_id).strip()
+        if not project_id:
+            raise ValueError("project_id is required")
+        if not isinstance(datasets, dict) or not datasets:
+            raise ValueError("datasets must be a non-empty mapping")
+        if mode not in {"upsert", "replace"}:
+            raise ValueError("mode must be 'upsert' or 'replace'")
+        unknown = set(datasets) - set(TABLE_KEYS)
+        if unknown:
+            raise ValueError("Unsupported datasets: " + ", ".join(sorted(unknown)))
+
+        normalized: dict[str, list[dict[str, Any]]] = {}
+        prepared: dict[str, list[tuple[str, str, str, str, str]]] = {}
+        validations: dict[str, str] = {}
+        now = datetime.now(timezone.utc).isoformat()
+        for dataset, rows in datasets.items():
+            if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+                raise TypeError(f"{dataset} rows must be a list of dictionaries")
+            normalized[dataset] = [dict(row) for row in rows]
+            seen: set[str] = set()
+            dataset_prepared = []
+            for index, row in enumerate(normalized[dataset]):
+                row_project = str(row.get("project_id", "")).strip()
+                if row_project != project_id:
+                    raise ValueError(
+                        f"{dataset} row {index} belongs to project '{row_project}', not '{project_id}'"
+                    )
+                key = self._record_key(dataset, row)
+                if key in seen and dataset != "portfolio_snapshots":
+                    raise ValueError(f"Duplicate record key in {dataset} import: {key}")
+                if key in seen:
+                    key = f"{key}#duplicate:{index}"
+                seen.add(key)
+                dataset_prepared.append((
+                    project_id, dataset, key,
+                    json.dumps(row, ensure_ascii=False, default=str), now,
+                ))
+            prepared[dataset] = dataset_prepared
+
+        validation = validate_project_control_data(normalized)
+        if validation["status"] == "INVALID":
+            raise ValueError("Multi-dataset validation failed: " + json.dumps(validation["issues"]))
+        for dataset in normalized:
+            validations[dataset] = validation["status"]
+
+        results: dict[str, dict[str, Any]] = {}
+        with self._connect() as db:
+            existing = db.execute(
+                "SELECT 1 FROM project_records WHERE project_id=? AND dataset='project_master' LIMIT 1",
+                (project_id,),
+            ).fetchone()
+            has_project_master = bool(normalized.get("project_master")) or existing is not None
+            if any(name != "project_master" for name in normalized) and not has_project_master:
+                raise ValueError(f"Project '{project_id}' must exist in project_master first")
+
+            # Write project_master first so new-project imports can include related tables.
+            ordered = sorted(normalized, key=lambda name: (name != "project_master", name))
+            for dataset in ordered:
+                event_id = str(uuid.uuid4())
+                imported_at = datetime.now(timezone.utc).isoformat()
+                if mode == "replace":
+                    db.execute(
+                        "DELETE FROM project_records WHERE project_id=? AND dataset=?",
+                        (project_id, dataset),
+                    )
+                db.executemany("""
+                    INSERT INTO project_records(project_id, dataset, record_key, payload_json, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(project_id, dataset, record_key)
+                    DO UPDATE SET payload_json=excluded.payload_json, updated_at=excluded.updated_at
+                """, prepared[dataset])
+                db.execute("""
+                    INSERT INTO import_events(event_id, project_id, dataset, mode, row_count,
+                                              imported_at, status, details_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    event_id, project_id, dataset, mode, len(prepared[dataset]),
+                    imported_at, "COMMITTED",
+                    json.dumps({"validation_status": validations[dataset], "atomic_batch": True}),
+                ))
+                results[dataset] = {
+                    "event_id": event_id, "project_id": project_id,
+                    "dataset": dataset, "mode": mode,
+                    "saved_count": len(prepared[dataset]), "status": "COMMITTED",
+                    "validation_status": validations[dataset],
+                }
+        return results
+
     def list_project_ids(self) -> list[str]:
         """List project IDs with a saved project_master record, in stable order."""
         with self._connect() as db:
