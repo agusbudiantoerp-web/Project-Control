@@ -441,3 +441,102 @@ def test_list_project_wbs_ids_reads_project_store_records(tmp_path):
         {"project_id": "P1", "wbs_id": ""},
     ])
     assert list_project_wbs_ids(store, "P1") == ["W-01", "W-02"]
+
+
+def test_gemini_streamed_response_is_bounded_and_closed(monkeypatch):
+    import json
+    import ai_project_control.advanced_import_service as service
+
+    payload = json.dumps({
+        "candidates": [{
+            "content": {"parts": [{
+                "text": '[{"description":"Concrete beam","quantity":2,"unit":"m3"}]'
+            }]}
+        }]
+    }).encode("utf-8")
+
+    class StreamResponse:
+        headers = {"Content-Length": str(len(payload))}
+
+        def __init__(self):
+            self.closed = False
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            assert chunk_size == 64 * 1024
+            yield payload
+
+        def close(self):
+            self.closed = True
+
+    response = StreamResponse()
+    monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: response)
+    rows = service.analyze_drawing_page_with_gemini(
+        b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+    )
+    assert rows[0]["quantity"] == 2
+    assert response.closed
+
+
+def test_gemini_rejects_oversized_stream_before_json_parse_and_closes(monkeypatch):
+    import ai_project_control.advanced_import_service as service
+
+    class StreamResponse:
+        headers = {"Content-Length": str(service.MAX_GEMINI_RESPONSE_CHARS + 1)}
+
+        def __init__(self):
+            self.iterated = False
+            self.closed = False
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            self.iterated = True
+            yield b"{}"
+
+        def close(self):
+            self.closed = True
+
+    response = StreamResponse()
+    monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: response)
+    with pytest.raises(RuntimeError, match="Gemini drawing analysis failed"):
+        service.analyze_drawing_page_with_gemini(
+            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+        )
+    assert not response.iterated
+    assert response.closed
+
+
+def test_gemini_stops_reading_when_stream_exceeds_response_limit(monkeypatch):
+    import ai_project_control.advanced_import_service as service
+
+    class StreamResponse:
+        headers = {}
+
+        def __init__(self):
+            self.closed = False
+            self.chunks_read = 0
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            self.chunks_read += 1
+            yield b"x" * (service.MAX_GEMINI_RESPONSE_CHARS + 1)
+            self.chunks_read += 1
+            yield b"should-not-be-read"
+
+        def close(self):
+            self.closed = True
+
+    response = StreamResponse()
+    monkeypatch.setattr(service.requests, "post", lambda *args, **kwargs: response)
+    with pytest.raises(RuntimeError, match="Gemini drawing analysis failed"):
+        service.analyze_drawing_page_with_gemini(
+            b"\\x89PNG\\r\\n\\x1a\\nfake-png", "test-key"
+        )
+    assert response.chunks_read == 1
+    assert response.closed
