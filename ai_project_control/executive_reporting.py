@@ -54,7 +54,7 @@ def build_executive_summary(
         state = ("ahead of schedule" if spi > 1.02 else "behind schedule" if spi < 0.98 else "approximately on schedule") if en else ("lebih cepat dari rencana" if spi > 1.02 else "tertinggal dari rencana" if spi < 0.98 else "relatif sesuai rencana")
         lines.append((f"- Schedule performance: SPI {spi:.3f} ({state})." if en else f"- Kinerja jadwal: SPI {spi:.3f} ({state})."))
     else:
-        lines.append("- Schedule performance: unavailable (EVM inputs incomplete)." if en else "- Kinerja jadwal: belum tersedia (data EVM belum lengkap).")
+        lines.append("- Schedule performance (SPI): unavailable (EVM inputs incomplete)." if en else "- Kinerja jadwal (SPI): belum tersedia (data EVM belum lengkap).")
 
     if cpi is not None:
         state = ("cost efficient" if cpi > 1.02 else "cost inefficient" if cpi < 0.98 else "approximately on budget") if en else ("efisien terhadap biaya" if cpi > 1.02 else "kurang efisien terhadap biaya" if cpi < 0.98 else "relatif sesuai anggaran")
