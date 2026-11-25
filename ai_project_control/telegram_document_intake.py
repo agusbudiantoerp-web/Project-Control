@@ -126,12 +126,44 @@ def fetch_latest_telegram_pdf(
         download_response = requests.get(
             f"https://api.telegram.org/file/bot{token}/{file_path}",
             timeout=float(timeout),
+            stream=True,
         )
         download_response.raise_for_status()
-        raw = download_response.content
+        headers = getattr(download_response, "headers", {}) or {}
+        content_length = headers.get("Content-Length") if isinstance(headers, dict) else None
+        if content_length is not None:
+            try:
+                declared_size = int(content_length)
+            except (TypeError, ValueError):
+                declared_size = None
+            if declared_size is not None and declared_size > max_bytes:
+                raw = None
+            else:
+                raw = b"".join(
+                    chunk
+                    for chunk in download_response.iter_content(chunk_size=64 * 1024)
+                    if chunk
+                )
+        else:
+            chunks = []
+            downloaded_size = 0
+            for chunk in download_response.iter_content(chunk_size=64 * 1024):
+                if not chunk:
+                    continue
+                downloaded_size += len(chunk)
+                if downloaded_size > max_bytes:
+                    chunks = []
+                    raw = None
+                    break
+                chunks.append(chunk)
+            else:
+                raw = b"".join(chunks)
+
     except (requests.RequestException, ValueError, TypeError, RuntimeError, AttributeError):
         raise RuntimeError("Telegram PDF download failed; check bot access and file availability.") from None
 
+    if raw is None or len(raw) > max_bytes:
+        raise RuntimeError(f"Telegram PDF exceeds the 20 MB intake limit (configured limit: {max_bytes} bytes)")
     if not isinstance(raw, (bytes, bytearray)) or not raw.startswith(b"%PDF-"):
         raise RuntimeError("Telegram document is not a valid PDF file")
     if len(raw) > max_bytes:
