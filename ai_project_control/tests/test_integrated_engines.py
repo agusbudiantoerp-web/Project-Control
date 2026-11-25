@@ -343,3 +343,33 @@ def test_xer_cpm_normalizes_task_ids_before_relationship_join():
     result, stats = calculate_xer_cpm({"TASK": task, "TASKPRED": rel})
     assert stats["project_duration_days"] == 2
     assert result.loc[result["task_id"] == "2", "early_start_day"].iloc[0] == 1
+
+
+def test_resource_load_rejects_blank_task_ids_and_boolean_capacity():
+    from core import calculate_resource_load
+
+    resources = pd.DataFrame([{"rsrc_id": "R1", "rsrc_name": "Crane",
+                               "rsrc_type": "Equipment", "capacity_per_day": 8}])
+    blank_task = pd.DataFrame([{"task_id": " ", "rsrc_id": "R1", "target_qty": 8,
+        "target_start_date": "2026-01-01", "target_end_date": "2026-01-01"}])
+    with pytest.raises(ValueError, match="non-blank task_id"):
+        calculate_resource_load(resources, blank_task)
+
+    assignments = pd.DataFrame([{"task_id": "A1", "rsrc_id": "R1", "target_qty": 8,
+        "target_start_date": "2026-01-01", "target_end_date": "2026-01-01"}])
+    invalid_resources = resources.copy()
+    invalid_resources["capacity_per_day"] = True
+    with pytest.raises(ValueError, match="not boolean"):
+        calculate_resource_load(invalid_resources, assignments)
+
+
+def test_resource_load_normalizes_task_and_resource_identifiers():
+    from core import calculate_resource_load
+
+    resources = pd.DataFrame([{"rsrc_id": " R1 ", "rsrc_name": "Crane",
+                               "rsrc_type": "Equipment", "capacity_per_day": 8}])
+    assignments = pd.DataFrame([{"task_id": " A1 ", "rsrc_id": "R1", "target_qty": 8,
+        "target_start_date": "2026-01-01", "target_end_date": "2026-01-01"}])
+    summary, daily = calculate_resource_load(resources, assignments)
+    assert summary.iloc[0]["rsrc_id"] == "R1"
+    assert daily.iloc[0]["planned_load_per_day"] == 8
