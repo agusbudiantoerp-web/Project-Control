@@ -142,3 +142,46 @@ def test_overflowing_evm_indices_are_unassessed():
     assert result["EAC"] is None
     assert "SPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE" in result["data_gaps"]
     assert "CPI_EXCEEDS_SUPPORTED_NUMERIC_RANGE" in result["data_gaps"]
+
+
+def test_actual_cost_currency_mismatch_blocks_evm_cost_metrics():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000, "currency": "IDR"},
+        [{"project_id": "P1", "period": "2026-01",
+          "planned_value": 100, "earned_value": 80, "currency": "IDR"}],
+        [{"project_id": "P1", "period": "2026-01",
+          "actual_cost": 90, "currency": "USD"}],
+    )
+    assert result["AC"] is None
+    assert result["CPI"] is None
+    assert result["EAC"] is None
+    assert "ACTUAL_COST_CURRENCY_MISMATCH" in result["data_gaps"]
+    assert result["status"] == "INSUFFICIENT_DATA"
+
+
+def test_progress_currency_mismatch_blocks_pv_and_ev():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000, "currency": "IDR"},
+        [{"project_id": "P1", "period": "2026-01",
+          "planned_value": 100, "earned_value": 80, "currency": "USD"}],
+        [{"project_id": "P1", "period": "2026-01",
+          "actual_cost": 90, "currency": "IDR"}],
+    )
+    assert result["PV"] is None
+    assert result["EV"] is None
+    assert result["SPI"] is None
+    assert "PROGRESS_CURRENCY_MISMATCH" in result["data_gaps"]
+    assert result["status"] == "INSUFFICIENT_DATA"
+
+
+def test_evm_currency_comparison_is_case_insensitive_and_missing_currency_remains_assumption():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000, "currency": "IDR"},
+        [{"project_id": "P1", "period": "2026-01",
+          "planned_value": 100, "earned_value": 80, "currency": "idr"}],
+        [{"project_id": "P1", "period": "2026-01", "actual_cost": 90}],
+    )
+    assert result["PV"] == 100
+    assert result["EV"] == 80
+    assert result["AC"] == 90
+    assert result["status"] == "ASSESSED"
