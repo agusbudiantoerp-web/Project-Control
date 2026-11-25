@@ -502,3 +502,11 @@ Implementation changes have been committed and selected files/workflows have bee
 - Telegram path validation also rejects Windows separators and actual carriage-return/newline characters.
 - Source and regression tests are committed, but no passing CI run or live Telegram download has been verified for this branch head.
 
+
+
+## Telegram HTTP response lifecycle — 2026-11-25
+
+- The streamed Telegram PDF response is now closed in a `finally` block after a successful download, an oversized response, an invalid PDF payload, or an HTTP/body-processing exception.
+- Regression tests assert response closure after both successful PDF retrieval and rejection of a non-PDF payload; existing size-limit tests assert closure on both declared and streamed oversize cases.
+- These are committed source-level regression tests. They have not yet been executed by a passing CI run on the current branch head.
+
