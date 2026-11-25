@@ -226,3 +226,26 @@ def test_cumulative_progress_mode_rejects_duplicate_activity_period_snapshots():
     assert result["EV"] is None
     assert result["status"] == "INSUFFICIENT_DATA"
     assert "DUPLICATE_CUMULATIVE_PROGRESS_SNAPSHOT" in result["data_gaps"]
+
+
+@pytest.mark.parametrize("cutoff", ["2026-13", "2026-02-30", "2026-1", "not-a-date", ""])
+def test_invalid_reporting_cutoff_is_rejected(cutoff):
+    with pytest.raises(ValueError, match="as_of_period"):
+        calculate_evm(
+            {"project_id": "P1", "BAC": 1000}, [], [],
+            as_of_period=cutoff,
+        )
+
+
+def test_iso_date_reporting_cutoff_is_supported():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000},
+        [
+            {"project_id": "P1", "period": "2026-01-31", "planned_value": 100, "earned_value": 90},
+            {"project_id": "P1", "period": "2026-02-01", "planned_value": 200, "earned_value": 180},
+        ],
+        [{"project_id": "P1", "period": "2026-01-31", "actual_cost": 50}],
+        as_of_period="2026-01-31",
+    )
+    assert result["PV"] == 100
+    assert result["EV"] == 90
