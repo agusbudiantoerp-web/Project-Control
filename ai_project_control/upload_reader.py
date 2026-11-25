@@ -92,6 +92,14 @@ def read_tabular_upload(uploaded_file: Any, *, sheet_name: str | None = None) ->
             for index, values in enumerate(iterator):
                 if index >= MAX_ROWS:
                     raise ValueError(f"Worksheet exceeds the {MAX_ROWS} data-row limit.")
+                if len(values) > len(headers) and any(
+                    value not in (None, "") for value in values[len(headers):]
+                ):
+                    raise ValueError(
+                        f"Worksheet row {index + 2} contains values beyond the header columns."
+                    )
+                if not any(value not in (None, "") for value in values):
+                    continue
                 rows.append({headers[col]: values[col] for col in range(min(len(headers), len(values))) if headers[col]})
             selected_sheet = chosen
         finally:
