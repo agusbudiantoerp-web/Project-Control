@@ -452,3 +452,12 @@ Implementation changes have been committed and selected files/workflows have bee
 - Replace mode refuses to clear a populated WBS dataset when the selected XER has no WBS rows; the import is stopped before the atomic save.
 - Regression tests cover malformed Gemini rows, timeout edge cases, duplicate WBS IDs and safe XER Replace behavior.
 - These are source changes and test additions only. CI execution and real Primavera/Gemini integration remain to be verified during the final test phase.
+
+
+## Latest implementation checkpoint — 2026-11-25
+
+- Latest branch head observed during this checkpoint: `9e799ff8bd3373f55000d73047c7594d2ba31193`.
+- Comparison with `main`: 1,052 commits ahead and 15 commits behind; the branch is still diverged and must not be merged/reset blindly.
+- The latest commit returned no combined-status entries. This is **not** evidence of a passing or failing workflow. The available commit-workflow lookup is limited to pull-request-triggered runs, so this checkpoint does not claim a complete workflow history for the branch push.
+- The focused workflow contains an explicit full-suite `python -m pytest -q` step and includes the advanced XER/Gemini import tests.
+- New Gemini response-shape/text-bound checks and XER duplicate-WBS/Replace safeguards have been committed with regression tests. Their execution on the latest branch head remains unverified.
