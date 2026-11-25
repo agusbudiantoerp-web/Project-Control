@@ -71,3 +71,41 @@ def test_change_register_rejects_unknown_project():
         }],
     })
     assert any(issue["code"] == "UNKNOWN_PROJECT" for issue in result["issues"])
+
+
+def test_schedule_change_must_reference_existing_project_baseline():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "schedule_baselines": [{
+            "project_id": "P1", "baseline_id": "BL-1", "version": 1,
+        }],
+        "schedule_changes": [{
+            "project_id": "P1", "change_id": "CR-1", "baseline_id": "BL-MISSING",
+        }],
+    })
+    assert any(issue["code"] == "UNKNOWN_CHANGE_BASELINE" for issue in result["issues"])
+
+
+def test_baseline_snapshot_rejects_duplicate_or_missing_activity_ids():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "schedule_baselines": [{
+            "project_id": "P1", "baseline_id": "BL-1", "version": 1,
+            "activities_snapshot": [
+                {"activity_id": "A1"}, {"activity_id": "A1"}, {"activity_name": "Missing ID"}
+            ],
+        }],
+    })
+    codes = {issue["code"] for issue in result["issues"]}
+    assert "DUPLICATE_BASELINE_ACTIVITY_ID" in codes
+    assert "MISSING_BASELINE_ACTIVITY_ID" in codes
+
+
+def test_baseline_version_must_be_positive_integer():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "schedule_baselines": [{
+            "project_id": "P1", "baseline_id": "BL-1", "version": 1.5,
+        }],
+    })
+    assert any(issue["code"] == "INVALID_BASELINE_VERSION" for issue in result["issues"])
