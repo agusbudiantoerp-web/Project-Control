@@ -33,6 +33,16 @@ def _number(value: Any, field: str, *, minimum: float, maximum: float | None = N
     return result
 
 
+class _ClosingConnection(sqlite3.Connection):
+    """Close SQLite handles after transaction context exit."""
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            return super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self.close()
+
+
 class RiskMitigationStore:
     """Workspace-local SQLite store; actor labels are not authenticated identities."""
 
@@ -40,38 +50,64 @@ class RiskMitigationStore:
         self.database_path = str(database_path)
         self._memory_uri = None
         self._memory_anchor = None
+        self._sqlite_uri = False
+        self._closed = False
         if self.database_path == ":memory:":
             # Keep a shared-cache in-memory database alive across short-lived connections.
             self._memory_uri = f"file:risk_mitigation_{uuid4().hex}?mode=memory&cache=shared"
-            self._memory_anchor = sqlite3.connect(self._memory_uri, uri=True, timeout=15)
+            self._sqlite_target = self._memory_uri
+            self._sqlite_uri = True
+            self._memory_anchor = sqlite3.connect(self._sqlite_target, uri=True, timeout=15)
         else:
-            Path(self.database_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as db:
-            db.execute("""
-                CREATE TABLE IF NOT EXISTS risk_mitigations (
-                    project_id TEXT NOT NULL,
-                    risk_id TEXT NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    PRIMARY KEY(project_id, risk_id)
-                )
-            """)
-            db.execute("CREATE INDEX IF NOT EXISTS idx_risk_mitigations_project ON risk_mitigations(project_id)")
-            db.execute("""
-                CREATE TABLE IF NOT EXISTS risk_mitigation_events (
-                    event_id TEXT PRIMARY KEY,
-                    project_id TEXT NOT NULL,
-                    risk_id TEXT NOT NULL,
-                    occurred_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                )
-            """)
-            db.execute("CREATE INDEX IF NOT EXISTS idx_risk_mitigation_events_project ON risk_mitigation_events(project_id, risk_id)")
+            path = Path(self.database_path).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.database_path = str(path)
+            self._sqlite_target = self.database_path
+        try:
+            with self._connect() as db:
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS risk_mitigations (
+                        project_id TEXT NOT NULL,
+                        risk_id TEXT NOT NULL,
+                        payload_json TEXT NOT NULL,
+                        PRIMARY KEY(project_id, risk_id)
+                    )
+                """)
+                db.execute("CREATE INDEX IF NOT EXISTS idx_risk_mitigations_project ON risk_mitigations(project_id)")
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS risk_mitigation_events (
+                        event_id TEXT PRIMARY KEY,
+                        project_id TEXT NOT NULL,
+                        risk_id TEXT NOT NULL,
+                        occurred_at TEXT NOT NULL,
+                        payload_json TEXT NOT NULL
+                    )
+                """)
+                db.execute("CREATE INDEX IF NOT EXISTS idx_risk_mitigation_events_project ON risk_mitigation_events(project_id, risk_id)")
+        except Exception:
+            self.close()
+            raise
+
+    def close(self) -> None:
+        anchor = self._memory_anchor
+        self._memory_anchor = None
+        self._closed = True
+        if anchor is not None:
+            anchor.close()
+
+    def __enter__(self) -> "RiskMitigationStore":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
 
     def _connect(self) -> sqlite3.Connection:
-        if self._memory_uri:
-            db = sqlite3.connect(self._memory_uri, uri=True, timeout=15)
-        else:
-            db = sqlite3.connect(self.database_path, timeout=15)
+        if self._closed:
+            raise RuntimeError("RiskMitigationStore is closed")
+        db = sqlite3.connect(
+            self._sqlite_target, uri=self._sqlite_uri, timeout=15,
+            factory=_ClosingConnection,
+        )
         db.row_factory = sqlite3.Row
         return db
 
