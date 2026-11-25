@@ -98,7 +98,7 @@ def test_rejects_custom_limit_above_telegram_cap_before_network():
         )
 
 
-@pytest.mark.parametrize("unsafe_path", ["../outside.pdf", "documents/file.pdf?x=1", "documents\\\\file.pdf"])
+@pytest.mark.parametrize("unsafe_path", ["../outside.pdf", "documents/file.pdf?x=1", r"documents\file.pdf", r"documents\\file.pdf"])
 def test_rejects_unsafe_telegram_file_paths(monkeypatch, unsafe_path):
     responses = [
         Response({"ok": True, "result": [{
