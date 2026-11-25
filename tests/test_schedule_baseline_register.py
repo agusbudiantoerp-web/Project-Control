@@ -109,3 +109,23 @@ def test_baseline_version_must_be_positive_integer():
         }],
     })
     assert any(issue["code"] == "INVALID_BASELINE_VERSION" for issue in result["issues"])
+
+
+def test_approved_or_rejected_change_requires_decision_audit_fields():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "schedule_changes": [{
+            "project_id": "P1", "change_id": "CR-1", "status": "APPROVED",
+        }],
+    })
+    assert any(issue["code"] == "MISSING_CHANGE_DECISION_AUDIT" for issue in result["issues"])
+
+
+def test_schedule_change_rejects_unknown_status():
+    result = validate_project_control_data({
+        "project_master": [{"project_id": "P1"}],
+        "schedule_changes": [{
+            "project_id": "P1", "change_id": "CR-1", "status": "MAYBE",
+        }],
+    })
+    assert any(issue["code"] == "INVALID_CHANGE_STATUS" for issue in result["issues"])
