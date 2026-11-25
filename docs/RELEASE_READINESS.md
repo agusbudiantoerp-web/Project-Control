@@ -461,3 +461,18 @@ Implementation changes have been committed and selected files/workflows have bee
 - The latest commit returned no combined-status entries. This is **not** evidence of a passing or failing workflow. The available commit-workflow lookup is limited to pull-request-triggered runs, so this checkpoint does not claim a complete workflow history for the branch push.
 - The focused workflow contains an explicit full-suite `python -m pytest -q` step and includes the advanced XER/Gemini import tests.
 - New Gemini response-shape/text-bound checks and XER duplicate-WBS/Replace safeguards have been committed with regression tests. Their execution on the latest branch head remains unverified.
+
+
+## Drawing-to-BOQ workspace selector correction — 2026-11-25
+
+- The Drawing-to-BOQ page now reads WBS IDs through a helper that matches ProjectStore's list-of-records return type; it no longer treats persisted WBS rows as a pandas DataFrame.
+- A regression test saves WBS records in SQLite and verifies that the selector receives the sorted, nonblank project WBS IDs.
+- Draft takeoff rows still require explicit quantity-surveyor review, valid WBS mapping and a user confirmation before BOQ persistence.
+
+## Integration review checkpoint — 2026-11-25
+
+- Draft integration PR: https://github.com/agusbudiantoerp-web/Project-Control/pull/1
+- The PR is intentionally left in draft. GitHub currently reports it as not mergeable; the integration branch has 1,060 commits ahead and 15 commits behind main.
+- A reverse-direction reconciliation PR was inspected and closed without merging; no branch history was rewritten.
+- Latest reviewed implementation commit at this checkpoint: `9ed0e95934c4514b7a2f5e27ad8b30ab67ded481`.
+- No passing CI result has been observed for this head. The final test and merge gate remains open.
