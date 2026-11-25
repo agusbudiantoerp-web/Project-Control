@@ -151,7 +151,7 @@ The COO portfolio cockpit includes a dated snapshot trend-warning view and a rec
 
 ## Primavera P6 and drawing intake
 
-Open **Primavera P6 XER & Drawing-to-BOQ Intake** from the sidebar. A selected XER project is imported atomically into Project Master, WBS and Activities. A selected PDF drawing page can be sent to Gemini for a quantity-takeoff draft only after explicit consent. Review and verify every quantity before saving it to BOQ; unit rates and amounts remain blank until supplied and approved.
+Open **Primavera P6 XER & Drawing-to-BOQ Intake** from the sidebar. A selected XER project is imported atomically into Project Master, WBS and Activities. The CPM engine preserves FS/SS/FF/SF links and signed lag (nominal 8-hour workday units); it does not reproduce P6 calendars, constraints or resource leveling, so reconcile the result in Primavera P6. A selected PDF drawing page can be sent to Gemini for a quantity-takeoff draft only after explicit consent. Review and verify every quantity before saving it to BOQ; unit rates and amounts remain blank until supplied and approved.
 
 
 ### Telegram drawing intake
