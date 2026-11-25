@@ -101,3 +101,17 @@ def test_schedule_risk_rejects_finish_date_outside_calendar_range():
     }]
     with pytest.raises(ValueError, match="calendar range"):
         simulate_schedule_risk(very_long, [], "2026-11-01", iterations=1000)
+
+
+def test_schedule_risk_rejects_duplicate_predecessor_links():
+    duplicate = [{
+        "activity_id": "A", "predecessors": [],
+        "duration_min_days": 1, "duration_most_likely_days": 1,
+        "duration_max_days": 1,
+    }, {
+        "activity_id": "B", "predecessors": ["A", "A"],
+        "duration_min_days": 1, "duration_most_likely_days": 1,
+        "duration_max_days": 1,
+    }]
+    with pytest.raises(ValueError, match="duplicate predecessor"):
+        simulate_schedule_risk(duplicate, [], "2026-11-01", iterations=1000)
