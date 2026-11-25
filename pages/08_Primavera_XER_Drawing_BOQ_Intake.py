@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import math
 
 import streamlit as st
@@ -14,6 +13,7 @@ from ai_project_control.advanced_import_service import (
     prepare_xer_workspace_import,
 )
 from ai_project_control.project_store import ProjectStore
+from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(page_title="P6 XER & Drawing BOQ Intake", page_icon="📐", layout="wide")
 st.title("Primavera P6 XER & Drawing-to-BOQ Intake")
@@ -22,7 +22,7 @@ st.caption(
     "dengan analisis Gemini yang memerlukan persetujuan eksplisit."
 )
 
-database_path = os.getenv("PROJECT_CONTROL_DB", ".project_control/project_control.sqlite3")
+database_path = get_workspace_database_path()
 store = ProjectStore(database_path)
 
 st.info(
