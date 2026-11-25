@@ -43,6 +43,7 @@ def test_missing_features_are_imputed_without_future_target_leakage():
     result = train_historical_kpi_models(rows)
     assert result["status"] == "EVALUATED"
     assert "target_CPI" not in result["feature_columns"]
+    assert "feature_CPI" not in result["model_feature_columns"]["SPI"]
     assert next(row for row in result["metrics"] if row["target"] == "CPI")["status"] == "EVALUATED"
 
 
@@ -64,3 +65,18 @@ def test_invalid_dataset_and_parameters_are_rejected():
 def test_random_state_must_be_integer():
     with pytest.raises(ValueError, match="random_state"):
         train_historical_kpi_models(make_rows(), random_state=1.5)
+
+
+def test_all_missing_training_features_are_not_force_imputed():
+    rows = make_rows()
+    for row in rows:
+        for feature in (
+            "feature_SPI", "feature_CPI", "feature_risk_score",
+            "feature_delayed_activity_count", "feature_overdue_action_count",
+            "gap_days",
+        ):
+            row[feature] = None
+    result = train_historical_kpi_models(rows)
+    assert result["models"] == {}
+    assert result["status"] == "INSUFFICIENT_HISTORY"
+    assert all(metric["status"] == "INSUFFICIENT_FEATURES" for metric in result["metrics"])
