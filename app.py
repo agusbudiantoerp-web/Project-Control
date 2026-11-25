@@ -2,6 +2,7 @@
 import streamlit as st
 
 from ai_project_control.streamlit_workspace_dashboard import render_project_workspace_dashboard
+from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(
     page_title="AI Project Control",
@@ -16,4 +17,4 @@ st.warning(
     "Workspace ini menggunakan SQLite lokal. Sebelum deployment multi-user, "
     "aktifkan autentikasi, kontrol akses, backup, dan penyimpanan database bersama."
 )
-render_project_workspace_dashboard()
+render_project_workspace_dashboard(get_workspace_database_path())
