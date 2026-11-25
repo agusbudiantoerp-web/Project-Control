@@ -204,7 +204,7 @@ def prepare_xer_workspace_import(
         try:
             hours = float(raw_hours)
         except (TypeError, ValueError):
-            raise ValueError(f"Activity {activity_id} has no valid P6 duration in hours") from None
+            raise ValueError(f"Activity {activity_id} has an invalid P6 duration in hours") from None
         if not math.isfinite(hours) or hours < 0:
             raise ValueError(f"Activity {activity_id} has an invalid P6 duration")
         activities.append({
