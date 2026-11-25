@@ -545,3 +545,11 @@ Implementation commits in this continuation include:
 - Added service-level regression coverage proving the selected cumulative mode and month cut-off are applied to persisted project records.
 - Duplicate activity-period cumulative snapshots now produce an explicit data gap instead of depending on source row order.
 - CI is configured to run the focused/full test workflow on pushes to ai-project-control-release as well as the prior integration branch. The workflow run for the current release head is still pending observation.
+
+
+## CI feedback and follow-up — 2026-11-25
+
+- The pull-request CI run on earlier head `9ec67b78685e83dc54dea956eff3c38be0e3c033` completed Python compilation successfully. The focused suite reported 512 passed and 1 failed.
+- The failure was `test_list_project_wbs_ids_reads_project_store_records`: its fixture attempted to insert a blank WBS key through the validated ProjectStore API, which correctly rejects missing natural keys. The test now seeds a simulated legacy/corrupt row directly into SQLite after valid rows are saved, preserving the intended helper behavior test without weakening production validation.
+- Follow-up work also rejects duplicate cumulative EVM snapshots for the same activity-period, exposes the EVM reporting cut-off and progress convention on the primary Project Workspace dashboard, and adds a persisted-workspace service regression test.
+- The fix commit is `38eab5ba9ee26cd171ec5755c00936c1bf8b9c56`. CI for this new head must be observed before treating the fix as verified.
