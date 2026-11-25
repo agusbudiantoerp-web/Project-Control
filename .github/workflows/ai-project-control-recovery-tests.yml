@@ -9,6 +9,9 @@ on:
       - ai-project-control-integration
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   recovery-tests:
     runs-on: ubuntu-latest
