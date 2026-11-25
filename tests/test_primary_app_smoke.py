@@ -21,6 +21,7 @@ def test_primary_workspace_app_renders_without_uncaught_exception(tmp_path, monk
 @pytest.mark.parametrize(
     "page_name",
     [
+        "01_Project_Workspace.py",
         "02_Dated_Cash_Flow.py",
         "03_EVM_Cost_Control.py",
         "04_Telegram_Executive_Report.py",
