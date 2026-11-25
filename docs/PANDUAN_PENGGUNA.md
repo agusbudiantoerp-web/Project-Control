@@ -234,3 +234,12 @@ Launcher V1 di `ai_project_control` tetap tersedia sebagai aplikasi kompatibilit
 4. Pilih halaman PDF yang diterima, periksa preview lokal, lalu ikuti persetujuan Gemini dan verifikasi quantity surveyor seperti langkah di atas.
 
 Intake ini memakai polling `getUpdates`, bukan webhook. Jika bot masih memiliki webhook aktif, polling tidak akan berjalan. Aplikasi hanya mengambil PDF dari chat ID yang dikonfigurasi; dokumen lain diabaikan. File disimpan sementara dalam session aplikasi, bukan pada ProjectStore. Pengiriman ke Gemini tetap memerlukan persetujuan terpisah.
+
+
+## Konvensi data EVM: delta atau snapshot kumulatif
+
+Pada halaman **Saved Project Financial Control**, pilih konvensi progress yang benar:
+- **Period deltas**: setiap baris berisi tambahan PV dan EV untuk periode tersebut; sistem menjumlahkan seluruh periode sampai tanggal cut-off.
+- **Cumulative snapshots**: setiap baris berisi PV dan EV kumulatif per aktivitas; sistem mengambil snapshot terbaru per activity_id sampai tanggal cut-off, lalu menjumlahkannya.
+
+Actual Cost (AC) selalu dijumlahkan sebagai transaksi atau delta per periode. Jangan memasukkan AC kumulatif berulang sebagai transaksi, karena akan terjadi penghitungan ganda. Untuk mode snapshot, setiap baris progress wajib memiliki activity_id dan period. Cocokkan definisi PV/EV/AC, cut-off, dan unit nilai dengan prosedur pengendalian proyek.
