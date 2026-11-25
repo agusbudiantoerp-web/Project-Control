@@ -482,3 +482,12 @@ Implementation changes have been committed and selected files/workflows have bee
 - A reverse-direction reconciliation PR was inspected and closed without merging; no branch history was rewritten.
 - Latest reviewed implementation commit at this checkpoint: `9ed0e95934c4514b7a2f5e27ad8b30ab67ded481`.
 - No passing CI result has been observed for this head. The final test and merge gate remains open.
+
+
+## Telegram PDF intake hardening — 2026-11-25
+
+- Telegram download paths now reject any backslash (including Windows-style separators), traversal segments, query/fragment delimiters and line breaks before constructing the download URL.
+- Download-size errors report the configured byte limit while retaining the 20 MB hard-cap context.
+- Regression coverage includes Windows-style single and doubled backslash paths and a smaller configured download limit.
+- These changes have source-level regression tests; execution on the current branch head is still pending. No live Telegram bot credentials or network download were used in this review.
+
