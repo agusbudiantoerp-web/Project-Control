@@ -28,7 +28,7 @@ NUMERIC_FIELDS = {
     "activities": ("duration_days", "planned_duration_days", "actual_duration_days"),
     "progress": ("planned_value", "earned_value", "physical_progress_pct"),
     "actual_cost": ("actual_cost",),
-    "risk": ("probability", "impact", "exposure", "cost_impact_min", "cost_impact_most_likely", "cost_impact_max"),
+    "risk": ("probability", "impact", "exposure", "risk_score", "cost_impact_min", "cost_impact_most_likely", "cost_impact_max"),
     "resources": ("planned_units", "actual_units", "capacity_units"),
     "portfolio_snapshots": ("SPI", "CPI", "risk_score"),
 }
