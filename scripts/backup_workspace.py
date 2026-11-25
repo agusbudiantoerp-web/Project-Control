@@ -37,7 +37,7 @@ def create_backup(destination: Path, retention_days: int) -> Path:
     if not destination.is_absolute():
         destination = ROOT / destination
     destination = destination.resolve()
-    if destination == database:
+    if destination == database or destination in database.parents:
         raise ValueError("Backup destination cannot be the workspace database or a folder containing it.")
     destination.mkdir(parents=True, exist_ok=True)
     if os.name != "nt":
