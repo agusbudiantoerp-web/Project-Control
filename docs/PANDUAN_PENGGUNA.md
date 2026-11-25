@@ -199,7 +199,7 @@ Pada Saved Portfolio COO Cockpit, bagian COO Decision Brief merangkum proyek yan
 Bagian Predictive Early Warning menggunakan `portfolio_snapshots` bertanggal. Forecast trend memerlukan minimal tiga tanggal unik untuk setiap metrik; metrik yang belum cukup historinya tetap `INSUFFICIENT_HISTORY`. Metode yang digunakan adalah regresi linear sederhana 30 hari, bukan model ML atau probabilitas kegagalan. Recovery Review menggabungkan EVM dan Risk Exposure Matrix yang tersedia, lalu secara eksplisit menampilkan input Monte Carlo, scenario comparison, atau resource recovery yang belum tersedia. Rekomendasi adalah agenda validasi, bukan persetujuan tindakan.
 
 
-## H. Primavera P6 XER dan drawing-to-BOQ
+## V. Primavera P6 XER dan drawing-to-BOQ
 
 ### Import jadwal Primavera P6
 
