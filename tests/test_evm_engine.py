@@ -208,3 +208,21 @@ def test_month_cutoff_includes_iso_date_periods_through_month_end():
     assert result["PV"] == 100
     assert result["EV"] == 90
     assert result["AC"] == 50
+
+
+def test_cumulative_progress_mode_rejects_duplicate_activity_period_snapshots():
+    result = calculate_evm(
+        {"project_id": "P1", "BAC": 1000},
+        [
+            {"project_id": "P1", "activity_id": "A", "period": "2026-01",
+             "planned_value": 100, "earned_value": 80},
+            {"project_id": "P1", "activity_id": "A", "period": "2026-01",
+             "planned_value": 120, "earned_value": 90},
+        ],
+        [{"project_id": "P1", "period": "2026-01", "actual_cost": 50}],
+        progress_mode="cumulative_snapshots",
+    )
+    assert result["PV"] is None
+    assert result["EV"] is None
+    assert result["status"] == "INSUFFICIENT_DATA"
+    assert "DUPLICATE_CUMULATIVE_PROGRESS_SNAPSHOT" in result["data_gaps"]
