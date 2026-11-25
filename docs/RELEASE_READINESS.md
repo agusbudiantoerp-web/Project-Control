@@ -357,7 +357,7 @@ The integration branch remains divergent from main. Main-only commits and file-l
 ### Integrated primary workflows
 
 - The root Streamlit application remains the primary workspace entry point. The historical V1 launcher is preserved for compatibility and is explicitly documented as a separate, unsynchronized local database.
-- Added a primary-workspace Primavera P6 XER intake page. It scopes multi-project XER files explicitly, validates activity IDs, WBS parent links, dependency cycles, relationship types and non-zero lags, then atomically saves Project Master, WBS and Activities.
+- Added a primary-workspace Primavera P6 XER intake page. It scopes multi-project XER files explicitly, validates activity IDs, WBS parent links and dependency cycles, preserves FS/SS/FF/SF relationship types and signed lags, then atomically saves Project Master, WBS and Activities.
 - Added drawing PDF page preview, explicit Telegram PDF polling from one configured chat, and Gemini draft takeoff. The PDF page is sent to Gemini only after separate explicit consent. BOQ rows remain pending review until a quantity surveyor marks them VERIFIED; unit rates and amounts are not fabricated.
 - Added persistent Telegram update offsets in workspace metadata so restarting Streamlit does not replay old bot updates.
 - Centralized the primary SQLite database path across root app, workspace import, financial control, COO cockpit, backup and advanced intake pages.
@@ -413,7 +413,7 @@ Implementation changes have been committed and selected files/workflows have bee
 ### Primavera XER parser bounds
 
 - The XER parser now caps the source file at 30 MB, table count at 100, rows per table at 100,000, fields per table at 300, and individual line length at 1,000,000 characters.
-- The parser rejects over-wide rows rather than silently dropping extra values. P6 import still supports only Finish-to-Start relationships in the primary intake path and converts P6 hours to nominal 8-hour days; calendars, lag, constraints, resource leveling and other relationship types require Primavera review.
+- The parser rejects over-wide rows rather than silently dropping extra values. The primary schedule engine now supports FS/SS/FF/SF relationships and signed lag in nominal 8-hour working-day units. Calendars, holidays, constraints, resource leveling and Primavera-native recalculation remain outside this CPM engine and require Primavera review.
 
 
 ### Telegram message-size handling
@@ -487,3 +487,12 @@ Implementation changes have been committed and selected files/workflows have bee
 - The earlier divergent integration PR was closed without merging or rewriting its history.
 - The Drawing-to-BOQ page now uses the list-based ProjectStore WBS helper and handles extreme numeric values and unexpected preview errors without presenting an unconfirmed save as successful.
 - No CI result is currently available for the release head. The implementation is staged for the dedicated final test phase; do not mark it production-ready until that phase and user acceptance are complete.
+
+
+## CPM and Primavera relationship completion — 2026-11-25
+
+- Extended the deterministic CPM engine to calculate FS, SS, FF and SF dependency constraints with signed lag.
+- Kept backward compatibility: legacy predecessor_ids are interpreted as zero-lag FS relationships.
+- Extended P6 XER intake to preserve relationship type and lag_hours / 8 as lag_days in each activity's relationship_details.
+- Updated regression coverage for each CPM relationship type and for XER imports carrying SS and non-zero FS lag.
+- This remains calendar-neutral CPM. P6 calendars, exceptions, constraints, resource leveling, actual dates and native P6 recalculation are not claimed as reproduced. The new tests are part of the implementation freeze candidate and have not yet been executed in this phase.
