@@ -8,6 +8,8 @@ from .schedule_engine import calculate_critical_path
 
 
 def _number(value: Any, field: str, row_id: str, *, required: bool = False) -> float | None:
+    if isinstance(value, bool):
+        raise ValueError(f"{row_id}: {field} must be numeric, not boolean")
     if value in (None, ""):
         if required:
             raise ValueError(f"{row_id}: {field} is required")
@@ -33,6 +35,24 @@ def build_boq_schedule_resource_integration(
     """
     if not all(isinstance(rows, list) for rows in (boq_rows, activities, resource_rows)):
         raise TypeError("boq_rows, activities and resource_rows must be lists")
+    for collection_name, rows in (("BOQ", boq_rows), ("activities", activities), ("resources", resource_rows)):
+        if any(not isinstance(row, dict) for row in rows):
+            raise TypeError(f"Every {collection_name} row must be a dictionary")
+
+    def ensure_unique_ids(rows: list[dict[str, Any]], field: str, prefix: str, label: str) -> None:
+        seen: set[str] = set()
+        for index, row in enumerate(rows):
+            identifier = str(row.get(field, f"{prefix}-{index+1}")).strip()
+            if not identifier:
+                raise ValueError(f"{label} ID must not be blank")
+            if identifier in seen:
+                raise ValueError(f"Duplicate {label} ID: {identifier}")
+            seen.add(identifier)
+
+    ensure_unique_ids(activities, "activity_id", "ACTIVITY", "activity")
+    ensure_unique_ids(boq_rows, "boq_id", "BOQ", "BOQ")
+    ensure_unique_ids(resource_rows, "resource_id", "RESOURCE", "resource")
+
     cpm = calculate_critical_path(activities)
     if cpm["status"] not in {"ASSESSED", "NO_ACTIVITIES"}:
         return {"status": "INVALID_SCHEDULE", "schedule": cpm, "rows": [],
