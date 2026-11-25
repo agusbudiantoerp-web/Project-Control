@@ -243,3 +243,6 @@ Pada halaman **Saved Project Financial Control**, pilih konvensi progress yang b
 - **Cumulative snapshots**: setiap baris berisi PV dan EV kumulatif per aktivitas; sistem mengambil snapshot terbaru per activity_id sampai tanggal cut-off, lalu menjumlahkannya.
 
 Actual Cost (AC) selalu dijumlahkan sebagai transaksi atau delta per periode. Jangan memasukkan AC kumulatif berulang sebagai transaksi, karena akan terjadi penghitungan ganda. Untuk mode snapshot, setiap baris progress wajib memiliki activity_id dan period. Cocokkan definisi PV/EV/AC, cut-off, dan unit nilai dengan prosedur pengendalian proyek.
+
+
+Pada dashboard **Project Workspace**, pengaturan EVM tersedia langsung di atas ringkasan proyek. Isi *EVM reporting cut-off* seperti `2026-01` untuk membatasi data sampai akhir bulan tersebut, atau kosongkan untuk semua periode. Pilih **Period deltas** bila setiap baris adalah tambahan nilai pada periode itu; pilih **Cumulative snapshots** bila baris adalah nilai kumulatif aktivitas. Snapshot ganda untuk activity_id dan period yang sama akan ditandai sebagai data tidak memadai, bukan dipilih secara acak. Actual Cost tetap harus berupa transaksi/delta, bukan snapshot kumulatif.
