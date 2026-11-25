@@ -129,7 +129,10 @@ def render_persistent_import_ui(database_path: str | Path | None = None) -> dict
         st.success(f"Saved {result['saved_count']} records to project {project_id}.")
         st.json(result["persistence"])
     else:
-        st.error(f"Import stopped: {result['status']}")
+        if result["status"] == "EMPTY_DATASET":
+            st.warning(result.get("message", "No data rows were imported."))
+        else:
+            st.error(f"Import stopped: {result['status']}")
         if "validation" in result:
             st.dataframe(result["validation"]["issues"], use_container_width=True)
         if "suggestion" in result:
