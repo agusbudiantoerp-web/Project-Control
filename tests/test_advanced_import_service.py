@@ -140,9 +140,9 @@ def test_xer_import_cannot_change_existing_project_currency(tmp_path):
 
 def test_xer_import_preserves_ss_relationship_and_lag():
     source = SINGLE_PROJECT_XER.replace(
-        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\n%R\\tP6-1\\tT2\\tT1",
-        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\tpred_type\\tlag_hr_cnt\\n"
-        b"%R\\tP6-1\\tT2\\tT1\\tPR_SS\\t8",
+        b"%F\tproj_id\ttask_id\tpred_task_id\\n%R\tP6-1\tT2\tT1",
+        b"%F\tproj_id\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\\n"
+        b"%R\tP6-1\tT2\tT1\tPR_SS\t8",
     )
     prepared = prepare_xer_workspace_import(
         source, project_id="P1", project_name="Plant Upgrade",
@@ -155,9 +155,9 @@ def test_xer_import_preserves_ss_relationship_and_lag():
 
 def test_xer_import_preserves_nonzero_fs_lag():
     source = SINGLE_PROJECT_XER.replace(
-        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\n%R\\tP6-1\\tT2\\tT1",
-        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\tpred_type\\tlag_hr_cnt\\n"
-        b"%R\\tP6-1\\tT2\\tT1\\tPR_FS\\t8",
+        b"%F\tproj_id\ttask_id\tpred_task_id\\n%R\tP6-1\tT2\tT1",
+        b"%F\tproj_id\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\\n"
+        b"%R\tP6-1\tT2\tT1\tPR_FS\t8",
     )
     prepared = prepare_xer_workspace_import(
         source, project_id="P1", project_name="Plant Upgrade",
@@ -166,6 +166,8 @@ def test_xer_import_preserves_nonzero_fs_lag():
     relation = prepared["activities"][1]["relationship_details"][0]
     assert relation["type"] == "FS"
     assert relation["lag_days"] == 1
+
+
 def test_xer_import_rejects_missing_wbs_parent_links():
     invalid = SINGLE_PROJECT_XER.replace(
         b"%R\tP6-1\tW1\t\tCivil Works",
