@@ -69,3 +69,35 @@ def test_mixed_currency_amounts_are_not_combined():
     assert row["boq_amount"] is None
     assert "IDR:" in row["boq_amount_by_currency"]
     assert "USD:" in row["boq_amount_by_currency"]
+
+
+@pytest.mark.parametrize(
+    "collection, field",
+    [
+        ("activities", "activity_id"),
+        ("boq", "boq_id"),
+        ("resources", "resource_id"),
+    ],
+)
+def test_rejects_duplicate_record_identifiers(collection, field):
+    boq, activities, resources = sample()
+    rows = {"activities": activities, "boq": boq, "resources": resources}[collection]
+    duplicate = dict(rows[0])
+    duplicate[field] = rows[0][field]
+    rows.append(duplicate)
+    with pytest.raises(ValueError, match="Duplicate"):
+        build_boq_schedule_resource_integration(boq, activities, resources)
+
+
+def test_rejects_boolean_as_numeric_quantity():
+    boq, activities, resources = sample()
+    boq[0]["quantity"] = True
+    with pytest.raises(ValueError, match="not boolean"):
+        build_boq_schedule_resource_integration(boq, activities, resources)
+
+
+def test_rejects_non_dictionary_rows():
+    boq, activities, resources = sample()
+    boq.append("not-a-row")
+    with pytest.raises(TypeError, match="dictionary"):
+        build_boq_schedule_resource_integration(boq, activities, resources)
