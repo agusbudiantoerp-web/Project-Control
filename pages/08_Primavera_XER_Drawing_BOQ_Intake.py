@@ -288,7 +288,16 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                         draft_frame = pd.DataFrame(draft_state["rows"])
                         if "wbs_id" not in draft_frame.columns:
                             draft_frame["wbs_id"] = ""
+                        if "activity_id" not in draft_frame.columns:
+                            draft_frame["activity_id"] = ""
                         valid_wbs_ids = list_project_wbs_ids(store, target_project)
+                        project_activities = store.load_dataset(target_project, "activities")
+                        activity_by_id = {
+                            str(activity.get("activity_id", "")).strip(): activity
+                            for activity in project_activities
+                            if str(activity.get("activity_id", "")).strip()
+                        }
+                        activity_options = ["", *sorted(activity_by_id)]
                         if not valid_wbs_ids:
                             st.warning("Impor WBS proyek terlebih dahulu. Draft BOQ tidak dapat disimpan tanpa pemetaan WBS yang valid.")
                         edited = st.data_editor(
@@ -300,7 +309,12 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                             column_config={
                                 "wbs_id": st.column_config.SelectboxColumn(
                                     "WBS mapping", options=valid_wbs_ids, required=True
-                                )
+                                ),
+                                "activity_id": st.column_config.SelectboxColumn(
+                                    "Activity mapping (optional)",
+                                    options=activity_options,
+                                    required=False,
+                                ),
                             },
                         )
                         st.warning(
@@ -343,6 +357,16 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                 if wbs_id not in valid_wbs_ids:
                                     errors.append(f"Baris {index + 1}: pilih WBS yang valid untuk proyek ini.")
                                     continue
+                                activity_id = _text_cell(row.get("activity_id", ""))
+                                if activity_id:
+                                    activity = activity_by_id.get(activity_id)
+                                    if activity is None:
+                                        errors.append(f"Baris {index + 1}: pilih Activity ID yang valid untuk proyek ini.")
+                                        continue
+                                    activity_wbs = _text_cell(activity.get("wbs_id", ""))
+                                    if activity_wbs and activity_wbs != wbs_id:
+                                        errors.append(f"Baris {index + 1}: Activity ID dan WBS tidak sesuai.")
+                                        continue
                                 boq_id = (
                                     f"DWG-{file_signature[:8].upper()}-P{int(page_number):03d}-{index + 1:03d}"
                                 )
@@ -350,6 +374,7 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                                     "project_id": target_project,
                                     "boq_id": boq_id,
                                     "wbs_id": wbs_id,
+                                    "activity_id": activity_id,
                                     "description": description,
                                     "item_code": _text_cell(row.get("item_code", "")),
                                     "unit": unit,
