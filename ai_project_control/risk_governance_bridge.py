@@ -1,7 +1,7 @@
 """Join risk register, executive actions and mitigation execution for governance review."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 
@@ -18,6 +18,8 @@ def build_risk_governance_view(
         raise TypeError("all records must be dictionaries")
     if as_of_date is None:
         cutoff = date.today()
+    elif isinstance(as_of_date, datetime):
+        cutoff = as_of_date.date()
     elif isinstance(as_of_date, date):
         cutoff = as_of_date
     else:
