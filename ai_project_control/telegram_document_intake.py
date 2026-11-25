@@ -130,7 +130,10 @@ def fetch_latest_telegram_pdf(
         )
         download_response.raise_for_status()
         headers = getattr(download_response, "headers", {}) or {}
-        content_length = headers.get("Content-Length") if isinstance(headers, dict) else None
+        try:
+            content_length = headers.get("Content-Length")
+        except AttributeError:
+            content_length = None
         declared_size = None
         if content_length is not None:
             try:
