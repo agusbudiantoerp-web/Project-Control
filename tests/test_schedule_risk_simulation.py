@@ -115,3 +115,8 @@ def test_schedule_risk_rejects_duplicate_predecessor_links():
     }]
     with pytest.raises(ValueError, match="duplicate predecessor"):
         simulate_schedule_risk(duplicate, [], "2026-11-01", iterations=1000)
+
+
+def test_schedule_monte_carlo_seed_must_be_an_integer():
+    with pytest.raises(ValueError, match="seed must be an integer"):
+        simulate_schedule_risk(activities(), [], "2026-11-01", iterations=1000, seed=True)
