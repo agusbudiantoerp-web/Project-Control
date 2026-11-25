@@ -53,7 +53,7 @@ def calculate_evm(
         raise ValueError("project.project_id is required")
     if not isinstance(progress_rows, list) or not isinstance(actual_cost_rows, list):
         raise TypeError("progress_rows and actual_cost_rows must be lists")
-    if progress_mode not in {"period_deltas", "cumulative_snapshots"}:
+    if not isinstance(progress_mode, str) or progress_mode not in {"period_deltas", "cumulative_snapshots"}:
         raise ValueError("progress_mode must be 'period_deltas' or 'cumulative_snapshots'")
 
     progress = [
