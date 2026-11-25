@@ -60,7 +60,7 @@ def calculate_evm(
     if as_of_period is not None:
         cutoff_key = str(as_of_period).strip()
         if len(cutoff_key) == 7 and cutoff_key[4] == "-":
-            cutoff_key += "\\uffff"
+            cutoff_key += "\uffff"
     progress = [
         dict(row) for row in progress_rows
         if str(row.get("project_id", "")).strip() == project_id
