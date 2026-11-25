@@ -12,14 +12,14 @@ from .upload_reader import read_tabular_upload
 from .import_service import import_uploaded_dataset
 
 
-def render_persistent_import_ui(database_path: str | Path = ".project_control/project_control.sqlite3") -> dict[str, Any] | None:
+def render_persistent_import_ui(database_path: str | Path | None = None) -> dict[str, Any] | None:
     """Render persistent import workflow; replace requires an explicit choice."""
     try:
         import streamlit as st
-    if database_path is None:
-        database_path = get_workspace_database_path()
     except ImportError as exc:
         raise RuntimeError("Streamlit is required to render this component.") from exc
+    if database_path is None:
+        database_path = get_workspace_database_path()
 
     st.subheader("Project Data Import & Storage")
     project_id = st.text_input("Project ID", key="pc_persist_project_id").strip()
