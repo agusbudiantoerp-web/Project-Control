@@ -83,12 +83,13 @@ def send_telegram_executive_message(
         raise ValueError("Telegram bot token contains invalid whitespace")
     if not target:
         raise ValueError("Telegram chat ID is not configured")
-    if (
-        isinstance(timeout, bool)
-        or not isinstance(timeout, (int, float))
-        or not math.isfinite(float(timeout))
-        or timeout <= 0
-    ):
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
+        raise ValueError("Telegram timeout must be a finite positive number")
+    try:
+        numeric_timeout = float(timeout)
+    except (OverflowError, TypeError, ValueError):
+        raise ValueError("Telegram timeout must be a finite positive number") from None
+    if not math.isfinite(numeric_timeout) or numeric_timeout <= 0:
         raise ValueError("Telegram timeout must be a finite positive number")
     chunks = split_telegram_message(message)
     if not chunks:
@@ -101,7 +102,7 @@ def send_telegram_executive_message(
             response = requests.post(
                 f"https://api.telegram.org/bot{token}/sendMessage",
                 data={"chat_id": target, "text": chunk, "disable_web_page_preview": True},
-                timeout=timeout,
+                timeout=numeric_timeout,
             )
             response.raise_for_status()
             payload = response.json()
