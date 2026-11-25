@@ -39,14 +39,29 @@ def _sum_field(rows: list[dict[str, Any]], field: str) -> float | None:
     return total if math.isfinite(total) else None
 
 
+def _select_record_window(rows: list[dict[str, Any]], mode: str, label: str) -> list[dict[str, Any]]:
+    """Select additive period rows or the latest cumulative snapshot period."""
+    if mode == "period_delta":
+        return rows
+    if mode != "cumulative_snapshot":
+        raise ValueError(f"{label}_record_mode must be period_delta or cumulative_snapshot")
+    periods = [str(row.get("period", "")).strip() for row in rows]
+    if not periods or any(not period for period in periods):
+        return []
+    latest_period = max(periods)
+    return [row for row in rows if str(row.get("period", "")).strip() == latest_period]
+
+
 def calculate_evm(
     project: dict[str, Any],
     progress_rows: list[dict[str, Any]],
     actual_cost_rows: list[dict[str, Any]],
     *,
     as_of_period: str | None = None,
+    progress_record_mode: str = "period_delta",
+    actual_cost_record_mode: str = "period_delta",
 ) -> dict[str, Any]:
-    """Calculate cumulative EVM metrics through an optional ISO-like period key."""
+    """Calculate EVM through a cutoff; choose delta or cumulative-snapshot inputs explicitly."""
     project_id = str(project.get("project_id", "")).strip()
     if not project_id:
         raise ValueError("project.project_id is required")
@@ -63,6 +78,9 @@ def calculate_evm(
         if str(row.get("project_id", "")).strip() == project_id
         and (as_of_period is None or str(row.get("period", "")) <= as_of_period)
     ]
+
+    progress = _select_record_window(progress, progress_record_mode, "progress")
+    costs = _select_record_window(costs, actual_cost_record_mode, "actual_cost")
 
     project_currency = str(project.get("currency", "")).strip().upper()
     progress_currency_mismatch = bool(project_currency) and any(
@@ -140,8 +158,8 @@ def calculate_evm(
             "TCPI": "(BAC - EV) / (BAC - AC), when BAC > AC",
         },
         "limitations": [
-            "Progress records must contain cumulative or period values consistently; this function sums supplied rows.",
-            "If records are periodic deltas, summing them is appropriate; if they are cumulative snapshots, callers must select only the latest snapshot per activity.",
+            "Record modes are explicit: period_delta sums rows through the cutoff; cumulative_snapshot sums only rows from the latest available period.",
+            "Snapshot mode requires a nonblank period on every selected source row; missing periods leave the metric unavailable.",
             "EAC is a simple CPI-based forecast and does not model remaining schedule, risk, commitments or change orders.",
             "Missing PV, EV, AC or BAC is not treated as zero.",
         ],
