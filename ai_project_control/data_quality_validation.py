@@ -170,6 +170,137 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
                                    "table": table, "record": str(index), "field": "project_id",
                                    "message": f"Project {project_id} is not present in project_master"})
 
+
+    # Validate explicit cross-table links within each project. Optional links are
+    # checked only when the source row supplies the corresponding identifier.
+    def add_link_issue(code: str, table: str, index: int, field: str, message: str) -> None:
+        issues.append({
+            "severity": "ERROR", "code": code, "table": table,
+            "record": str(index), "field": field, "message": message,
+        })
+
+    def project_index(table: str, id_field: str) -> dict[str, dict[str, Any]]:
+        result = {}
+        for row in normalized[table]:
+            pid = str(row.get("project_id", "")).strip()
+            identity = str(row.get(id_field, "")).strip()
+            if pid and identity and identity not in result.setdefault(pid, {}):
+                result[pid][identity] = row
+        return result
+
+    wbs_by_project = project_index("wbs", "wbs_id")
+    activities_by_project = project_index("activities", "activity_id")
+    boq_by_project = project_index("boq", "boq_id")
+
+    # WBS parent links must exist and the hierarchy must be acyclic.
+    for index, row in enumerate(normalized["wbs"]):
+        pid = str(row.get("project_id", "")).strip()
+        wbs_id = str(row.get("wbs_id", "")).strip()
+        parent = str(row.get("parent_wbs_id", "") or "").strip()
+        known_wbs = wbs_by_project.get(pid, {})
+        if parent and parent not in known_wbs:
+            add_link_issue("UNKNOWN_WBS_PARENT", "wbs", index, "parent_wbs_id",
+                           f"Parent WBS {parent} does not exist in project {pid}")
+        if parent and parent == wbs_id:
+            add_link_issue("WBS_SELF_PARENT", "wbs", index, "parent_wbs_id",
+                           f"WBS {wbs_id} cannot be its own parent")
+
+    for pid, records in wbs_by_project.items():
+        for start_id in records:
+            visited = set()
+            current = start_id
+            while current in records:
+                if current in visited:
+                    add_link_issue("WBS_HIERARCHY_CYCLE", "wbs", 0, "parent_wbs_id",
+                                   f"WBS hierarchy contains a cycle in project {pid}: {current}")
+                    break
+                visited.add(current)
+                parent = str(records[current].get("parent_wbs_id", "") or "").strip()
+                if not parent or parent not in records:
+                    break
+                current = parent
+
+    # Activity WBS and predecessor references must resolve in the same project.
+    for index, row in enumerate(normalized["activities"]):
+        pid = str(row.get("project_id", "")).strip()
+        wbs_id = str(row.get("wbs_id", "") or "").strip()
+        if wbs_id and pid in wbs_by_project and wbs_id not in wbs_by_project[pid]:
+            add_link_issue("UNKNOWN_ACTIVITY_WBS", "activities", index, "wbs_id",
+                           f"Activity WBS {wbs_id} does not exist in project {pid}")
+        raw_predecessors = row.get("predecessor_ids", row.get("predecessors"))
+        if raw_predecessors in (None, ""):
+            predecessors = []
+        elif isinstance(raw_predecessors, (list, tuple, set)):
+            predecessors = [str(value.get("activity_id", "") if isinstance(value, dict) else value).strip()
+                            for value in raw_predecessors]
+        else:
+            predecessors = [value.strip() for value in str(raw_predecessors).replace(";", ",").split(",")]
+        known_activities = activities_by_project.get(pid, {})
+        for predecessor in filter(None, predecessors):
+            if predecessor == str(row.get("activity_id", "")).strip():
+                add_link_issue("ACTIVITY_SELF_PREDECESSOR", "activities", index, "predecessor_ids",
+                               f"Activity {predecessor} cannot depend on itself")
+            elif pid in activities_by_project and predecessor not in known_activities:
+                add_link_issue("UNKNOWN_ACTIVITY_PREDECESSOR", "activities", index, "predecessor_ids",
+                               f"Predecessor activity {predecessor} does not exist in project {pid}")
+
+    # BOQ, progress, actual-cost and resource links are validated when supplied.
+    for index, row in enumerate(normalized["boq"]):
+        pid = str(row.get("project_id", "")).strip()
+        wbs_id = str(row.get("wbs_id", "") or "").strip()
+        activity_id = str(row.get("activity_id", "") or "").strip()
+        if wbs_id and pid in wbs_by_project and wbs_id not in wbs_by_project[pid]:
+            add_link_issue("UNKNOWN_BOQ_WBS", "boq", index, "wbs_id",
+                           f"BOQ WBS {wbs_id} does not exist in project {pid}")
+        if activity_id and pid in activities_by_project and activity_id not in activities_by_project[pid]:
+            add_link_issue("UNKNOWN_BOQ_ACTIVITY", "boq", index, "activity_id",
+                           f"BOQ activity {activity_id} does not exist in project {pid}")
+        activity = activities_by_project.get(pid, {}).get(activity_id)
+        if activity and wbs_id and str(activity.get("wbs_id", "") or "").strip() and wbs_id != str(activity.get("wbs_id")).strip():
+            add_link_issue("BOQ_ACTIVITY_WBS_MISMATCH", "boq", index, "activity_id",
+                           f"BOQ {row.get('boq_id')} and activity {activity_id} belong to different WBS elements")
+
+    for index, row in enumerate(normalized["progress"]):
+        pid = str(row.get("project_id", "")).strip()
+        activity_id = str(row.get("activity_id", "") or "").strip()
+        boq_id = str(row.get("boq_id", "") or "").strip()
+        if activity_id and pid in activities_by_project and activity_id not in activities_by_project[pid]:
+            add_link_issue("UNKNOWN_PROGRESS_ACTIVITY", "progress", index, "activity_id",
+                           f"Progress activity {activity_id} does not exist in project {pid}")
+        if boq_id and pid in boq_by_project and boq_id not in boq_by_project[pid]:
+            add_link_issue("UNKNOWN_PROGRESS_BOQ", "progress", index, "boq_id",
+                           f"Progress BOQ {boq_id} does not exist in project {pid}")
+        activity = activities_by_project.get(pid, {}).get(activity_id)
+        boq = boq_by_project.get(pid, {}).get(boq_id)
+        if activity and boq:
+            activity_wbs = str(activity.get("wbs_id", "") or "").strip()
+            boq_wbs = str(boq.get("wbs_id", "") or "").strip()
+            if activity_wbs and boq_wbs and activity_wbs != boq_wbs:
+                add_link_issue("PROGRESS_ACTIVITY_BOQ_WBS_MISMATCH", "progress", index, "boq_id",
+                               f"Progress activity {activity_id} and BOQ {boq_id} belong to different WBS elements")
+
+    for index, row in enumerate(normalized["actual_cost"]):
+        pid = str(row.get("project_id", "")).strip()
+        boq_id = str(row.get("boq_id", "") or "").strip()
+        wbs_id = str(row.get("wbs_id", "") or "").strip()
+        if boq_id and pid in boq_by_project and boq_id not in boq_by_project[pid]:
+            add_link_issue("UNKNOWN_COST_BOQ", "actual_cost", index, "boq_id",
+                           f"Actual-cost BOQ {boq_id} does not exist in project {pid}")
+        if wbs_id and pid in wbs_by_project and wbs_id not in wbs_by_project[pid]:
+            add_link_issue("UNKNOWN_COST_WBS", "actual_cost", index, "wbs_id",
+                           f"Actual-cost WBS {wbs_id} does not exist in project {pid}")
+        boq = boq_by_project.get(pid, {}).get(boq_id)
+        if boq and wbs_id and str(boq.get("wbs_id", "") or "").strip() and wbs_id != str(boq.get("wbs_id")).strip():
+            add_link_issue("COST_BOQ_WBS_MISMATCH", "actual_cost", index, "wbs_id",
+                           f"Actual cost BOQ {boq_id} and WBS {wbs_id} do not match")
+
+    for index, row in enumerate(normalized["resources"]):
+        pid = str(row.get("project_id", "")).strip()
+        activity_id = str(row.get("activity_id", "") or "").strip()
+        if activity_id and pid in activities_by_project and activity_id not in activities_by_project[pid]:
+            add_link_issue("UNKNOWN_RESOURCE_ACTIVITY", "resources", index, "activity_id",
+                           f"Resource activity {activity_id} does not exist in project {pid}")
+
     errors = sum(issue["severity"] == "ERROR" for issue in issues)
     warnings = sum(issue["severity"] == "WARNING" for issue in issues)
     row_count = sum(len(rows) for rows in normalized.values())
