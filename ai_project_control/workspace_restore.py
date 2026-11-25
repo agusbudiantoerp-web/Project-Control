@@ -79,7 +79,7 @@ def restore_workspace_backup(
     if str(database_path) == ":memory:":
         raise ValueError("In-memory workspaces cannot be restored by path.")
     path = Path(database_path).expanduser()
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if path.is_symlink():
         raise ValueError("Refusing to replace a symlinked workspace database.")
 
