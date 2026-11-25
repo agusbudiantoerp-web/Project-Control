@@ -436,13 +436,14 @@ def analyze_drawing_page_with_gemini(
                 content_length = headers.get("Content-Length")
             except AttributeError:
                 content_length = None
+            declared_size = None
             if content_length is not None:
                 try:
-                    if int(content_length) > MAX_GEMINI_RESPONSE_CHARS:
-                        raise ValueError("Gemini drawing response exceeds the supported output limit")
-                except (TypeError, ValueError):
-                    if str(content_length).strip().isdigit() and int(content_length) > MAX_GEMINI_RESPONSE_CHARS:
-                        raise ValueError("Gemini drawing response exceeds the supported output limit")
+                    declared_size = int(content_length)
+                except (TypeError, ValueError, OverflowError):
+                    declared_size = None
+            if declared_size is not None and declared_size > MAX_GEMINI_RESPONSE_CHARS:
+                raise ValueError("Gemini drawing response exceeds the supported output limit")
             iter_content = getattr(response, "iter_content", None)
             if callable(iter_content):
                 chunks = []
