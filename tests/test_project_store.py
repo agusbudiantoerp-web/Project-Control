@@ -148,3 +148,21 @@ def test_project_store_context_manager_closes_in_memory_database():
         seed_project(memory_store)
         assert memory_store.list_project_ids() == ["P1"]
     assert memory_store._memory_keeper is None
+
+
+def test_rejects_older_schema_without_claiming_migration(tmp_path):
+    import sqlite3
+
+    database = tmp_path / "old.sqlite3"
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "CREATE TABLE store_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
+    connection.execute(
+        "INSERT INTO store_metadata(key, value) VALUES ('schema_version', '0')"
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(RuntimeError, match="older than this application"):
+        ProjectStore(database)
