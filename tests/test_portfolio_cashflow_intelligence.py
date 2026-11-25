@@ -52,3 +52,11 @@ def test_boolean_budget_or_actual_cost_is_unassessed():
     ])
     assert result["project_count_assessed"] == 0
     assert result["project_count_unassessed"] == 2
+
+
+def test_portfolio_totals_reject_numeric_overflow():
+    with pytest.raises(ValueError, match="supported numeric range"):
+        build_portfolio_cashflow_view([
+            {"project_id": "P1", "currency": "IDR", "budget": 1e308, "actual_cost": 0},
+            {"project_id": "P2", "currency": "IDR", "budget": 1e308, "actual_cost": 0},
+        ])
