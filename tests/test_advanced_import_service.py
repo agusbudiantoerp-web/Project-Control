@@ -6,6 +6,7 @@ from ai_project_control.advanced_import_service import (
     analyze_drawing_page_with_gemini,
     import_xer_to_workspace,
     list_xer_source_projects,
+    list_project_wbs_ids,
     prepare_xer_workspace_import,
 )
 from ai_project_control.project_store import ProjectStore
@@ -429,3 +430,14 @@ def test_gemini_handles_huge_numeric_quantity_as_unavailable(monkeypatch):
     )
     assert rows[0]["quantity"] is None
     assert rows[0]["review_status"] == "PENDING_REVIEW"
+
+
+def test_list_project_wbs_ids_reads_project_store_records(tmp_path):
+    store = ProjectStore(tmp_path / "workspace.sqlite3")
+    store.save_dataset("P1", "project_master", [{"project_id": "P1", "project_name": "Project"}])
+    store.save_dataset("P1", "wbs", [
+        {"project_id": "P1", "wbs_id": "W-02"},
+        {"project_id": "P1", "wbs_id": "W-01"},
+        {"project_id": "P1", "wbs_id": ""},
+    ])
+    assert list_project_wbs_ids(store, "P1") == ["W-01", "W-02"]
