@@ -62,7 +62,6 @@ try:
     restore_upload = st.file_uploader(
         "Pilih file backup .sqlite3 atau .db",
         type=["sqlite3", "db"],
-        max_upload_size=250,
         key=f"workspace_restore_upload_{restore_nonce}",
     )
     confirm_restore = st.checkbox(
