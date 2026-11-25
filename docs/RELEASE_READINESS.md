@@ -577,3 +577,14 @@ Latest verified application SHA with the saved-workspace AI advisor page and its
 - Cross-dataset import preflight and atomic multi-dataset validation are covered by the current test suite.
 
 The tests use mocks for provider requests. No live Groq/Gemini account request or live Telegram bot delivery has been confirmed. The current branch head may advance for documentation-only commits; the above test evidence applies to the stated SHA. Production release remains blocked pending clean Windows acceptance, real owner-data reconciliation, external API validation, backup/restore drill, authentication/authorization and deployment review.
+
+
+## Latest verified CI evidence — 2026-11-26
+
+- Branch: `ai-project-control-integration`
+- Tested head commit: `7830479c71fe7643ab0ee0662930f61168f25ba6`
+- Project Control focused tests workflow run: [45710270577](https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45710270577) — SUCCESS. Steps include Python compile check, focused tests and complete repository pytest suite.
+- AI Project Control Recovery Tests workflow run: [45710270526](https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45710270526) — SUCCESS.
+- Added BOQ/schedule/resource input integrity guards: reject non-dictionary rows, duplicate identifiers, blank identifiers and boolean-as-number values.
+- Added regression tests for duplicate activity/BOQ/resource IDs, boolean quantities and malformed rows.
+- These CI results verify automated repository tests on this commit. They do not replace Windows operator acceptance, live Telegram/Gemini integration, security review, production database validation or multi-user deployment testing.
