@@ -66,6 +66,8 @@ def build_risk_cost_simulation(
                 "risk_count": len(risks), "scenarios": []}
     if not isinstance(iterations, int) or isinstance(iterations, bool) or iterations < 1000 or iterations > 200000:
         raise ValueError("iterations must be an integer from 1000 to 200000")
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValueError("seed must be an integer")
     if not risks:
         return {"status": "NO_RISKS", "currency": currency, "risk_count": 0,
                 "scenarios": [], "risk_register": [],
