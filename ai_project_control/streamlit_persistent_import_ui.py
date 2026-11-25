@@ -70,6 +70,19 @@ def render_persistent_import_ui(database_path: str | Path | None = None) -> dict
         if selected != "— not mapped —":
             mapping[target] = selected
 
+    missing_mappings = [field for field in TABLE_KEYS[dataset] if field not in mapping]
+    reused_sources = sorted({
+        source for source in mapping.values()
+        if list(mapping.values()).count(source) > 1
+    })
+    if missing_mappings:
+        st.warning("Required fields still need a source column: " + ", ".join(missing_mappings))
+    if reused_sources:
+        st.warning(
+            "A source column is selected for more than one field: "
+            + ", ".join(reused_sources)
+        )
+
     mode_label = st.radio(
         "Import mode",
         ["Upsert (update/add records)", "Replace this dataset"],
@@ -90,7 +103,11 @@ def render_persistent_import_ui(database_path: str | Path | None = None) -> dict
     if not st.button(
         "Validate and save dataset",
         key="pc_persist_submit",
-        disabled=not confirm_replace,
+        disabled=(
+            not confirm_replace
+            or bool(missing_mappings)
+            or bool(reused_sources)
+        ),
     ):
         return {"status": "READY_FOR_REVIEW", "suggestion": suggestion}
 
