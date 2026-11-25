@@ -109,6 +109,9 @@ def test_multi_project_xer_without_task_project_ids_is_rejected():
     ).replace(
         b"%R\tP6-1\tT2\tA2",
         b"%R\tT2\tA2",
+    ).replace(
+        b"%R\tP6-1\tT2\tT1",
+        b"%R\tT2\tT1",
     )
     with pytest.raises(ValueError, match="cannot be safely isolated"):
         prepare_xer_workspace_import(
