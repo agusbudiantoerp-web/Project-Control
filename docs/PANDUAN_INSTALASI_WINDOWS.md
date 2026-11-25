@@ -70,7 +70,7 @@ $env:TELEGRAM_CHAT_ID = "ISI_CHAT_ID_TUJUAN"
 python -m streamlit run app.py
 ```
 
-Jangan menaruh token asli di file kode, commit, screenshot, atau pesan. Untuk hosting, gunakan secret manager platform hosting. Mulai pengujian Telegram dari private chat.
+Jangan menaruh token asli di file kode, commit, screenshot, atau pesan. Untuk hosting, gunakan secret manager platform hosting. Mulai dari private chat. Variabel yang sama dipakai untuk laporan keluar dan intake PDF masuk. Untuk mengambil PDF dengan tombol Fetch di halaman Drawing Intake, bot harus menggunakan polling `getUpdates`; hapus webhook aktif terlebih dahulu bila sebelumnya dikonfigurasi.
 
 ## 5. Gemini drawing intake (opsional)
 
