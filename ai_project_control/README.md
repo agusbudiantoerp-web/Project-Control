@@ -1,4 +1,6 @@
-# AI Project Control System — Integrated V1
+# AI Project Control System — Historical V1
+
+> **Compatibility notice:** This folder contains the historical standalone V1 application. The primary unified workspace is launched from the repository root with `START_AI_PROJECT_CONTROL.bat` (or `streamlit run app.py`). This folder's launcher runs the legacy V1 app and uses a separate SQLite database; its data is not synchronized with the primary workspace.
 
 Local-first Streamlit application consolidating compatible project-control capabilities from the source projects in this repository.
 
