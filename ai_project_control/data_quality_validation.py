@@ -279,6 +279,28 @@ def validate_project_control_data(tables: dict[str, Any]) -> dict[str, Any]:
             add_link_issue("BOQ_ACTIVITY_WBS_MISMATCH", "boq", index, "activity_id",
                            f"BOQ {row.get('boq_id')} and activity {activity_id} belong to different WBS elements")
 
+    progress_identity_modes: dict[tuple[str, str, str], set[str]] = {}
+    for row in normalized["progress"]:
+        base_key = (
+            str(row.get("project_id", "")).strip(),
+            str(row.get("activity_id", "")).strip(),
+            str(row.get("period", "")).strip(),
+        )
+        progress_identity_modes.setdefault(base_key, set()).add(
+            "BOQ_DETAIL" if str(row.get("boq_id", "") or "").strip() else "ACTIVITY_TOTAL"
+        )
+    for index, row in enumerate(normalized["progress"]):
+        base_key = (
+            str(row.get("project_id", "")).strip(),
+            str(row.get("activity_id", "")).strip(),
+            str(row.get("period", "")).strip(),
+        )
+        if len(progress_identity_modes.get(base_key, set())) > 1:
+            add_link_issue(
+                "MIXED_PROGRESS_ACTIVITY_AND_BOQ_ROWS", "progress", index, "boq_id",
+                "Do not mix activity-total progress with BOQ-detail progress for the same activity and period",
+            )
+
     for index, row in enumerate(normalized["progress"]):
         pid = str(row.get("project_id", "")).strip()
         activity_id = str(row.get("activity_id", "") or "").strip()
