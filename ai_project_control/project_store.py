@@ -333,7 +333,19 @@ class ProjectStore:
 
         if "project_master" in normalized and not normalized["project_master"]:
             raise ValueError("project_master cannot be empty in a multi-dataset save")
-        validation = validate_project_control_data(normalized)
+        candidate = self.load_project_workspace(project_id)
+        for dataset, rows in normalized.items():
+            if mode == "replace":
+                candidate[dataset] = [dict(row) for row in rows]
+            else:
+                merged = {
+                    self._record_key(dataset, row): dict(row)
+                    for row in candidate[dataset]
+                }
+                for row in rows:
+                    merged[self._record_key(dataset, row)] = dict(row)
+                candidate[dataset] = list(merged.values())
+        validation = validate_project_control_data(candidate)
         if validation["status"] == "INVALID":
             raise ValueError("Multi-dataset validation failed: " + json.dumps(validation["issues"]))
         for dataset in normalized:
