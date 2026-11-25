@@ -43,23 +43,23 @@ class ActionRegisterStore:
             self._sqlite_target = self.database_path
         try:
             with self._connect() as db:
-            db.execute("""
-                CREATE TABLE IF NOT EXISTS executive_actions (
-                    action_id TEXT PRIMARY KEY,
-                    project_id TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                )
-            """)
-            db.execute("""
-                CREATE TABLE IF NOT EXISTS executive_action_events (
-                    event_id TEXT PRIMARY KEY,
-                    action_id TEXT NOT NULL,
-                    project_id TEXT NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    FOREIGN KEY(action_id) REFERENCES executive_actions(action_id)
-                )
-            """)
-            db.execute("CREATE INDEX IF NOT EXISTS idx_exec_actions_project ON executive_actions(project_id)")
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS executive_actions (
+                        action_id TEXT PRIMARY KEY,
+                        project_id TEXT NOT NULL,
+                        payload_json TEXT NOT NULL
+                    )
+                """)
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS executive_action_events (
+                        event_id TEXT PRIMARY KEY,
+                        action_id TEXT NOT NULL,
+                        project_id TEXT NOT NULL,
+                        payload_json TEXT NOT NULL,
+                        FOREIGN KEY(action_id) REFERENCES executive_actions(action_id)
+                    )
+                """)
+                db.execute("CREATE INDEX IF NOT EXISTS idx_exec_actions_project ON executive_actions(project_id)")
                 db.execute("CREATE INDEX IF NOT EXISTS idx_exec_events_action ON executive_action_events(action_id)")
         except Exception:
             self.close()
