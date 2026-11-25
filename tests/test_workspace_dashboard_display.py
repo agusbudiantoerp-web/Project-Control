@@ -24,3 +24,9 @@ def test_non_finite_dashboard_metrics_are_not_rendered_as_nan():
 
 def test_zero_dashboard_metric_remains_visible():
     assert _finite_metric_display(0) == "0.00"
+
+
+def test_non_finite_performance_score_is_not_assessed():
+    assert _performance_display_value(
+        {"assessed_count": 1}, [{"performance_score": float("nan")}]
+    ) == "Not assessed"
