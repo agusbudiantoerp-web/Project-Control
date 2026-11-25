@@ -198,7 +198,6 @@ def test_stops_streaming_when_pdf_exceeds_configured_limit(monkeypatch):
     monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
     with pytest.raises(RuntimeError, match="configured limit: 10 bytes"):
         intake.fetch_latest_telegram_pdf("token", "123", max_bytes=10)
-    assert oversized_response.closed
     assert chunks_requested == [25]
     assert oversized_response.closed
 
@@ -219,3 +218,4 @@ def test_rejects_oversized_content_length_before_streaming(monkeypatch):
     monkeypatch.setattr(intake.requests, "get", lambda *args, **kwargs: responses.pop(0))
     with pytest.raises(RuntimeError, match="configured limit: 10 bytes"):
         intake.fetch_latest_telegram_pdf("token", "123", max_bytes=10)
+    assert oversized_response.closed
