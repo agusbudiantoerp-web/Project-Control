@@ -41,4 +41,23 @@ st.markdown(
     '<span>DATA GOVERNANCE ENABLED</span><span>PROJECT CONTROL / 01</span></div>',
     unsafe_allow_html=True,
 )
+st.markdown(
+    '<div class="pc-section-label">INTELLIGENCE & GOVERNANCE / SYSTEM MODULES</div>',
+    unsafe_allow_html=True,
+)
+more = st.columns(5, gap="medium")
+with more[0]:
+    st.page_link("pages/04_Telegram_Executive_Report.py", label="TELEGRAM REPORT", icon="📡", use_container_width=True)
+with more[1]:
+    st.page_link("pages/05_Saved_Project_Financial_Control.py", label="PROJECT FINANCE", icon="💹", use_container_width=True)
+with more[2]:
+    st.page_link("pages/07_Workspace_Backup_Audit.py", label="BACKUP & AUDIT", icon="🛡️", use_container_width=True)
+with more[3]:
+    st.page_link("pages/08_Primavera_XER_Drawing_BOQ_Intake.py", label="P6 / BOQ INTAKE", icon="📐", use_container_width=True)
+with more[4]:
+    st.page_link("pages/09_AI_Project_Advisor.py", label="AI ADVISOR", icon="🤖", use_container_width=True)
+st.markdown(
+    '<div class="pc-section-label">PORTFOLIO OPERATIONS / LIVE WORKSPACE</div>',
+    unsafe_allow_html=True,
+)
 render_project_workspace_dashboard(get_workspace_database_path())
