@@ -66,7 +66,42 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
           border-bottom:1px solid rgba(255,189,102,.2);border-radius:8px;
           background:linear-gradient(90deg,rgba(74,51,24,.42),rgba(15,28,39,.7));
           color:#f3d8ad;font-size:12px;line-height:1.6;}
-        [data-testid="stSubheader"]{padding-bottom:9px;border-bottom:1px solid rgba(85,190,211,.17);}
+        [data-testid="stSubheader"]{
+          position:relative;margin:27px 0 13px;padding:12px 15px 11px 18px;
+          border:1px solid rgba(85,190,211,.20);border-left:3px solid #55e6f2;
+          border-radius:8px;background:linear-gradient(90deg,rgba(13,42,59,.88),rgba(8,22,36,.35));
+          box-shadow:inset 0 1px rgba(255,255,255,.025);
+        }
+        [data-testid="stSubheader"] h2{
+          font-family:"Barlow Condensed",sans-serif;font-size:25px!important;
+          letter-spacing:.055em;text-transform:uppercase;color:#e9fbff;
+        }
+        [data-testid="stSubheader"] p{margin:0;}
+        [data-testid="stVerticalBlockBorderWrapper"]{
+          border-color:rgba(85,190,211,.2)!important;border-radius:12px!important;
+        }
+        [data-testid="stMetric"]{
+          transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+        }
+        [data-testid="stMetric"]:hover{
+          transform:translateY(-2px);border-color:rgba(85,230,242,.52);
+          box-shadow:0 13px 30px rgba(0,0,0,.28),0 0 18px rgba(40,210,220,.07);
+        }
+        [data-testid="stPageLink-NavLink"] svg{color:#65eaf1!important;}
+        [data-testid="stDataFrame"]{box-shadow:0 8px 22px rgba(0,0,0,.14);}
+        [data-testid="stTabs"] [role="tablist"]{
+          gap:7px;border-bottom:1px solid rgba(85,190,211,.18);
+        }
+        [data-testid="stTabs"] button[role="tab"]{
+          border:1px solid transparent;border-radius:8px 8px 0 0;padding:9px 14px;
+        }
+        [data-testid="stTabs"] button[role="tab"][aria-selected="true"]{
+          background:rgba(20,80,93,.24);border-color:rgba(85,230,242,.25);
+        }
+        [data-testid="stCaptionContainer"] p{color:#8eacbf;font-size:11px;line-height:1.6;}
+        @media(max-width:1000px){
+          [data-testid="stPageLink-NavLink"]{min-height:60px;}
+        }
         [data-testid="stSubheader"] h2{font-family:"Barlow Condensed",sans-serif;font-size:26px;
           letter-spacing:.045em;text-transform:uppercase;}
         .pc-brand{display:flex;align-items:center;gap:11px;padding:13px 12px;margin:2px 0 22px;
