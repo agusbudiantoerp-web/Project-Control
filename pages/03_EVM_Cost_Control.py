@@ -107,7 +107,14 @@ if submitted:
         else:
             st.success("No threshold alerts were generated from the submitted data.")
         st.markdown("### Estimate at Completion — scenario comparison")
-        st.dataframe(result["cost_forecast"].get("scenarios", []), use_container_width=True, hide_index=True)
+        scenario_rows = result["cost_forecast"].get("scenarios", [])
+        scenario_view = pd.DataFrame(scenario_rows)
+        st.dataframe(scenario_view, use_container_width=True, hide_index=True)
+        if not scenario_view.empty:
+            chart_view = scenario_view.dropna(subset=["EAC"]).set_index("scenario")[["EAC"]]
+            if not chart_view.empty:
+                st.markdown("#### EAC comparison")
+                st.bar_chart(chart_view, use_container_width=True)
         st.download_button("Download financial control JSON",
             data=json.dumps(result, indent=2, ensure_ascii=False),
             file_name="financial_control_brief.json", mime="application/json")
