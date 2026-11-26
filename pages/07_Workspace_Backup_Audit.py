@@ -8,8 +8,7 @@ from ai_project_control.workspace_restore import restore_workspace_backup
 from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(page_title="Workspace Backup & Audit", page_icon="🗄️", layout="wide")
-st.title("Workspace Backup & Import History")
-st.caption("Backup file SQLite dan riwayat impor lokal untuk membantu pengelolaan data.")
+apply_project_control_theme("Workspace Backup & Audit", "Protect project records and review data lineage, imports and recovery snapshots.", "DATA GOVERNANCE / BACKUP & AUDIT")
 restore_result = st.session_state.pop("workspace_restore_result", None)
 if restore_result:
     st.success(
