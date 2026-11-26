@@ -646,3 +646,26 @@ The green CI verifies code-level automated checks on this branch. It does not va
 - Confirm data protection, user authentication/authorization, shared database, backup, monitoring and incident response before any hosted multi-user production deployment.
 
 **Release status: NOT FINAL / NOT PRODUCTION-READY.** Automated source-branch CI is green, but clean-candidate CI and operator acceptance remain required. No claim of live provider connectivity or real-world project validation is made.
+
+## Candidate CI verification — 2026-11-26
+
+The clean release-candidate branch was verified at commit `0cf4e210c40b8f12a70929d81f81e365d10471dd` (PR #4, targeting `main`). All three candidate workflows completed successfully on this exact SHA:
+
+- AI Project Control CI: 188 passed — https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45765624531
+- Project Control focused tests: 550 passed; complete repository suite: 777 passed; Python compile check passed — https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45765624459
+- AI Project Control automated tests: 188 passed — https://github.com/agusbudiantoerp-web/Project-Control/actions/runs/45765624639
+
+The branch head and PR #4 were rechecked after these runs. PR #4 remains open and draft; it is mergeable, but has not been merged. The `main` branch remains unchanged.
+
+### Remaining operator acceptance gates
+
+Automated CI is green, but this is not a production sign-off. Complete and record the following before operational release:
+
+1. Visual review of the dashboard and all primary pages in the user's Windows browser, including navigation, layout and responsive behavior.
+2. Clean Windows installation/launch acceptance with Python 3.11 and both dependency manifests.
+3. Controlled owner-approved reference cases for BOQ arithmetic, WBS/activity links, CPM, EVM, cash flow, resources, risk, Monte Carlo and recovery.
+4. SQLite backup and restore drill using a disposable test database.
+5. Secret/dependency review and live Groq/Gemini/Telegram checks only when the owner supplies credentials and explicitly approves the test.
+6. Security and architecture review before hosted multi-user use: authentication, role-based authorization, shared durable database, protected backups, secret management and monitoring.
+
+Do not merge PR #4 or label the system production-ready until the applicable acceptance gates are complete and accepted by the project owner.
