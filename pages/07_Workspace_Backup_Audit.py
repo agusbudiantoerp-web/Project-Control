@@ -83,4 +83,4 @@ try:
         except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
             st.error("Workspace restore ditolak; database aktif tidak diganti: " + str(exc))
 except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
-    st.error("Workspace backup unavailable: " + str(exc))
+    st.error("Workspace backup unavailable: " + str(exc))\nfrom ai_project_control.ui_theme import apply_project_control_theme\napply_project_control_theme("Workspace Backup & Audit", "Protect project records and review data lineage, imports and recovery snapshots.", "DATA GOVERNANCE / BACKUP & AUDIT")
