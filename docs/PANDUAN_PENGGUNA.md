@@ -11,7 +11,7 @@ Panduan ini untuk menjalankan aplikasi lokal di Windows. Pengujian sistem menyel
 ```powershell
 git clone https://github.com/agusbudiantoerp-web/Project-Control.git
 cd Project-Control
-git checkout ai-project-control-integration
+git checkout ai-project-control-release-candidate
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
