@@ -21,6 +21,16 @@ with st.form("evm_cost_control"):
     progress_text = st.text_area("Progress records (JSON)", json.dumps(progress_default, indent=2))
     cost_text = st.text_area("Actual cost records (JSON)", json.dumps(cost_default, indent=2))
     period = st.text_input("As-of period (optional, e.g. 2026-10)")
+    progress_mode_label = st.selectbox(
+        "Progress record convention",
+        ["Period movements (delta)", "Cumulative snapshots"],
+        help="Choose period movements when each row contains only that period's value. Choose cumulative snapshots when rows repeat the cumulative-to-date value.",
+    )
+    cost_mode_label = st.selectbox(
+        "Actual cost record convention",
+        ["Period movements (delta)", "Cumulative snapshots"],
+        help="Choose the convention used by your cost ledger export. Do not sum cumulative snapshots as period movements.",
+    )
     threshold = st.number_input("Budget variance warning threshold (%)", min_value=0.0, value=5.0, step=0.5)
     submitted = st.form_submit_button("Calculate EVM and cost outlook")
 if submitted:
@@ -28,8 +38,15 @@ if submitted:
         project = json.loads(project_text)
         progress = json.loads(progress_text)
         costs = json.loads(cost_text)
-        result = build_financial_control_brief(project, progress, costs,
-            as_of_period=period.strip() or None, warning_threshold_pct=threshold)
+        if not isinstance(project, dict) or not isinstance(progress, list) or not isinstance(costs, list):
+            raise TypeError("Project input must be an object; progress and cost inputs must be arrays.")
+        result = build_financial_control_brief(
+            project, progress, costs,
+            as_of_period=period.strip() or None,
+            warning_threshold_pct=threshold,
+            progress_record_mode=("period_delta" if progress_mode_label.startswith("Period") else "cumulative_snapshot"),
+            actual_cost_record_mode=("period_delta" if cost_mode_label.startswith("Period") else "cumulative_snapshot"),
+        )
         st.subheader("Performance and cost position")
         evm = result["evm"]
         st.caption(f"Project: {result['project_id']}  |  Currency: {result['currency'] or 'Not specified'}  |  As-of: {result['as_of_period'] or 'Latest available'}")
@@ -38,9 +55,17 @@ if submitted:
             value = evm.get(key)
             col.metric(key, "Not assessed" if value is None else f"{value:,.2f}")
         cols = st.columns(4)
-        for col, key in zip(cols, ("SPI", "CPI", "EAC", "VAC")):
+        for col, key in zip(cols, ("SV", "CV", "SPI", "CPI")):
             value = evm.get(key)
             col.metric(key, "Not assessed" if value is None else f"{value:,.2f}")
+        cols = st.columns(4)
+        for col, key in zip(cols, ("EAC", "ETC", "VAC", "TCPI")):
+            value = evm.get(key)
+            col.metric(key, "Not assessed" if value is None else f"{value:,.2f}")
+        st.caption(
+            f"Source records used — progress: {evm['source_record_counts']['progress']}, "
+            f"actual cost: {evm['source_record_counts']['actual_cost']}"
+        )
         if evm.get("data_gaps"):
             st.warning("EVM data gaps: " + ", ".join(evm["data_gaps"]))
         if result["status"] != "ASSESSED":
