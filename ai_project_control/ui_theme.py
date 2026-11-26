@@ -279,6 +279,15 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         '<div class="pc-brand-sub">INDUSTRIAL INTELLIGENCE SYSTEM</div></div></div>',
         unsafe_allow_html=True,
     )
+    st.sidebar.markdown(
+        '<div style="margin:4px 10px 18px;padding:10px 11px;border-left:2px solid #35e0b3;'
+        'background:rgba(10,31,46,.62);border-radius:0 8px 8px 0;">'
+        '<div style="font-family:DM Mono,monospace;font-size:8px;letter-spacing:.14em;color:#7fa8bd;">'
+        'APPLICATION CREATOR</div>'
+        '<div style="font-size:11px;font-weight:700;color:#eaf7ff;margin-top:4px;">'
+        'Agus Budianto Ulil Absyor</div></div>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         '<div class="pc-topline"><span>PROJECT INTELLIGENCE / COMMAND INTERFACE</span>'
         '<span class="pc-live">SYSTEM WORKSPACE</span></div>'
