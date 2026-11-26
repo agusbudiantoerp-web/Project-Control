@@ -2,6 +2,8 @@
 import json
 import streamlit as st
 
+from ai_project_control.ui_theme import apply_project_control_theme
+
 from ai_project_control.financial_workspace_service import build_stored_project_financial_control
 from ai_project_control.executive_report_export import build_executive_report_pdf, build_executive_report_xlsx
 from ai_project_control.workspace_config import get_workspace_database_path
@@ -66,7 +68,7 @@ if submitted:
             *[f"- {item}" for item in result["limitations"]],
             "- This report is decision support and does not authorize budget or baseline changes.",
         ]
-        report_text = "\nfrom ai_project_control.ui_theme import apply_project_control_theme\napply_project_control_theme("Saved Project Financial Control", "EVM performance, cost outlook and financial governance from validated workspace records.", "FINANCIAL INTELLIGENCE / PROJECT LEVEL")\n".join(report_lines) + "\n"
+        report_text = "\n".join(report_lines) + "\n"
         export_col1, export_col2 = st.columns(2)
         export_col1.download_button(
             "Download executive report (PDF)",
