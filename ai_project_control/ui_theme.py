@@ -80,6 +80,32 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         [data-testid="stVerticalBlockBorderWrapper"]{
           border-color:rgba(85,190,211,.2)!important;border-radius:12px!important;
         }
+        [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"]{
+          min-height:116px;padding:9px 10px;
+          background:linear-gradient(145deg,rgba(13,39,57,.96),rgba(7,20,34,.98));
+          border:1px solid rgba(85,190,211,.28)!important;
+          box-shadow:0 9px 24px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.035);
+          transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+        }
+        [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"]:hover{
+          transform:translateY(-3px);border-color:rgba(85,230,242,.58)!important;
+          box-shadow:0 14px 30px rgba(0,0,0,.28),0 0 18px rgba(42,210,220,.09);
+        }
+        [data-testid="column"] [data-testid="stCaptionContainer"] p{
+          min-height:32px;margin:8px 3px 2px;color:#9ab9c9;font-size:10px;
+          line-height:1.45;letter-spacing:.015em;
+        }
+        [data-testid="column"] a[data-testid="stPageLink-NavLink"]{
+          min-height:52px;padding:9px 8px;border-radius:8px;
+          background:linear-gradient(110deg,rgba(12,83,99,.9),rgba(8,54,60,.9));
+          border:1px solid rgba(85,230,242,.24);
+        }
+        [data-testid="column"] a[data-testid="stPageLink-NavLink"] p{
+          font-size:9px;letter-spacing:.035em;white-space:normal;text-align:center;
+        }
+        [data-testid="column"] a[data-testid="stPageLink-NavLink"] svg{
+          filter:drop-shadow(0 0 5px rgba(85,230,242,.45));
+        }
         [data-testid="stMetric"]{
           transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
         }
