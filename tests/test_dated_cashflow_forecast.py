@@ -76,3 +76,22 @@ def test_overflowing_daily_cashflow_aggregation_rejected():
     ]
     with pytest.raises(ValueError, match="aggregation exceeds"):
         build_dated_cashflow_forecast(rows, {"IDR": 0})
+
+
+def test_project_summary_separates_actual_and_forecast_movements():
+    result = build_dated_cashflow_forecast(
+        [
+            {"transaction_id": "T1", "date": "2026-12-01", "project_id": "P1",
+             "currency": "IDR", "direction": "INFLOW", "amount": 100, "status": "ACTUAL"},
+            {"transaction_id": "T2", "date": "2026-12-02", "project_id": "P1",
+             "currency": "IDR", "direction": "OUTFLOW", "amount": 40, "status": "FORECAST"},
+            {"transaction_id": "T3", "date": "2026-12-03", "project_id": "P2",
+             "currency": "IDR", "direction": "OUTFLOW", "amount": 20, "status": "ACTUAL"},
+        ],
+        {"IDR": 500},
+    )
+    projects = {row["project_id"]: row for row in result["by_currency"]["IDR"]["project_summary"]}
+    assert projects["P1"]["actual_net"] == 100
+    assert projects["P1"]["forecast_net"] == -40
+    assert projects["P1"]["total_net"] == 60
+    assert projects["P2"]["actual_net"] == -20
