@@ -5,7 +5,7 @@ Panduan ini untuk menjalankan aplikasi lokal di Windows. Pengujian sistem menyel
 ## A. Persiapan
 
 1. Pastikan Python 3.11 sudah terpasang.
-2. Clone repository dan checkout branch `ai-project-control-integration`.
+2. Clone repository dan checkout branch `ai-project-control-release-candidate`.
 3. Buka folder repository di PowerShell.
 
 ```powershell
@@ -37,7 +37,7 @@ Database lokal dibuat pada `.project_control/project_control.sqlite3`. Jangan me
 
 ## C. Urutan penggunaan
 
-1. Buka **Project Workspace** dan masukkan Project ID.
+1. Buka **Project Workspace**, buat atau pilih Project ID sesuai alur yang tersedia, lalu impor dataset proyek. Dashboard utama akan menampilkan panduan awal sampai proyek pertama tersimpan.
 2. Siapkan serta impor dataset proyek sesuai tabel yang tersedia.
 3. Periksa validasi data, peringatan, satuan, tanggal pelaporan, dan mata uang.
 4. Lengkapi baseline biaya, jadwal, aktivitas, predecessor, resource, WBS dan risk register.
