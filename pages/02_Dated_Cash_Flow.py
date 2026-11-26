@@ -76,10 +76,13 @@ if submitted:
             c3.metric("Minimum projected balance", f"{view['minimum_projected_balance']:,.2f}")
             if view["negative_balance_dates"]:
                 st.error("Projected negative balance: " + ", ".join(view["negative_balance_dates"]))
+            st.markdown("#### Project movement summary")
+            st.dataframe(view["project_summary"], use_container_width=True, hide_index=True)
             st.markdown("#### Daily cash position")
             st.dataframe(view["daily_timeline"], use_container_width=True, hide_index=True)
             st.markdown("#### Monthly flow summary")
             st.dataframe(view["monthly_summary"], use_container_width=True, hide_index=True)
+        st.caption("Project summary shows movements only. Opening cash is held at currency level and is not allocated to projects.")
         st.download_button(
             "Download forecast JSON",
             data=json.dumps(result, indent=2, ensure_ascii=False),
