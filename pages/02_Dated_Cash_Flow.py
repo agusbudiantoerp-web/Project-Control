@@ -7,8 +7,13 @@ import streamlit as st
 from ai_project_control.dated_cashflow_forecast import build_dated_cashflow_forecast
 
 st.set_page_config(page_title="Dated Cash Flow Forecast", page_icon="💧", layout="wide")
-st.title("Dated Cash Flow Forecast")
-st.caption("Pisahkan arus kas aktual dan rencana berdasarkan tanggal, proyek, dan mata uang.")
+from ai_project_control.ui_theme import apply_project_control_theme
+apply_project_control_theme(
+    "Dated Cash Flow Forecast",
+    "Treasury visibility • Actual vs planned movements • Project and currency exposure",
+    "FINANCIAL CONTROL / CASH MANAGEMENT",
+)
+st.caption("Pantau posisi kas harian dan bulanan. Saldo awal harus direkonsiliasi; data contoh bukan data aktual.")
 
 opening_default = """{
   "IDR": 1000000000,
@@ -47,7 +52,7 @@ transactions_default = """[
   }
 ]"""
 
-st.warning("Masukkan saldo awal yang sudah direkonsiliasi dan transaksi dari sumber resmi. Contoh bawaan hanya ilustrasi, bukan data aktual.")
+st.info("CONTROL NOTE  |  Masukkan saldo awal yang telah direkonsiliasi dan transaksi dari sumber resmi. Mata uang dihitung terpisah; tidak ada konversi FX otomatis.")
 with st.form("dated_cashflow_input"):
     opening_json = st.text_area("Opening cash by currency (JSON)", value=opening_default, height=110)
     transactions_json = st.text_area("Transactions (JSON)", value=transactions_default, height=300)
@@ -58,7 +63,7 @@ if submitted:
         opening = json.loads(opening_json)
         transactions = json.loads(transactions_json)
         result = build_dated_cashflow_forecast(transactions, opening)
-        st.subheader("Forecast summary")
+        st.subheader("Cash position overview")
         m1, m2, m3 = st.columns(3)
         m1.metric("Transactions", result["transaction_count"])
         m2.metric("Actual", result["actual_transaction_count"])
@@ -71,9 +76,9 @@ if submitted:
             c3.metric("Minimum projected balance", f"{view['minimum_projected_balance']:,.2f}")
             if view["negative_balance_dates"]:
                 st.error("Projected negative balance: " + ", ".join(view["negative_balance_dates"]))
-            st.markdown("**Daily cash position**")
+            st.markdown("#### Daily cash position")
             st.dataframe(view["daily_timeline"], use_container_width=True, hide_index=True)
-            st.markdown("**Monthly flow summary**")
+            st.markdown("#### Monthly flow summary")
             st.dataframe(view["monthly_summary"], use_container_width=True, hide_index=True)
         st.download_button(
             "Download forecast JSON",
