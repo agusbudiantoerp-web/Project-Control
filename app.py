@@ -29,17 +29,21 @@ st.markdown(
 )
 nav = st.columns(4, gap="medium")
 with nav[0]:
-    st.page_link("pages/01_Project_Workspace.py", label="PROJECT WORKSPACE", icon="🏗️", use_container_width=True)
-    st.caption("Project records, imports and validation")
+    with st.container(border=True):
+        st.page_link("pages/01_Project_Workspace.py", label="PROJECT WORKSPACE", icon="🏗️", use_container_width=True)
+        st.caption("Project records, imports and validation")
 with nav[1]:
-    st.page_link("pages/02_Dated_Cash_Flow.py", label="CASH FLOW", icon="💧", use_container_width=True)
-    st.caption("Dated actual and forecast liquidity")
+    with st.container(border=True):
+        st.page_link("pages/02_Dated_Cash_Flow.py", label="CASH FLOW", icon="💧", use_container_width=True)
+        st.caption("Dated actual and forecast liquidity")
 with nav[2]:
-    st.page_link("pages/03_EVM_Cost_Control.py", label="EVM & COST CONTROL", icon="📈", use_container_width=True)
-    st.caption("PV, EV, AC, SPI, CPI and EAC")
+    with st.container(border=True):
+        st.page_link("pages/03_EVM_Cost_Control.py", label="EVM & COST CONTROL", icon="📈", use_container_width=True)
+        st.caption("PV, EV, AC, SPI, CPI and EAC")
 with nav[3]:
-    st.page_link("pages/06_Saved_Portfolio_COO_Cockpit.py", label="COO COCKPIT", icon="🛰️", use_container_width=True)
-    st.caption("Portfolio exposure and executive priorities")
+    with st.container(border=True):
+        st.page_link("pages/06_Saved_Portfolio_COO_Cockpit.py", label="COO COCKPIT", icon="🛰️", use_container_width=True)
+        st.caption("Portfolio exposure and executive priorities")
 st.markdown(
     '<div class="pc-status-strip"><span><i></i> LOCAL WORKSPACE</span>'
     '<span>DATA GOVERNANCE ENABLED</span><span>PROJECT CONTROL / 01</span></div>',
@@ -51,20 +55,25 @@ st.markdown(
 )
 more = st.columns(5, gap="medium")
 with more[0]:
-    st.page_link("pages/04_Telegram_Executive_Report.py", label="TELEGRAM REPORT", icon="📡", use_container_width=True)
-    st.caption("Review and authorize executive updates")
+    with st.container(border=True):
+        st.page_link("pages/04_Telegram_Executive_Report.py", label="TELEGRAM REPORT", icon="📡", use_container_width=True)
+        st.caption("Review and authorize executive updates")
 with more[1]:
-    st.page_link("pages/05_Saved_Project_Financial_Control.py", label="PROJECT FINANCE", icon="💹", use_container_width=True)
-    st.caption("Saved project financial assessments")
+    with st.container(border=True):
+        st.page_link("pages/05_Saved_Project_Financial_Control.py", label="PROJECT FINANCE", icon="💹", use_container_width=True)
+        st.caption("Saved project financial assessments")
 with more[2]:
-    st.page_link("pages/07_Workspace_Backup_Audit.py", label="BACKUP & AUDIT", icon="🛡️", use_container_width=True)
-    st.caption("Data lineage and recovery snapshots")
+    with st.container(border=True):
+        st.page_link("pages/07_Workspace_Backup_Audit.py", label="BACKUP & AUDIT", icon="🛡️", use_container_width=True)
+        st.caption("Data lineage and recovery snapshots")
 with more[3]:
-    st.page_link("pages/08_Primavera_XER_Drawing_BOQ_Intake.py", label="P6 / BOQ INTAKE", icon="📐", use_container_width=True)
-    st.caption("Schedule and engineering quantity intake")
+    with st.container(border=True):
+        st.page_link("pages/08_Primavera_XER_Drawing_BOQ_Intake.py", label="P6 / BOQ INTAKE", icon="📐", use_container_width=True)
+        st.caption("Schedule and engineering quantity intake")
 with more[4]:
-    st.page_link("pages/09_AI_Project_Advisor.py", label="AI ADVISOR", icon="🤖", use_container_width=True)
-    st.caption("Evidence-based management insights")
+    with st.container(border=True):
+        st.page_link("pages/09_AI_Project_Advisor.py", label="AI ADVISOR", icon="🤖", use_container_width=True)
+        st.caption("Evidence-based management insights")
 st.markdown(
     '<div class="pc-section-label">PORTFOLIO OPERATIONS / LIVE WORKSPACE</div>',
     unsafe_allow_html=True,
