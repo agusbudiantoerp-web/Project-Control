@@ -174,7 +174,7 @@ def build_dated_cashflow_forecast(
         "limitations": [
             "Forecast rows are user-supplied planned transactions; no payment-date prediction is inferred.",
             "Opening cash balances must be supplied and reconciled to a trusted bank or treasury source.",
-            "Currencies are kept separate; no FX conversion, financing facility or intercompany netting is assumed.
+            "Currencies are kept separate; no FX conversion, financing facility or intercompany netting is assumed.",
             "Opening cash is currency-level and is not allocated to individual projects; project summaries show transaction movements only.",
             "The closing balance is a modeled cash position, not a bank-confirmed balance.",
         ],
