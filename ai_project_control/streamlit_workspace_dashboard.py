@@ -96,7 +96,31 @@ def render_project_workspace_dashboard(
     try:
         portfolio = build_portfolio_command_center(database_path)
         if portfolio["status"] == "NO_PROJECTS":
-            st.info("Belum ada proyek tersimpan di workspace lokal ini.")
+            st.info("Belum ada proyek tersimpan di workspace lokal ini. Dashboard portofolio akan aktif setelah proyek pertama berhasil disimpan.")
+            st.markdown("### Mulai dari Project Workspace")
+            st.write(
+                "Buat Project ID dan impor data proyek dari sumber yang sudah diverifikasi. "
+                "Mulai dengan Project Master, lalu tambahkan dataset biaya, progres, jadwal, "
+                "resource, dan risiko sesuai kebutuhan."
+            )
+            start_col, guide_col = st.columns(2, gap="medium")
+            with start_col:
+                st.page_link(
+                    "pages/01_Project_Workspace.py",
+                    label="Buka Project Workspace untuk menambahkan proyek",
+                    icon="🏗️",
+                    use_container_width=True,
+                )
+            with guide_col:
+                st.caption(
+                    "Gunakan data aktual yang sudah diperiksa. Jangan memasukkan contoh "
+                    "ilustratif sebagai data proyek nyata."
+                )
+            st.caption(
+                "Setelah proyek disimpan, indikator portfolio, risk, cash flow, recovery, "
+                "dan executive actions akan dihitung dari data workspace yang tersedia."
+            )
+            return portfolio
         else:
             summary = portfolio["performance_scorecard"]["summary"]
             p1, p2, p3, p4 = st.columns(4)
