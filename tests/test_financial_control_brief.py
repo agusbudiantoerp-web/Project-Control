@@ -37,3 +37,25 @@ def test_financial_brief_filters_as_of_period():
 def test_project_id_is_required():
     with pytest.raises(ValueError, match="project.project_id"):
         build_financial_control_brief({}, [], [])
+
+
+def test_financial_brief_passes_cumulative_snapshot_modes_to_evm():
+    project = {"project_id": "P1", "BAC": 1000, "currency": "IDR"}
+    progress = [
+        {"project_id": "P1", "period": "2026-09", "activity_id": "A1",
+         "planned_value": 100, "earned_value": 80},
+        {"project_id": "P1", "period": "2026-10", "activity_id": "A1",
+         "planned_value": 250, "earned_value": 200},
+    ]
+    costs = [
+        {"project_id": "P1", "period": "2026-09", "cost_code": "C1", "actual_cost": 90},
+        {"project_id": "P1", "period": "2026-10", "cost_code": "C1", "actual_cost": 220},
+    ]
+    result = build_financial_control_brief(
+        project, progress, costs,
+        progress_record_mode="cumulative_snapshot",
+        actual_cost_record_mode="cumulative_snapshot",
+    )
+    assert result["evm"]["PV"] == 250
+    assert result["evm"]["EV"] == 200
+    assert result["evm"]["AC"] == 220
