@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import pandas as pd
 import streamlit as st
 
 from ai_project_control.dated_cashflow_forecast import build_dated_cashflow_forecast
@@ -15,53 +16,57 @@ apply_project_control_theme(
 )
 st.caption("Pantau posisi kas harian dan bulanan. Saldo awal harus direkonsiliasi; data contoh bukan data aktual.")
 
-opening_default = """{
-  "IDR": 1000000000,
-  "USD": 25000
-}"""
-transactions_default = """[
-  {
-    "transaction_id": "TX-001",
-    "date": "2026-12-01",
-    "project_id": "PROJECT-001",
-    "currency": "IDR",
-    "direction": "OUTFLOW",
-    "amount": 150000000,
-    "status": "ACTUAL",
-    "description": "Pembayaran aktual kontraktor"
-  },
-  {
-    "transaction_id": "TX-002",
-    "date": "2026-12-15",
-    "project_id": "PROJECT-001",
-    "currency": "IDR",
-    "direction": "OUTFLOW",
-    "amount": 300000000,
-    "status": "FORECAST",
-    "description": "Rencana pembayaran alat"
-  },
-  {
-    "transaction_id": "TX-003",
-    "date": "2026-12-20",
-    "project_id": "PROJECT-001",
-    "currency": "IDR",
-    "direction": "INFLOW",
-    "amount": 500000000,
-    "status": "FORECAST",
-    "description": "Rencana termin pembayaran"
-  }
-]"""
-
-st.info("CONTROL NOTE  |  Masukkan saldo awal yang telah direkonsiliasi dan transaksi dari sumber resmi. Mata uang dihitung terpisah; tidak ada konversi FX otomatis.")
+opening_default = pd.DataFrame([
+    {"currency": "IDR", "opening_balance": 1000000000},
+    {"currency": "USD", "opening_balance": 25000},
+])
+transactions_default = pd.DataFrame([
+    {"transaction_id": "TX-001", "date": "2026-12-01", "project_id": "PROJECT-001",
+     "currency": "IDR", "direction": "OUTFLOW", "amount": 150000000,
+     "status": "ACTUAL", "description": "Pembayaran aktual kontraktor"},
+    {"transaction_id": "TX-002", "date": "2026-12-15", "project_id": "PROJECT-001",
+     "currency": "IDR", "direction": "OUTFLOW", "amount": 300000000,
+     "status": "FORECAST", "description": "Rencana pembayaran alat"},
+    {"transaction_id": "TX-003", "date": "2026-12-20", "project_id": "PROJECT-001",
+     "currency": "IDR", "direction": "INFLOW", "amount": 500000000,
+     "status": "FORECAST", "description": "Rencana termin pembayaran"},
+])
+st.info("CONTROL NOTE  |  Gunakan saldo awal yang sudah direkonsiliasi. Actual dan forecast dipisahkan; mata uang tidak dikonversi otomatis.")
 with st.form("dated_cashflow_input"):
-    opening_json = st.text_area("Opening cash by currency (JSON)", value=opening_default, height=110)
-    transactions_json = st.text_area("Transactions (JSON)", value=transactions_default, height=300)
+    st.markdown("### Opening cash by currency")
+    opening_df = st.data_editor(
+        opening_default, num_rows="dynamic", use_container_width=True,
+        key="cashflow_opening_editor",
+        column_config={
+            "currency": st.column_config.TextColumn("Currency code"),
+            "opening_balance": st.column_config.NumberColumn("Reconciled opening balance"),
+        },
+    )
+    st.markdown("### Dated transaction register")
+    st.caption("Tambahkan transaksi pada tabel. Gunakan ACTUAL untuk transaksi yang sudah terjadi dan FORECAST untuk rencana.")
+    transactions_df = st.data_editor(
+        transactions_default, num_rows="dynamic", use_container_width=True,
+        key="cashflow_transaction_editor",
+        column_config={
+            "date": st.column_config.DateColumn("Transaction date"),
+            "direction": st.column_config.SelectboxColumn("Flow", options=["INFLOW", "OUTFLOW"]),
+            "status": st.column_config.SelectboxColumn("Record type", options=["ACTUAL", "FORECAST"]),
+            "amount": st.column_config.NumberColumn("Amount", min_value=0.01, format="%.2f"),
+        },
+    )
     submitted = st.form_submit_button("Build cash-flow forecast")
-
 if submitted:
     try:
-        opening = json.loads(opening_json)
-        transactions = json.loads(transactions_json)
+        opening_rows = opening_df.where(pd.notna(opening_df), None).to_dict(orient="records")
+        transaction_rows = transactions_df.where(pd.notna(transactions_df), None).to_dict(orient="records")
+        opening = {
+            str(row.get("currency", "")).strip(): row.get("opening_balance")
+            for row in opening_rows if str(row.get("currency", "")).strip()
+        }
+        transactions = [
+            {**row, "date": row["date"].isoformat() if hasattr(row.get("date"), "isoformat") else row.get("date")}
+            for row in transaction_rows if row.get("transaction_id") not in (None, "")
+        ]
         result = build_dated_cashflow_forecast(transactions, opening)
         st.subheader("Cash position overview")
         m1, m2, m3 = st.columns(3)
