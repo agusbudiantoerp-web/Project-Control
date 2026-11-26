@@ -14,9 +14,15 @@ def build_financial_control_brief(
     *,
     as_of_period: str | None = None,
     warning_threshold_pct: float = 5.0,
+    progress_record_mode: str = "period_delta",
+    actual_cost_record_mode: str = "period_delta",
 ) -> dict[str, Any]:
     """Connect source-record EVM calculation to transparent EAC scenarios."""
-    evm = calculate_evm(project, progress_rows, actual_cost_rows, as_of_period=as_of_period)
+    evm = calculate_evm(
+        project, progress_rows, actual_cost_rows, as_of_period=as_of_period,
+        progress_record_mode=progress_record_mode,
+        actual_cost_record_mode=actual_cost_record_mode,
+    )
     forecast = build_cost_forecast(evm, warning_threshold_pct=warning_threshold_pct)
     alerts = []
     if evm.get("SPI") is not None and evm["SPI"] < 1:
