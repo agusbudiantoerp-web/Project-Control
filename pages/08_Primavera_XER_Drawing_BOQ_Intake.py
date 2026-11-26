@@ -8,6 +8,8 @@ import sqlite3
 
 import streamlit as st
 
+from ai_project_control.ui_theme import apply_project_control_theme
+
 from ai_project_control.advanced_import_service import (
     analyze_drawing_page_with_gemini,
     MAX_DRAWING_IMAGE_BYTES,
@@ -402,4 +404,4 @@ with st.expander("B. Drawing PDF → Gemini takeoff → reviewed BOQ draft", exp
                 except (RuntimeError, ValueError, OSError, sqlite3.Error) as exc:
                     st.error("Drawing takeoff could not be prepared: " + str(exc))
         else:
-            st.info("Upload PDF atau ambil PDF dari Telegram untuk memilih halaman dan meninjau hasil takeoff.")\nfrom ai_project_control.ui_theme import apply_project_control_theme\napply_project_control_theme("Primavera P6 & Drawing-to-BOQ Intake", "Schedule integration and drawing-based quantity review with explicit validation gates.", "ENGINEERING INTAKE / SCHEDULE & QUANTITY")
+            st.info("Upload PDF atau ambil PDF dari Telegram untuk memilih halaman dan meninjau hasil takeoff.")
