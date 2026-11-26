@@ -85,15 +85,22 @@ def build_dated_cashflow_forecast(
         lambda: {"actual_inflow": 0.0, "actual_outflow": 0.0,
                  "forecast_inflow": 0.0, "forecast_outflow": 0.0}
     )
+    by_project: dict[tuple[str, str], dict[str, float]] = defaultdict(
+        lambda: {"actual_inflow": 0.0, "actual_outflow": 0.0,
+                 "forecast_inflow": 0.0, "forecast_outflow": 0.0}
+    )
     for item in normalized:
         bucket = "actual" if item["status"] == "ACTUAL" else "forecast"
         flow = "inflow" if item["direction"] == "INFLOW" else "outflow"
         key = f"{bucket}_{flow}"
         daily_bucket = daily[(item["currency"], item["date"])]
         monthly_bucket = monthly[(item["currency"], item["date"][:7])]
+        project_bucket = by_project[(item["currency"], item["project_id"])]
         daily_bucket[key] += item["amount"]
         monthly_bucket[key] += item["amount"]
-        if not math.isfinite(daily_bucket[key]) or not math.isfinite(monthly_bucket[key]):
+        project_bucket[key] += item["amount"]
+        if (not math.isfinite(daily_bucket[key]) or not math.isfinite(monthly_bucket[key])
+                or not math.isfinite(project_bucket[key])):
             raise ValueError(f"Cash-flow aggregation exceeds the supported numeric range for {item['currency']}")
 
     currency_views = {}
@@ -131,8 +138,23 @@ def build_dated_cashflow_forecast(
                     - values["actual_outflow"] - values["forecast_outflow"], 2
                 ),
             })
+        project_rows = []
+        for (curr, project_id), values in sorted(by_project.items()):
+            if curr != currency:
+                continue
+            project_rows.append({
+                "project_id": project_id,
+                **{key: round(value, 2) for key, value in values.items()},
+                "actual_net": round(values["actual_inflow"] - values["actual_outflow"], 2),
+                "forecast_net": round(values["forecast_inflow"] - values["forecast_outflow"], 2),
+                "total_net": round(
+                    values["actual_inflow"] + values["forecast_inflow"]
+                    - values["actual_outflow"] - values["forecast_outflow"], 2
+                ),
+            })
         currency_views[currency] = {
             "opening_balance": round(opening_balance, 2),
+            "project_summary": project_rows,
             "closing_balance": round(balance, 2),
             "minimum_projected_balance": round(min(
                 [opening_balance] + [row["closing_balance"] for row in timeline]
@@ -152,7 +174,8 @@ def build_dated_cashflow_forecast(
         "limitations": [
             "Forecast rows are user-supplied planned transactions; no payment-date prediction is inferred.",
             "Opening cash balances must be supplied and reconciled to a trusted bank or treasury source.",
-            "Currencies are kept separate; no FX conversion, financing facility or intercompany netting is assumed.",
+            "Currencies are kept separate; no FX conversion, financing facility or intercompany netting is assumed.
+            "Opening cash is currency-level and is not allocated to individual projects; project summaries show transaction movements only.",
             "The closing balance is a modeled cash position, not a bank-confirmed balance.",
         ],
     }
