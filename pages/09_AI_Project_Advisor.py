@@ -16,7 +16,6 @@ from ai_project_control.workspace_service import build_workspace_overview
 
 st.set_page_config(page_title="AI Project Advisor", page_icon="🤖", layout="wide")
 apply_project_control_theme("AI Project Advisor", "Evidence-grounded management insights with human review and controlled decision boundaries.", "AI DECISION SUPPORT / HUMAN GOVERNANCE")
-st.title("AI Project Advisor — Groq / Gemini")
 st.caption(
     "Analisis manajemen berbasis data proyek tersimpan. AI hanya memberi narasi dan rekomendasi; "
     "tidak mengubah jadwal, baseline, biaya, atau status tindakan."
