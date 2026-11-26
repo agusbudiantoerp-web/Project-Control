@@ -1,5 +1,6 @@
 """Streamlit page for integrated EVM and cost forecast review."""
 import json
+import pandas as pd
 import streamlit as st
 
 from ai_project_control.financial_control_brief import build_financial_control_brief
@@ -14,13 +15,43 @@ apply_project_control_theme(
 st.info("CONTROL NOTE  |  Contoh data hanya untuk demonstrasi. Gunakan progress terukur dan actual cost tervalidasi untuk keputusan proyek.")
 
 project_default = {"project_id": "PROJECT-001", "BAC": 1000000000, "currency": "IDR"}
-progress_default = [{"project_id": "PROJECT-001", "period": "2026-10", "planned_value": 500000000, "earned_value": 400000000}]
-cost_default = [{"project_id": "PROJECT-001", "period": "2026-10", "actual_cost": 500000000}]
+progress_default = pd.DataFrame([
+    {"project_id": "PROJECT-001", "period": "2026-10", "activity_id": "ACT-001",
+     "planned_value": 500000000, "earned_value": 400000000, "currency": "IDR"}
+])
+cost_default = pd.DataFrame([
+    {"project_id": "PROJECT-001", "period": "2026-10", "cost_code": "COST-001",
+     "actual_cost": 500000000, "currency": "IDR"}
+])
+st.markdown("### Project baseline")
 with st.form("evm_cost_control"):
-    project_text = st.text_area("Project and BAC (JSON)", json.dumps(project_default, indent=2))
-    progress_text = st.text_area("Progress records (JSON)", json.dumps(progress_default, indent=2))
-    cost_text = st.text_area("Actual cost records (JSON)", json.dumps(cost_default, indent=2))
-    period = st.text_input("As-of period (optional, e.g. 2026-10)")
+    c1, c2, c3 = st.columns([2, 1, 1])
+    project_id = c1.text_input("Project ID", value=project_default["project_id"])
+    bac = c2.number_input("Budget at Completion (BAC)", min_value=0.0,
+                          value=float(project_default["BAC"]), step=1000000.0)
+    currency = c3.selectbox("Project currency", ["IDR", "USD", "SGD", "AUD", "EUR"])
+    project = {"project_id": project_id.strip(), "BAC": bac, "currency": currency}
+    st.markdown("### Progress measurement")
+    st.caption("Masukkan nilai per periode atau snapshot kumulatif sesuai konvensi sumber data.")
+    progress_df = st.data_editor(
+        progress_default, num_rows="dynamic", use_container_width=True,
+        key="evm_progress_editor",
+        column_config={
+            "period": st.column_config.TextColumn("Period (YYYY-MM)"),
+            "planned_value": st.column_config.NumberColumn("Planned Value (PV)", min_value=0.0),
+            "earned_value": st.column_config.NumberColumn("Earned Value (EV)", min_value=0.0),
+        },
+    )
+    st.markdown("### Actual cost ledger")
+    cost_df = st.data_editor(
+        cost_default, num_rows="dynamic", use_container_width=True,
+        key="evm_cost_editor",
+        column_config={
+            "period": st.column_config.TextColumn("Period (YYYY-MM)"),
+            "actual_cost": st.column_config.NumberColumn("Actual Cost (AC)", min_value=0.0),
+        },
+    )
+    period = st.text_input("Cut-off period (optional, YYYY-MM)")
     progress_mode_label = st.selectbox(
         "Progress record convention",
         ["Period movements (delta)", "Cumulative snapshots"],
@@ -35,11 +66,10 @@ with st.form("evm_cost_control"):
     submitted = st.form_submit_button("Calculate EVM and cost outlook")
 if submitted:
     try:
-        project = json.loads(project_text)
-        progress = json.loads(progress_text)
-        costs = json.loads(cost_text)
-        if not isinstance(project, dict) or not isinstance(progress, list) or not isinstance(costs, list):
-            raise TypeError("Project input must be an object; progress and cost inputs must be arrays.")
+        progress = progress_df.where(pd.notna(progress_df), None).to_dict(orient="records")
+        costs = cost_df.where(pd.notna(cost_df), None).to_dict(orient="records")
+        progress = [row for row in progress if row.get("period") not in (None, "")]
+        costs = [row for row in costs if row.get("period") not in (None, "")]
         result = build_financial_control_brief(
             project, progress, costs,
             as_of_period=period.strip() or None,
