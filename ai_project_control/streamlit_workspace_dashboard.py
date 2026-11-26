@@ -105,11 +105,8 @@ def render_project_workspace_dashboard(
             )
             start_col, guide_col = st.columns(2, gap="medium")
             with start_col:
-                st.page_link(
-                    "pages/01_Project_Workspace.py",
-                    label="Buka Project Workspace untuk menambahkan proyek",
-                    icon="🏗️",
-                    use_container_width=True,
+                st.markdown(
+                    "[🏗️ Buka Project Workspace untuk menambahkan proyek](/Project_Workspace)"
                 )
             with guide_col:
                 st.caption(
