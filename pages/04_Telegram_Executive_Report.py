@@ -5,6 +5,8 @@ import json
 import os
 import streamlit as st
 
+from ai_project_control.ui_theme import apply_project_control_theme
+
 from ai_project_control.telegram_executive_reporting import (
     build_telegram_executive_message,
     send_telegram_executive_message,
@@ -58,4 +60,4 @@ if message:
             )
             st.success(f"Telegram accepted {len(result)} message part(s).")
         except Exception:
-            st.error("Telegram delivery failed. Check the configured credentials, chat permissions, network connectivity and server logs. Credentials are intentionally not displayed.")\nfrom ai_project_control.ui_theme import apply_project_control_theme\napply_project_control_theme("Telegram Executive Report", "Compose, review and explicitly authorize executive updates to your Telegram channel.", "EXECUTIVE COMMUNICATION / CONTROLLED DELIVERY")
+            st.error("Telegram delivery failed. Check the configured credentials, chat permissions, network connectivity and server logs. Credentials are intentionally not displayed.")
