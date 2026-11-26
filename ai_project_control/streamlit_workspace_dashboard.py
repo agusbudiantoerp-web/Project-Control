@@ -79,6 +79,7 @@ from .executive_report_export import (
 def render_project_workspace_dashboard(
     database_path: str | Path | None = None,
     project_id: str | None = None,
+    show_project_selector: bool = True,
 ) -> dict[str, Any] | None:
     try:
         import streamlit as st
@@ -724,6 +725,9 @@ def render_project_workspace_dashboard(
                 st.warning("Telegram notification belum tersedia: " + str(config_error))
     except (TypeError, ValueError) as exc:
         st.warning("Governance escalation review unavailable: " + str(exc))
+
+    if not show_project_selector:
+        return None
 
     st.subheader("Project Workspace")
     if project_id is None:
