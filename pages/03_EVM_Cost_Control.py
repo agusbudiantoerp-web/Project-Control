@@ -32,14 +32,25 @@ if submitted:
             as_of_period=period.strip() or None, warning_threshold_pct=threshold)
         st.subheader("Performance and cost position")
         evm = result["evm"]
+        st.caption(f"Project: {result['project_id']}  |  Currency: {result['currency'] or 'Not specified'}  |  As-of: {result['as_of_period'] or 'Latest available'}")
+        cols = st.columns(4)
+        for col, key in zip(cols, ("PV", "EV", "AC", "BAC")):
+            value = evm.get(key)
+            col.metric(key, "Not assessed" if value is None else f"{value:,.2f}")
         cols = st.columns(4)
         for col, key in zip(cols, ("SPI", "CPI", "EAC", "VAC")):
             value = evm.get(key)
             col.metric(key, "Not assessed" if value is None else f"{value:,.2f}")
+        if evm.get("data_gaps"):
+            st.warning("EVM data gaps: " + ", ".join(evm["data_gaps"]))
         if result["status"] != "ASSESSED":
             st.warning("Review required: one or more required source values are missing or invalid.")
-        for alert in result["management_alerts"]:
-            st.write(f"**{alert['severity']} — {alert['code']}**: {alert['message']}")
+        if result["management_alerts"]:
+            st.markdown("### Management attention")
+            for alert in result["management_alerts"]:
+                st.write(f"**{alert['severity']} — {alert['code']}**: {alert['message']}")
+        else:
+            st.success("No threshold alerts were generated from the submitted data.")
         st.markdown("### Estimate at Completion — scenario comparison")
         st.dataframe(result["cost_forecast"].get("scenarios", []), use_container_width=True, hide_index=True)
         st.download_button("Download financial control JSON",
