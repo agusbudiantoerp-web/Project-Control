@@ -195,4 +195,4 @@ if submitted:
         with st.expander("Methodology and limitations"):
             st.json(result["limitations"])
     except (TypeError, ValueError, OSError) as exc:
-        st.error("Portfolio could not be loaded: " + str(exc))
+        st.error("Portfolio could not be loaded: " + str(exc))\nfrom ai_project_control.ui_theme import apply_project_control_theme\napply_project_control_theme("Portfolio — COO Executive Cockpit", "Cross-project performance, portfolio exposure and management intervention overview.", "EXECUTIVE COMMAND / PORTFOLIO LEVEL")
