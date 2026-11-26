@@ -2,6 +2,8 @@
 import sqlite3
 import streamlit as st
 
+from ai_project_control.ui_theme import apply_project_control_theme
+
 from ai_project_control.project_store import ProjectStore
 from ai_project_control.workspace_backup import build_workspace_backup
 from ai_project_control.workspace_restore import restore_workspace_backup
@@ -82,4 +84,4 @@ try:
         except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
             st.error("Workspace restore ditolak; database aktif tidak diganti: " + str(exc))
 except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
-    st.error("Workspace backup unavailable: " + str(exc))\nfrom ai_project_control.ui_theme import apply_project_control_theme\napply_project_control_theme("Workspace Backup & Audit", "Protect project records and review data lineage, imports and recovery snapshots.", "DATA GOVERNANCE / BACKUP & AUDIT")
+    st.error("Workspace backup unavailable: " + str(exc))
