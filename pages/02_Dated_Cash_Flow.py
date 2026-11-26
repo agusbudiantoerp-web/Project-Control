@@ -31,6 +31,7 @@ transactions_default = pd.DataFrame([
      "currency": "IDR", "direction": "INFLOW", "amount": 500000000,
      "status": "FORECAST", "description": "Rencana termin pembayaran"},
 ])
+transactions_default["date"] = pd.to_datetime(transactions_default["date"]).dt.date
 st.info("CONTROL NOTE  |  Gunakan saldo awal yang sudah direkonsiliasi. Actual dan forecast dipisahkan; mata uang tidak dikonversi otomatis.")
 with st.form("dated_cashflow_input"):
     st.markdown("### Opening cash by currency")
