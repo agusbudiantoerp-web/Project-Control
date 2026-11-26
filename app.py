@@ -2,7 +2,7 @@
 import streamlit as st
 
 from ai_project_control.streamlit_workspace_dashboard import render_project_workspace_dashboard
-from ai_project_control.workspace_config import get_workspace_database_path
+from ai_project_control.workspace_config import get_workspace_database_path\nfrom ai_project_control.ui_theme import apply_project_control_theme
 
 st.set_page_config(
     page_title="AI Project Control",
