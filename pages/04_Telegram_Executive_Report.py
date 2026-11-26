@@ -59,4 +59,4 @@ if message:
             )
             st.success(f"Telegram accepted {len(result)} message part(s).")
         except Exception:
-            st.error("Telegram delivery failed. Check the configured credentials, chat permissions, network connectivity and server logs. Credentials are intentionally not displayed.")
+            st.error("Telegram delivery failed. Check the configured credentials, chat permissions, network connectivity and server logs. Credentials are intentionally not displayed.")\nfrom ai_project_control.ui_theme import apply_project_control_theme\napply_project_control_theme("Telegram Executive Report", "Compose, review and explicitly authorize executive updates to your Telegram channel.", "EXECUTIVE COMMUNICATION / CONTROLLED DELIVERY")
