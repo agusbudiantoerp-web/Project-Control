@@ -11,8 +11,7 @@ from ai_project_control.telegram_executive_reporting import (
 )
 
 st.set_page_config(page_title="Telegram Executive Report", page_icon="✈️", layout="wide")
-st.title("Telegram Executive Report")
-st.caption("Compose a factual executive summary and send only after an explicit user action.")
+apply_project_control_theme("Telegram Executive Report", "Compose, review and explicitly authorize executive updates to your Telegram channel.", "EXECUTIVE COMMUNICATION / CONTROLLED DELIVERY")
 st.warning("Telegram delivery requires a bot token and chat ID configured in Streamlit secrets or environment variables. Never paste credentials into this form.")
 
 with st.form("telegram_report_compose"):
