@@ -17,9 +17,11 @@ apply_project_control_theme(
     "Integrated project intelligence for execution control and management decisions.",
     "PROJECT DELIVERY • COST • RISK • PERFORMANCE",
 )
-st.info(
-    "Local workspace: data tersimpan di SQLite pada komputer ini. Untuk penggunaan "
-    "multi-user, siapkan autentikasi, kontrol akses, backup terjadwal, dan database bersama."
+st.markdown(
+    '<div class="pc-notice"><strong>LOCAL DATA MODE</strong> &nbsp; Data workspace tersimpan '
+    'di SQLite pada komputer ini. Untuk penggunaan multi-user, siapkan autentikasi, '
+    'kontrol akses, backup terjadwal, dan database bersama.</div>',
+    unsafe_allow_html=True,
 )
 st.markdown(
     '<div class="pc-section-label">QUICK ACCESS / OPERATIONS MODULES</div>',
