@@ -152,4 +152,4 @@ if saved_result:
         file_name=f"AI_Project_Advice_{project_id}.md",
         mime="text/markdown",
     )
-    st.caption("Analisis adalah bahan tinjauan. Verifikasi setiap fakta dan hipotesis dengan tim proyek sebelum mengambil tindakan.")
+    st.caption("Analisis adalah bahan tinjauan. Verifikasi setiap fakta dan hipotesis dengan tim proyek sebelum mengambil tindakan.")\nfrom ai_project_control.ui_theme import apply_project_control_theme\napply_project_control_theme("AI Project Advisor", "Evidence-grounded management insights with human review and controlled decision boundaries.", "AI DECISION SUPPORT / HUMAN GOVERNANCE")
