@@ -78,4 +78,4 @@ st.markdown(
     '<div class="pc-section-label">PORTFOLIO OPERATIONS / LIVE WORKSPACE</div>',
     unsafe_allow_html=True,
 )
-render_project_workspace_dashboard(get_workspace_database_path())
+render_project_workspace_dashboard(get_workspace_database_path(), show_project_selector=False)
