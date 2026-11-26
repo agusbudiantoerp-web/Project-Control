@@ -24,7 +24,6 @@ from ai_project_control.workspace_config import get_workspace_database_path
 
 st.set_page_config(page_title="P6 XER & Drawing BOQ Intake", page_icon="📐", layout="wide")
 apply_project_control_theme("Primavera P6 & Drawing-to-BOQ Intake", "Schedule integration and drawing-based quantity review with explicit validation gates.", "ENGINEERING INTAKE / SCHEDULE & QUANTITY")
-st.title("Primavera P6 XER & Drawing-to-BOQ Intake")
 st.caption(
     "Import jadwal P6 ke workspace utama dan buat draft BOQ dari satu halaman gambar "
     "dengan analisis Gemini yang memerlukan persetujuan eksplisit."
