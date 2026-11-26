@@ -83,9 +83,18 @@ if submitted:
             if view["negative_balance_dates"]:
                 st.error("Projected negative balance: " + ", ".join(view["negative_balance_dates"]))
             st.markdown("#### Project movement summary")
-            st.dataframe(view["project_summary"], use_container_width=True, hide_index=True)
+            project_view = pd.DataFrame(view["project_summary"])
+            st.dataframe(project_view, use_container_width=True, hide_index=True)
+            if not project_view.empty:
+                chart_data = project_view.set_index("project_id")[["actual_net", "forecast_net"]]
+                st.markdown("##### Net movement by project")
+                st.bar_chart(chart_data, use_container_width=True)
             st.markdown("#### Daily cash position")
-            st.dataframe(view["daily_timeline"], use_container_width=True, hide_index=True)
+            daily_view = pd.DataFrame(view["daily_timeline"])
+            st.dataframe(daily_view, use_container_width=True, hide_index=True)
+            if not daily_view.empty:
+                st.markdown("##### Projected closing cash balance")
+                st.line_chart(daily_view.set_index("date")[["closing_balance"]], use_container_width=True)
             st.markdown("#### Monthly flow summary")
             st.dataframe(view["monthly_summary"], use_container_width=True, hide_index=True)
         st.caption("Project summary shows movements only. Opening cash is held at currency level and is not allocated to projects.")
