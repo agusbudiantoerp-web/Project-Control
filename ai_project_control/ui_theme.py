@@ -41,6 +41,34 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"]:hover{
           background:rgba(40,191,207,.12);border-color:rgba(85,230,242,.25);
         }
+        a[data-testid="stPageLink-NavLink"]{
+          display:flex;align-items:center;justify-content:center;min-height:68px;
+          padding:13px 14px;border:1px solid rgba(85,230,242,.30);border-radius:12px;
+          background:linear-gradient(135deg,rgba(17,53,72,.94),rgba(9,28,45,.98));
+          box-shadow:0 8px 22px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.05);
+          transition:all .2s ease;text-decoration:none!important;
+        }
+        a[data-testid="stPageLink-NavLink"]:hover{
+          border-color:#65eff4;background:linear-gradient(135deg,rgba(10,104,119,.9),rgba(8,66,67,.98));
+          transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,205,210,.18);
+        }
+        a[data-testid="stPageLink-NavLink"] p{font-family:"DM Mono",monospace;font-size:10px;
+          font-weight:700;letter-spacing:.07em;color:#e8fcff!important;}
+        .pc-status-strip{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+          padding:10px 14px;margin:0 0 23px;border:1px solid rgba(85,190,211,.17);
+          border-radius:9px;background:rgba(8,24,39,.68);color:#8eafc1;
+          font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.12em;}
+        .pc-status-strip span:first-child{color:#68edc4;}
+        .pc-status-strip i{display:inline-block;width:6px;height:6px;border-radius:50%;
+          background:#35e0b3;box-shadow:0 0 10px #35e0b3;margin-right:6px;}
+        .pc-notice{padding:12px 15px;margin:0 0 17px;border-left:3px solid #ffbd66;
+          border-top:1px solid rgba(255,189,102,.2);border-right:1px solid rgba(255,189,102,.2);
+          border-bottom:1px solid rgba(255,189,102,.2);border-radius:8px;
+          background:linear-gradient(90deg,rgba(74,51,24,.42),rgba(15,28,39,.7));
+          color:#f3d8ad;font-size:12px;line-height:1.6;}
+        [data-testid="stSubheader"]{padding-bottom:9px;border-bottom:1px solid rgba(85,190,211,.17);}
+        [data-testid="stSubheader"] h2{font-family:"Barlow Condensed",sans-serif;font-size:26px;
+          letter-spacing:.045em;text-transform:uppercase;}
         .pc-brand{display:flex;align-items:center;gap:11px;padding:13px 12px;margin:2px 0 22px;
           border:1px solid rgba(85,230,242,.26);border-radius:13px;
           background:linear-gradient(115deg,rgba(15,47,67,.96),rgba(8,27,43,.82));
