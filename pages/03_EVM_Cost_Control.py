@@ -5,9 +5,13 @@ import streamlit as st
 from ai_project_control.financial_control_brief import build_financial_control_brief
 
 st.set_page_config(page_title="EVM & Cost Control", page_icon="📈", layout="wide")
-st.title("EVM & Cost Forecast Control")
-st.caption("PV, EV, AC, BAC, SPI, CPI and transparent Estimate-at-Completion scenarios.")
-st.warning("Input contoh adalah ilustrasi. Gunakan data progress dan actual cost yang tervalidasi sebelum mengambil keputusan.")
+from ai_project_control.ui_theme import apply_project_control_theme
+apply_project_control_theme(
+    "EVM & Cost Forecast Control",
+    "Earned value performance • Cost efficiency • Estimate-at-completion scenarios",
+    "PROJECT CONTROLS / PERFORMANCE & COST",
+)
+st.info("CONTROL NOTE  |  Contoh data hanya untuk demonstrasi. Gunakan progress terukur dan actual cost tervalidasi untuk keputusan proyek.")
 
 project_default = {"project_id": "PROJECT-001", "BAC": 1000000000, "currency": "IDR"}
 progress_default = [{"project_id": "PROJECT-001", "period": "2026-10", "planned_value": 500000000, "earned_value": 400000000}]
@@ -26,7 +30,7 @@ if submitted:
         costs = json.loads(cost_text)
         result = build_financial_control_brief(project, progress, costs,
             as_of_period=period.strip() or None, warning_threshold_pct=threshold)
-        st.subheader("Executive financial indicators")
+        st.subheader("Performance and cost position")
         evm = result["evm"]
         cols = st.columns(4)
         for col, key in zip(cols, ("SPI", "CPI", "EAC", "VAC")):
@@ -36,7 +40,7 @@ if submitted:
             st.warning("Review required: one or more required source values are missing or invalid.")
         for alert in result["management_alerts"]:
             st.write(f"**{alert['severity']} — {alert['code']}**: {alert['message']}")
-        st.markdown("### EAC scenarios")
+        st.markdown("### Estimate at Completion — scenario comparison")
         st.dataframe(result["cost_forecast"].get("scenarios", []), use_container_width=True, hide_index=True)
         st.download_button("Download financial control JSON",
             data=json.dumps(result, indent=2, ensure_ascii=False),
