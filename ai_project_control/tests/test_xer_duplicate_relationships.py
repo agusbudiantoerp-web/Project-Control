@@ -41,7 +41,7 @@ def test_prepare_xer_collapses_exact_duplicate_predecessor_rows():
 
 def test_prepare_xer_preserves_distinct_relationship_lags_and_types():
     raw = _xer_with_relationships(
-        "%R\\t2\\t1\\tPR_FS\\t0\\n%R\\t2\\t1\\tPR_SS\\t8"
+        "%R\t2\t1\tPR_FS\t0\n%R\t2\t1\tPR_SS\t8"
     )
 
     prepared = prepare_xer_workspace_import(
