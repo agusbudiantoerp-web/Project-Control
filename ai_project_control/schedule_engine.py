@@ -110,7 +110,7 @@ def calculate_critical_path(activities: list[dict[str, Any]]) -> dict[str, Any]:
     for activity_id, node in nodes.items():
         missing = sorted({r["predecessor_id"] for r in node["relationships"] if r["predecessor_id"] not in nodes})
         if missing:
-            issues.append(f"{activity_id} references missing predecessor(s): {', '.join(missing)}")
+            issues.append(f"{activity_id} references unknown predecessor(s) (predecessor tidak ditemukan): {', '.join(missing)}")
         self_links = [r for r in node["relationships"] if r["predecessor_id"] == activity_id]
         if self_links:
             issues.append(f"{activity_id} cannot depend on itself")
