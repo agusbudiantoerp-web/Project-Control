@@ -42,7 +42,9 @@ def test_lists_p6_source_projects_and_prepares_workspace_records():
         currency="IDR",
         source_project_id="P6-1",
     )
-    assert prepared["counts"] == {"wbs": 1, "activities": 2}
+    assert prepared["counts"]["wbs"] == 1
+    assert prepared["counts"]["activities"] == 2
+    assert prepared["counts"]["relationship_types"]["FS"] == 1
     assert prepared["activities"][0]["duration_days"] == 10
     assert prepared["activities"][1]["duration_days"] == 5
     assert prepared["activities"][1]["predecessor_ids"] == "A1"
@@ -138,30 +140,35 @@ def test_xer_import_cannot_change_existing_project_currency(tmp_path):
     assert store.load_dataset("P1", "activities") == []
 
 
-def test_xer_import_rejects_non_finish_to_start_relationships():
-    unsupported = SINGLE_PROJECT_XER.replace(
-        b"%F\tproj_id\ttask_id\tpred_task_id\n%R\tP6-1\tT2\tT1",
-        b"%F\tproj_id\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n"
-        b"%R\tP6-1\tT2\tT1\tPR_SS\t0",
+def test_xer_import_supports_non_finish_to_start_relationships():
+    supported = SINGLE_PROJECT_XER.replace(
+        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\n%R\\tP6-1\\tT2\\tT1",
+        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\tpred_type\\tlag_hr_cnt\\n"
+        b"%R\\tP6-1\\tT2\\tT1\\tPR_SS\\t0",
     )
-    with pytest.raises(ValueError, match="unsupported type"):
-        prepare_xer_workspace_import(
-            unsupported, project_id="P1", project_name="Plant Upgrade",
-            currency="IDR", source_project_id="P6-1",
-        )
+    prepared = prepare_xer_workspace_import(
+        supported, project_id="P1", project_name="Plant Upgrade",
+        currency="IDR", source_project_id="P6-1",
+    )
+    successor = next(row for row in prepared["activities"] if row["activity_id"] == "A2")
+    assert successor["predecessor_relationships"][0]["relationship_type"] == "SS"
+    assert successor["predecessor_relationships"][0]["lag_days"] == 0
+    assert prepared["counts"]["relationship_types"]["SS"] == 1
 
 
-def test_xer_import_rejects_nonzero_relationship_lags():
+def test_xer_import_supports_nonzero_relationship_lags():
     lagged = SINGLE_PROJECT_XER.replace(
-        b"%F\tproj_id\ttask_id\tpred_task_id\n%R\tP6-1\tT2\tT1",
-        b"%F\tproj_id\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n"
-        b"%R\tP6-1\tT2\tT1\tPR_FS\t8",
+        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\n%R\\tP6-1\\tT2\\tT1",
+        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\tpred_type\\tlag_hr_cnt\\n"
+        b"%R\\tP6-1\\tT2\\tT1\\tPR_FS\\t8",
     )
-    with pytest.raises(ValueError, match="non-zero lag"):
-        prepare_xer_workspace_import(
-            lagged, project_id="P1", project_name="Plant Upgrade",
-            currency="IDR", source_project_id="P6-1",
-        )
+    prepared = prepare_xer_workspace_import(
+        lagged, project_id="P1", project_name="Plant Upgrade",
+        currency="IDR", source_project_id="P6-1",
+    )
+    successor = next(row for row in prepared["activities"] if row["activity_id"] == "A2")
+    assert successor["predecessor_relationships"][0]["lag_days"] == 1
+    assert successor["predecessor_relationships"][0]["lag_hours_source"] == 8
 
 
 def test_xer_import_rejects_missing_wbs_parent_links():
@@ -229,7 +236,7 @@ def test_gemini_invalid_quantity_remains_blank_for_human_review(monkeypatch):
 
 def test_xer_import_rejects_cyclic_activity_dependencies():
     cyclic = SINGLE_PROJECT_XER + "%R\tP6-1\tT1\tT2\n".encode("ascii")
-    with pytest.raises(ValueError, match="valid finish-to-start CPM network"):
+    with pytest.raises(ValueError, match="valid CPM network"):
         prepare_xer_workspace_import(
             cyclic, project_id="P1", project_name="Plant Upgrade",
             currency="IDR", source_project_id="P6-1",
