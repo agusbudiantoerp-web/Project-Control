@@ -177,7 +177,10 @@ def calculate_critical_path(activities: list[dict[str, Any]]) -> dict[str, Any]:
                 nodes[activity_id]["duration"], nodes[successor]["duration"],
             )
             limits.append(ls[successor] - offset)
-        ls[activity_id] = min(limits, default=project_duration - nodes[activity_id]["duration"])
+        # Every activity must finish no later than the overall project finish,
+        # even when its outgoing links are SS/SF and do not constrain its finish.
+        limits.append(project_duration - nodes[activity_id]["duration"])
+        ls[activity_id] = min(limits)
         lf[activity_id] = ls[activity_id] + nodes[activity_id]["duration"]
 
     results = []
