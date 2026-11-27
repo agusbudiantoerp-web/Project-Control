@@ -10,27 +10,30 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap');
         :root {
           color-scheme: dark;
-          --pc-bg:#050b14; --pc-panel:#0b1725; --pc-panel2:#102337;
-          --pc-line:rgba(83,190,211,.24); --pc-cyan:#55e6f2;
-          --pc-teal:#35e0b3; --pc-amber:#ffbd66; --pc-text:#eaf7ff;
-          --pc-muted:#91aabd;
+          --pc-bg:#10091f; --pc-panel:#1a1030; --pc-panel2:#261641;
+          --pc-line:rgba(190,145,255,.25); --pc-cyan:#c9a7ff;
+          --pc-teal:#f0a6ff; --pc-amber:#ffd58a; --pc-text:#f7f0ff;
+          --pc-muted:#b9a8cf;
         }
         html,body,[class*="css"] {font-family:Inter,"Segoe UI",sans-serif;}
         .stApp {
           color:var(--pc-text);
           background:
-            radial-gradient(ellipse at 12% 4%,rgba(0,192,220,.17),transparent 27%),
-            radial-gradient(ellipse at 90% 14%,rgba(0,220,166,.11),transparent 26%),
-            linear-gradient(135deg,#040a12 0%,#081522 48%,#07101b 100%);
+            radial-gradient(ellipse at 12% 5%,rgba(174,92,255,.27),transparent 30%),
+            radial-gradient(ellipse at 88% 13%,rgba(255,92,214,.16),transparent 28%),
+            radial-gradient(ellipse at 52% 82%,rgba(88,67,180,.16),transparent 36%),
+            radial-gradient(circle at 20% 35%,rgba(255,255,255,.10) 0 1px,transparent 1.8px),
+            radial-gradient(circle at 74% 62%,rgba(224,203,255,.12) 0 1px,transparent 2px),
+            linear-gradient(135deg,#090512 0%,#160d29 42%,#211238 72%,#0d081b 100%);
           background-attachment:fixed;
         }
         [data-testid="stAppViewContainer"]{background:transparent;}
-        [data-testid="stHeader"]{background:rgba(4,10,18,.76);backdrop-filter:blur(18px);border-bottom:1px solid rgba(88,200,220,.12);}
+        [data-testid="stHeader"]{background:rgba(13,7,27,.82);backdrop-filter:blur(18px);border-bottom:1px solid rgba(190,145,255,.18);}
         [data-testid="stToolbar"]{right:1rem;}
         .block-container{max-width:1660px;padding-top:1.25rem;padding-bottom:4rem;}
         [data-testid="stSidebar"]{
-          background:linear-gradient(180deg,#071321 0%,#0a1b2b 48%,#06111d 100%);
-          border-right:1px solid rgba(85,230,242,.22);
+          background:linear-gradient(180deg,#10091f 0%,#1b1030 48%,#0c0719 100%);
+          border-right:1px solid rgba(192,151,255,.30);
           box-shadow:8px 0 36px rgba(0,0,0,.22);
         }
         [data-testid="stSidebar"] *{color:#dcecf7;}
@@ -44,19 +47,19 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         a[data-testid="stPageLink-NavLink"]{
           display:flex;align-items:center;justify-content:center;min-height:68px;
           padding:13px 14px;border:1px solid rgba(85,230,242,.30);border-radius:12px;
-          background:linear-gradient(135deg,rgba(17,53,72,.94),rgba(9,28,45,.98));
+          background:linear-gradient(135deg,rgba(65,39,94,.96),rgba(26,15,48,.99));
           box-shadow:0 8px 22px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.05);
           transition:all .2s ease;text-decoration:none!important;
         }
         a[data-testid="stPageLink-NavLink"]:hover{
-          border-color:#65eff4;background:linear-gradient(135deg,rgba(10,104,119,.9),rgba(8,66,67,.98));
+          border-color:#65eff4;background:linear-gradient(135deg,rgba(117,65,166,.95),rgba(91,39,126,.98));
           transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,205,210,.18);
         }
         a[data-testid="stPageLink-NavLink"] p{font-family:"DM Mono",monospace;font-size:10px;
           font-weight:700;letter-spacing:.07em;color:#e8fcff!important;}
         .pc-status-strip{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
           padding:10px 14px;margin:0 0 23px;border:1px solid rgba(85,190,211,.17);
-          border-radius:9px;background:rgba(8,24,39,.68);color:#8eafc1;
+          border-radius:9px;background:rgba(28,17,48,.76);color:#c0afd5;
           font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.12em;}
         .pc-status-strip span:first-child{color:#68edc4;}
         .pc-status-strip i{display:inline-block;width:6px;height:6px;border-radius:50%;
@@ -69,7 +72,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         [data-testid="stSubheader"]{
           position:relative;margin:27px 0 13px;padding:12px 15px 11px 18px;
           border:1px solid rgba(85,190,211,.20);border-left:3px solid #55e6f2;
-          border-radius:8px;background:linear-gradient(90deg,rgba(13,42,59,.88),rgba(8,22,36,.35));
+          border-radius:8px;background:linear-gradient(90deg,rgba(54,31,83,.92),rgba(20,12,37,.48));
           box-shadow:inset 0 1px rgba(255,255,255,.025);
         }
         [data-testid="stSubheader"] h2{
@@ -82,7 +85,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         }
         [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"]{
           min-height:116px;padding:9px 10px;
-          background:linear-gradient(145deg,rgba(13,39,57,.96),rgba(7,20,34,.98));
+          background:linear-gradient(145deg,rgba(51,31,76,.97),rgba(19,12,36,.99));
           border:1px solid rgba(85,190,211,.28)!important;
           box-shadow:0 9px 24px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.035);
           transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
@@ -132,7 +135,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
           letter-spacing:.045em;text-transform:uppercase;}
         .pc-brand{display:flex;align-items:center;gap:11px;padding:13px 12px;margin:2px 0 22px;
           border:1px solid rgba(85,230,242,.26);border-radius:13px;
-          background:linear-gradient(115deg,rgba(15,47,67,.96),rgba(8,27,43,.82));
+          background:linear-gradient(115deg,rgba(66,39,96,.98),rgba(25,15,47,.90));
           box-shadow:0 8px 28px rgba(0,0,0,.22);}
         .pc-brand-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;
           color:#03131b;background:linear-gradient(140deg,#61f1fa,#24c9a7);font-weight:900;font-size:20px;
@@ -177,7 +180,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         [data-testid="stMetric"]{
           position:relative;overflow:hidden;min-height:112px;padding:17px 18px;
           border-radius:13px;border:1px solid rgba(85,190,211,.25);
-          background:linear-gradient(145deg,rgba(17,42,62,.98),rgba(7,20,34,.98));
+          background:linear-gradient(145deg,rgba(57,36,84,.98),rgba(21,13,39,.99));
           box-shadow:0 10px 26px rgba(0,0,0,.23),inset 0 1px rgba(255,255,255,.045);
         }
         [data-testid="stMetric"]:before{content:"";position:absolute;top:0;left:0;width:48px;height:2px;
@@ -186,7 +189,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         [data-testid="stMetricValue"]{color:#f2fcff!important;font-family:"Barlow Condensed",sans-serif;font-size:32px!important;font-weight:700;}
         [data-testid="stMetricDelta"]{font-family:"DM Mono",monospace;font-size:11px;}
         div[data-testid="stForm"],div[data-testid="stExpander"]{
-          background:linear-gradient(145deg,rgba(12,30,47,.94),rgba(8,20,33,.94));
+          background:linear-gradient(145deg,rgba(42,26,64,.96),rgba(19,12,37,.97));
           border:1px solid rgba(82,174,198,.22);border-radius:13px;
           box-shadow:0 10px 28px rgba(0,0,0,.16);
         }
@@ -194,26 +197,26 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         [data-testid="stDataFrame"],[data-testid="stDataEditor"]{border:1px solid rgba(85,190,211,.25);border-radius:11px;overflow:hidden;}
         [data-baseweb="input"]>div,[data-baseweb="select"]>div,[data-baseweb="textarea"],
         [data-testid="stDateInput"] input,[data-testid="stNumberInput"] input{
-          background:#081827!important;border-color:#29495e!important;color:#effaff!important;border-radius:8px!important;
+          background:#170e29!important;border-color:#634887!important;color:#fbf5ff!important;border-radius:8px!important;
         }
         input,textarea{color:#effaff!important;}
-        [data-testid="stFileUploader"]{background:rgba(9,29,46,.78);border:1px dashed rgba(85,230,242,.46);border-radius:13px;padding:10px;}
+        [data-testid="stFileUploader"]{background:rgba(35,21,56,.82);border:1px dashed rgba(202,166,255,.56);border-radius:13px;padding:10px;}
         .stButton>button,.stFormSubmitButton>button,.stDownloadButton>button{
           min-height:43px;border-radius:9px;border:1px solid rgba(85,230,242,.56);
-          background:linear-gradient(110deg,#087e91,#087d70);color:#f5ffff;font-weight:800;
+          background:linear-gradient(110deg,#7442a6,#a34c9f);color:#f5ffff;font-weight:800;
           letter-spacing:.025em;box-shadow:0 6px 20px rgba(0,190,195,.15);transition:all .18s ease;
         }
         .stButton>button:hover,.stFormSubmitButton>button:hover,.stDownloadButton>button:hover{
-          transform:translateY(-2px);border-color:#7af4fa;background:linear-gradient(110deg,#0a9fb2,#099780);
+          transform:translateY(-2px);border-color:#7af4fa;background:linear-gradient(110deg,#9456d0,#c05aaf);
           box-shadow:0 10px 26px rgba(0,220,215,.25);color:white;
         }
         button[kind="secondary"]{background:linear-gradient(110deg,#132b40,#102638)!important;border-color:#31556d!important;}
         [data-testid="stAlert"]{border-radius:11px;border:1px solid rgba(85,190,211,.24);background:rgba(12,31,47,.86);}
         [data-testid="stTabs"] button{color:#9bb8c8;font-weight:750;}
         [data-testid="stTabs"] button[aria-selected="true"]{color:#62eaf2;border-bottom-color:#62eaf2;}
-        [data-testid="stProgressBar"]>div>div{background:linear-gradient(90deg,#20a9bb,#35e0b3);}
+        [data-testid="stProgressBar"]>div>div{background:linear-gradient(90deg,#9a65db,#e58be8);}
         [data-testid="stPlotlyChart"],[data-testid="stVegaLiteChart"],[data-testid="stArrowVegaLiteChart"]{
-          border:1px solid rgba(85,190,211,.18);border-radius:13px;background:rgba(9,25,40,.55);padding:5px;
+          border:1px solid rgba(85,190,211,.18);border-radius:13px;background:rgba(29,17,48,.72);padding:5px;
         }
         hr{border-color:rgba(85,190,211,.2);}
         code{color:#72eaf0;background:#10283b;border-radius:5px;}
