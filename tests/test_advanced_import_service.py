@@ -142,9 +142,9 @@ def test_xer_import_cannot_change_existing_project_currency(tmp_path):
 
 def test_xer_import_supports_non_finish_to_start_relationships():
     supported = SINGLE_PROJECT_XER.replace(
-        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\n%R\\tP6-1\\tT2\\tT1",
-        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\tpred_type\\tlag_hr_cnt\\n"
-        b"%R\\tP6-1\\tT2\\tT1\\tPR_SS\\t0",
+        b"%F\tproj_id\ttask_id\tpred_task_id\n%R\tP6-1\tT2\tT1",
+        b"%F\tproj_id\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n"
+        b"%R\tP6-1\tT2\tT1\tPR_SS\t0",
     )
     prepared = prepare_xer_workspace_import(
         supported, project_id="P1", project_name="Plant Upgrade",
@@ -158,9 +158,9 @@ def test_xer_import_supports_non_finish_to_start_relationships():
 
 def test_xer_import_supports_nonzero_relationship_lags():
     lagged = SINGLE_PROJECT_XER.replace(
-        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\n%R\\tP6-1\\tT2\\tT1",
-        b"%F\\tproj_id\\ttask_id\\tpred_task_id\\tpred_type\\tlag_hr_cnt\\n"
-        b"%R\\tP6-1\\tT2\\tT1\\tPR_FS\\t8",
+        b"%F\tproj_id\ttask_id\tpred_task_id\n%R\tP6-1\tT2\tT1",
+        b"%F\tproj_id\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n"
+        b"%R\tP6-1\tT2\tT1\tPR_FS\t8",
     )
     prepared = prepare_xer_workspace_import(
         lagged, project_id="P1", project_name="Plant Upgrade",
