@@ -50,15 +50,20 @@ def test_cpm_keeps_legacy_predecessor_ids_as_zero_lag_fs():
     assert result["critical_path"] == ["A", "B"]
 
 
-def test_cpm_rejects_unknown_relationship_type_and_cycles():
-    invalid = calculate_critical_path([
-        {"activity_id": "A", "duration_days": 1},
-        {"activity_id": "B", "duration_days": 1,
-         "predecessor_relationships": [{
-             "predecessor_id": "A", "relationship_type": "XY", "lag_days": 0
-         }]},
-    ])
-    assert invalid["status"] == "INVALID_DEPENDENCIES"
+def test_cpm_rejects_unknown_relationship_type_and_detects_cycles():
+    with pytest.raises(ValueError, match="unsupported relationship type"):
+        calculate_critical_path([
+            {"activity_id": "A", "duration_days": 1},
+            {
+                "activity_id": "B",
+                "duration_days": 1,
+                "predecessor_relationships": [{
+                    "predecessor_id": "A",
+                    "relationship_type": "XY",
+                    "lag_days": 0,
+                }],
+            },
+        ])
 
     cyclic = calculate_critical_path([
         {"activity_id": "A", "duration_days": 1, "predecessor_ids": "B"},
