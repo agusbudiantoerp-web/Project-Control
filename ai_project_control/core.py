@@ -307,7 +307,9 @@ def validate_project_datasets(datasets: dict[str,pd.DataFrame]):
     return issues
 
 def calculate_cpm(activities: pd.DataFrame):
-    if activities.empty: raise ValueError("Import activities terlebih dahulu.")
+    """Calculate CPM, honoring stored P6 relationship metadata when available."""
+    if activities.empty:
+        raise ValueError("Import activities terlebih dahulu.")
     required={"activity_id","duration_days"}
     missing=required-set(activities.columns)
     if missing:
@@ -323,43 +325,43 @@ def calculate_cpm(activities: pd.DataFrame):
     if durations.isna().any() or not np.isfinite(durations).all() or (durations<0).any():
         raise ValueError("CPM duration_days harus berupa angka finite dan tidak negatif.")
     frame["duration_days"]=durations.astype(float)
-    if "predecessor_ids" not in frame:
-        frame["predecessor_ids"]=""
-    known=set(frame["activity_id"])
+
     records=[]
-    for _,r in frame.iterrows():
-        pred_raw=r.get("predecessor_ids","")
-        pred_raw="" if pd.isna(pred_raw) else str(pred_raw)
-        predecessors=[p.strip() for p in pred_raw.split(",") if p.strip()]
-        if r["activity_id"] in predecessors:
-            raise ValueError(f"CPM activity {r['activity_id']} tidak boleh menjadi predecessor dirinya sendiri.")
-        unknown=sorted(set(predecessors)-known)
-        if unknown:
-            raise ValueError(f"CPM unknown predecessor (predecessor tidak ditemukan) untuk {r['activity_id']}: "+", ".join(unknown))
-        records.append({"id":r["activity_id"],
-          "duration":float(r["duration_days"]),
-          "predecessors":",".join(predecessors)})
-    try:
-        from .pmcontrols.network import cpm
-    except ImportError:
-        from pmcontrols.network import cpm
-    result=cpm(records)
-    out=result.table.copy()
-    out=out.rename(columns={"activity":"activity_id","duration":"duration_days",
-      "es":"early_start_day","ef":"early_finish_day","ls":"late_start_day",
-      "lf":"late_finish_day","slack":"total_float_days","critical":"is_critical"})
-    # Use the normalized frame so IDs with surrounding whitespace still map
-    # back to their source metadata. Name/WBS are optional in CPM-only imports.
-    lookup=frame.set_index("activity_id")
-    if "activity_name" in lookup.columns:
-        out["activity_name"]=out["activity_id"].map(lookup["activity_name"])
-    else:
-        out["activity_name"]=out["activity_id"]
-    if "wbs_id" in lookup.columns:
-        out["wbs_id"]=out["activity_id"].map(lookup["wbs_id"])
-    else:
-        out["wbs_id"]=None
-    return out, result.stats
+    for _, row in frame.iterrows():
+        predecessor_value=row.get("predecessor_ids","")
+        if pd.isna(predecessor_value):
+            predecessor_value=""
+        record={
+            "activity_id":row["activity_id"],
+            "activity_name":row.get("activity_name",row["activity_id"]),
+            "duration_days":float(row["duration_days"]),
+            "predecessor_ids":str(predecessor_value),
+        }
+        relationships=row.get("predecessor_relationships")
+        if isinstance(relationships,list):
+            record["predecessor_relationships"]=relationships
+        records.append(record)
+
+    from ai_project_control.schedule_engine import calculate_critical_path
+    result=calculate_critical_path(records)
+    if result.get("status")!="ASSESSED":
+        raise ValueError("CPM network invalid: "+"; ".join(result.get("issues",[])))
+    out=pd.DataFrame(result["activities"])
+    out=out.rename(columns={
+        "early_start":"early_start_day",
+        "early_finish":"early_finish_day",
+        "late_start":"late_start_day",
+        "late_finish":"late_finish_day",
+    })
+    out["wbs_id"]=out["activity_id"].map(
+        frame.set_index("activity_id")["wbs_id"]
+    ) if "wbs_id" in frame.columns else None
+    stats={
+        "project_duration":float(result["project_duration_days"]),
+        "n_activities":float(result["activity_count"]),
+        "n_critical":float(len(result["critical_path"])),
+    }
+    return out, stats
 
 def calculate_evm(project: pd.DataFrame, activities: pd.DataFrame, boq: pd.DataFrame,
                   progress: pd.DataFrame, actual: pd.DataFrame, status_date):
