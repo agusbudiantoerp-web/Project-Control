@@ -281,10 +281,11 @@ def prepare_xer_workspace_import(
         wbs_id = str(row.get("wbs_id", "")).strip()
         if not wbs_id:
             continue
+        source_parent_id = str(row.get("parent_wbs_id", "")).strip()
         wbs_rows.append({
             "project_id": target_id,
             "wbs_id": wbs_id,
-            "parent_wbs_id": str(row.get("parent_wbs_id", "")).strip(),
+            "parent_wbs_id": source_parent_id,
             "wbs_name": str(row.get("wbs_name") or row.get("wbs_short_name") or wbs_id).strip(),
             "source_format": "PRIMAVERA_P6_XER",
         })
@@ -297,11 +298,25 @@ def prepare_xer_workspace_import(
         row["wbs_id"]: row["parent_wbs_id"]
         for row in wbs_rows
     }
-    for wbs_id, parent_id in parent_by_wbs.items():
+    external_parent_count = 0
+    for row in wbs_rows:
+        parent_id = row["parent_wbs_id"]
         if parent_id in {"", "0"}:
             continue
         if parent_id not in wbs_ids:
-            raise ValueError(f"P6 WBS {wbs_id} references missing parent WBS {parent_id}")
+            # XER exports may begin below a portfolio/project WBS that is not
+            # included in the selected export. Preserve that source reference,
+            # but make the first imported WBS a valid root in this workspace.
+            row["external_parent_wbs_id"] = parent_id
+            row["parent_wbs_id"] = ""
+            external_parent_count += 1
+    parent_by_wbs = {
+        row["wbs_id"]: row["parent_wbs_id"]
+        for row in wbs_rows
+    }
+    for wbs_id, parent_id in parent_by_wbs.items():
+        if parent_id in {"", "0"}:
+            continue
         visited = {wbs_id}
         current = parent_id
         while current:
@@ -338,6 +353,7 @@ def prepare_xer_workspace_import(
         "counts": {
             "wbs": len(wbs_rows),
             "activities": len(activities),
+            "external_parent_wbs": external_parent_count,
             "duplicate_relationships_removed": duplicate_relationship_count,
             "relationship_types": relationship_type_count,
         },
@@ -347,6 +363,7 @@ def prepare_xer_workspace_import(
             "All four P6 relationship types (FS, SS, FF, SF) and signed lag/lead are retained in predecessor_relationships and used by workspace CPM.",
             "Calendars, holidays, constraints, resource leveling and native Primavera calendar semantics are not recalculated by this import.",
             "Imported P6 dates are source references; validate calendars and baseline meaning before using them for forecasts.",
+            *([f"{external_parent_count} WBS record(s) reference parent IDs omitted from the selected XER export. They were imported as workspace roots; original IDs are preserved in external_parent_wbs_id."] if external_parent_count else []),
         ],
     }
 
