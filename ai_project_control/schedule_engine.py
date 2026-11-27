@@ -113,7 +113,7 @@ def calculate_critical_path(activities: list[dict[str, Any]]) -> dict[str, Any]:
             issues.append(f"{activity_id} references unknown predecessor(s) (predecessor tidak ditemukan): {', '.join(missing)}")
         self_links = [r for r in node["relationships"] if r["predecessor_id"] == activity_id]
         if self_links:
-            issues.append(f"{activity_id} cannot depend on itself")
+            issues.append(f"{activity_id} cannot depend on itself (tidak boleh menjadi predecessor dirinya sendiri)")
     if issues:
         return {
             "status": "INVALID_DEPENDENCIES", "activity_count": len(nodes),
