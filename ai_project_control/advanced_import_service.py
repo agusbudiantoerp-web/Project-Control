@@ -185,6 +185,8 @@ def prepare_xer_workspace_import(
     task_ids = set(task_id_values)
     code_by_id = dict(zip(task_id_values, activity_id_values))
     predecessor_map: dict[str, list[str]] = {}
+    seen_relationships: set[tuple[str, str, str, float]] = set()
+    duplicate_relationship_count = 0
     for relation in tables.get("TASKPRED", []):
         successor = str(relation.get("task_id", "")).strip()
         predecessor = str(relation.get("pred_task_id", "")).strip()
@@ -194,8 +196,6 @@ def prepare_xer_workspace_import(
             raise ValueError(
                 f"P6 activity {successor} references predecessor {predecessor} outside the selected project."
             )
-        if code_by_id[predecessor] in predecessor_map.get(successor, []):
-            raise ValueError(f"P6 activity {successor} contains a duplicate predecessor link")
         relation_type = str(relation.get("pred_type") or "PR_FS").strip().upper()
         if relation_type not in {"PR_FS", "FS"}:
             raise ValueError(
@@ -214,6 +214,13 @@ def prepare_xer_workspace_import(
                 f"P6 relationship {predecessor} → {successor} has a non-zero lag; "
                 "lags are not supported by the workspace CPM engine."
             )
+        # XER exports can repeat an identical TASKPRED row. Collapse only exact
+        # duplicates; do not silently merge links with different types or lags.
+        signature = (successor, predecessor, relation_type, lag_hours)
+        if signature in seen_relationships:
+            duplicate_relationship_count += 1
+            continue
+        seen_relationships.add(signature)
         predecessor_map.setdefault(successor, []).append(code_by_id[predecessor])
 
     activities = []
@@ -318,8 +325,13 @@ def prepare_xer_workspace_import(
         "source_project_id": selected_source,
         "source_project_name": source_project.get("project_name", ""),
         "source_project_options": available,
-        "counts": {"wbs": len(wbs_rows), "activities": len(activities)},
+        "counts": {
+            "wbs": len(wbs_rows),
+            "activities": len(activities),
+            "duplicate_relationships_removed": duplicate_relationship_count,
+        },
         "limitations": [
+            *([f"Removed {duplicate_relationship_count} exact duplicate P6 predecessor link(s) from the import preview; source XER was not modified."] if duplicate_relationship_count else []),
             "P6 target duration hours are converted to nominal 8-hour days for the workspace CPM engine.",
             "Calendars, holidays, constraints, resource leveling, relationship types and lags are not recalculated by this import.",
             "Imported P6 dates are source references; validate calendars and baseline meaning before using them for forecasts.",
