@@ -270,7 +270,7 @@ def prepare_xer_workspace_import(
     schedule_check = calculate_critical_path(activities)
     if schedule_check.get("status") != "ASSESSED":
         raise ValueError(
-            "P6 activity dependency network is not a valid finish-to-start CPM network: "
+            "P6 activity dependency network is not a valid CPM network: "
             + "; ".join(schedule_check.get("issues", []))
         )
 
