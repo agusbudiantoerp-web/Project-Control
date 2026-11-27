@@ -171,16 +171,26 @@ def test_xer_import_supports_nonzero_relationship_lags():
     assert successor["predecessor_relationships"][0]["lag_hours_source"] == 8
 
 
-def test_xer_import_rejects_missing_wbs_parent_links():
-    invalid = SINGLE_PROJECT_XER.replace(
+def test_xer_import_preserves_parent_reference_when_export_omits_external_root():
+    source = SINGLE_PROJECT_XER.replace(
         b"%R\tP6-1\tW1\t\tCivil Works",
-        b"%R\tP6-1\tW1\tMISSING\tCivil Works",
+        b"%R\tP6-1\tW1\tEXTERNAL-ROOT\tCivil Works",
     )
-    with pytest.raises(ValueError, match="missing parent WBS"):
-        prepare_xer_workspace_import(
-            invalid, project_id="P1", project_name="Plant Upgrade",
-            currency="IDR", source_project_id="P6-1",
-        )
+    prepared = prepare_xer_workspace_import(
+        source, project_id="P1", project_name="Plant Upgrade",
+        currency="IDR", source_project_id="P6-1",
+    )
+    assert prepared["wbs"] == [{
+        "project_id": "P1",
+        "wbs_id": "W1",
+        "parent_wbs_id": "",
+        "external_parent_wbs_id": "EXTERNAL-ROOT",
+        "wbs_name": "Civil Works",
+        "source_format": "PRIMAVERA_P6_XER",
+    }]
+    assert prepared["counts"]["external_parent_wbs"] == 1
+    assert any("EXTERNAL-ROOT" in item or "external_parent_wbs_id" in item
+               for item in prepared["limitations"])
 
 
 def test_gemini_drawing_response_becomes_pending_review_rows(monkeypatch):
