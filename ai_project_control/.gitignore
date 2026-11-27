@@ -1,0 +1,16 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.streamlit/secrets.toml
+data/uploads/
+data/projects/
+.DS_Store
+
+# Local database and packaged builds
+project_control.db
+project_control.db-*
+build/
+dist/
+*.spec
+.streamlit/

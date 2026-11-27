@@ -1,0 +1,2477 @@
+from datetime import date
+import json
+import math
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+import requests
+from executive_reporting import build_executive_summary
+from ai_narrative_advisor import generate_narrative_advice
+import os
+from io import BytesIO
+
+from dashboard_metrics import forecast_completion_date
+from integrated_forecast import build_integrated_forecast
+from mitigation_engine import build_mitigation_advice, compare_recovery_scenarios, compare_multiple_recovery_scenarios, build_recovery_decision_matrix, build_predictive_warnings, diagnose_project_drivers, build_root_cause_action_plan
+from resource_optimization import simulate_resource_smoothing, compare_shift_capacity_scenarios
+from portfolio_resource_intelligence import build_portfolio_resource_summary, detect_shared_resource_conflicts
+from portfolio_resource_allocation import build_resource_allocation_scenario
+from portfolio_resource_scenarios import compare_resource_allocation_scenarios
+from portfolio_resource_transfer import simulate_resource_transfer_impact
+from executive_command_center import build_executive_command_center
+from executive_recovery_strategies import build_executive_recovery_strategies
+from recovery_scenario_optimizer import optimize_recovery_scenarios
+from integrated_recovery_impact import build_integrated_recovery_impact
+from portfolio_governance import submit_recovery_action, transition_recovery_action, governance_summary, build_portfolio_governance_overview, simulate_recovery_budget_allocation, TRANSITIONS
+from portfolio_risk_engine import rank_portfolio
+from portfolio_health_monitoring import build_health_monitoring
+from project_director_decision_matrix import build_decision_matrix
+from executive_action_register import create_action, transition_action, build_action_register, ALLOWED_TRANSITIONS
+from project_recovery_control import assess_recovery_control
+from recovery_scenario_comparator import compare_recovery_scenarios as compare_recovery_scenarios_control
+from integrated_executive_report import build_integrated_executive_report
+from integrated_project_intelligence import build_integrated_project_intelligence
+from telegram_executive_reporting import build_telegram_executive_message, send_telegram_executive_message
+from core import (TEMPLATES, REQUIRED, init_db, save_dataset, load_dataset, list_datasets,
+                  parse_xer, xer_to_frames, validate_dataset, calculate_cpm, calculate_evm,
+                  calculate_progress, risk_analysis, optimize_crash, export_workbook, calculate_xer_cpm, calculate_dcma14, calculate_schedule_pert, add_earned_schedule_metrics, parse_xer_with_pyp6xer, calculate_milestones, calculate_change_impact, calculate_resource_load, generate_pdf_report, send_telegram_document, predict_project_trend, calculate_calendar_schedule, analyze_commitments, build_cost_cashflow, render_pdf_page, analyze_drawing_page_gemini, takeoff_to_boq_draft, export_project_backup, import_project_backup, validate_project_datasets, list_project_portfolio, list_project_ids)
+
+st.set_page_config(page_title="AI Project Control System", page_icon="🏗️", layout="wide")
+init_db()
+
+st.markdown("""
+<style>
+.block-container{padding-top:1.3rem;padding-bottom:2rem}
+div[data-testid="stMetric"]{background:rgba(80,110,145,.08);padding:14px;border-radius:12px}
+.small-muted{color:#8391a5;font-size:.88rem}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🏗️ AI PROJECT CONTROL SYSTEM")
+st.caption("Integrated Project Intelligence Platform | Integrated V1")
+with st.sidebar:
+    st.header("Project Workspace")
+    project_id = st.text_input("Project code", "PRJ-001").strip() or "PRJ-001"
+    saved_master=load_dataset(project_id,"project_master.csv")
+    saved_name=str(saved_master.iloc[0].get("project_name","")) if not saved_master.empty else ""
+    project_name = st.text_input("Project name", saved_name or "Demo Construction Project")
+    saved_status=pd.to_datetime(saved_master.iloc[0].get("status_date"),errors="coerce").date() if not saved_master.empty else date.today()
+    status_date = st.date_input("Status date", saved_status if pd.notna(saved_status) else date.today())
+    st.divider()
+    st.caption("Local project database")
+    st.caption("Data is stored on this computer in project_control.db")
+    stored = list_datasets(project_id)
+    st.write(f"Datasets saved: **{len(stored)}**")
+
+def ds(name):
+    return load_dataset(project_id,name)
+
+def configured_secret(name):
+    value = os.getenv(name, "")
+    if value:
+        return value
+    try:
+        return str(st.secrets.get(name, ""))
+    except Exception:
+        return ""
+
+def show_df(df, height=320):
+    if df is not None and not df.empty:
+        st.dataframe(df, use_container_width=True, hide_index=True, height=height)
+    else:
+        st.info("Belum ada data. Impor dataset pada tab Project Data Hub.")
+
+def metric_row(items):
+    cols=st.columns(len(items))
+    for c,(label,value) in zip(cols,items):
+        if isinstance(value,float) and math.isnan(value): value="—"
+        elif isinstance(value,float): value=f"{value:,.2f}"
+        c.metric(label,value)
+
+overview, portfolio_tab, hub, planning, cost, progress_tab, risk_tab, optimization, xer_tab, resources_tab, milestones_tab, drawing_tab, ai_advisor, reports, forecast_tab, guide = st.tabs([
+    "Overview","Portfolio Command Center","Project Data Hub","Planning & CPM","Cost & EVM","Progress","Risk & Monte Carlo",
+    "Optimization","Primavera XER","Resources & Manpower","Milestones & Change","Drawing to BOQ","AI Advisor","Reports","Integrated Forecast","User Guide"
+])
+
+with portfolio_tab:
+    st.subheader("Portfolio Command Center")
+    st.caption("Aggregates projects saved in this computer's local AI Project Control database. Projects on other computers or servers are not included.")
+    portfolio = list_project_portfolio()
+    if portfolio.empty:
+        st.info("Belum ada proyek tersimpan. Impor Project Master pada Project Data Hub untuk mulai membangun portfolio.")
+    else:
+        critical_count = int((portfolio["portfolio_status"] == "Critical").sum())
+        at_risk_count = int((portfolio["portfolio_status"] == "At Risk").sum())
+        complete_evm = int(portfolio["SPI"].notna().sum())
+        m1,m2,m3,m4 = st.columns(4)
+        m1.metric("Projects", len(portfolio))
+        m2.metric("Critical", critical_count)
+        m3.metric("At Risk", at_risk_count)
+        m4.metric("Projects with EVM", complete_evm)
+        st.markdown("### Portfolio project register")
+        priority = {"Critical":0,"At Risk":1,"CPM only - EVM unavailable":2,
+                    "Data incomplete":3,"Within KPI threshold":4}
+        portfolio["_priority"] = portfolio["portfolio_status"].map(priority).fillna(5)
+        portfolio = portfolio.sort_values(["_priority","project_id"]).drop(columns=["_priority"])
+        st.dataframe(portfolio, use_container_width=True, hide_index=True)
+        st.download_button(
+            "Download portfolio KPI register",
+            portfolio.to_csv(index=False).encode("utf-8-sig"),
+            file_name="project_portfolio_kpi_register.csv",
+            mime="text/csv",
+        )
+        st.markdown("### Project intervention shortlist")
+        intervention = portfolio[portfolio["portfolio_status"].isin(["Critical","At Risk"])]
+        if intervention.empty:
+            st.success("Tidak ada proyek berstatus Critical atau At Risk berdasarkan KPI EVM yang tersedia.")
+        else:
+            st.dataframe(intervention[["project_id","project_name","status_date","currency","SPI","CPI","EAC","portfolio_status","data_readiness"]],
+                         use_container_width=True, hide_index=True)
+        st.caption("SPI/CPI hanya dihitung jika dataset EVM proyek memenuhi persyaratan. Jangan menjumlahkan BAC, AC atau EAC lintas mata uang. Status ini merupakan screening KPI, bukan keputusan kontraktual.")
+
+        st.markdown("### Portfolio Risk Heatmap & Early Warning")
+        risk_inputs = []
+        for _, project_row in portfolio.iterrows():
+            risk_inputs.append({
+                "project_id": project_row.get("project_id"),
+                "project_name": project_row.get("project_name"),
+                "spi": project_row.get("SPI"),
+                "cpi": project_row.get("CPI"),
+                "forecast_variance_pct": (
+                    (float(project_row.get("EAC")) - float(project_row.get("BAC"))) / float(project_row.get("BAC")) * 100
+                    if pd.notna(project_row.get("EAC")) and pd.notna(project_row.get("BAC"))
+                    and float(project_row.get("BAC")) > 0 else None
+                ),
+                "total_float_days": project_row.get("total_float_days"),
+                "risk_exposure": project_row.get("risk_exposure"),
+                "risk_capacity": project_row.get("risk_capacity"),
+                "overloaded_resource_days": project_row.get("overloaded_resource_days"),
+                "currency": project_row.get("currency"),
+            })
+        risk_rows = pd.DataFrame(rank_portfolio(risk_inputs))
+
+        st.markdown("### Project Director Decision Matrix")
+        director_records = []
+        for _, director_row in portfolio.iterrows():
+            matched_risk = risk_rows.loc[
+                risk_rows["project_id"].astype(str) == str(director_row.get("project_id", ""))
+            ] if not risk_rows.empty and "project_id" in risk_rows else pd.DataFrame()
+            risk_value = matched_risk.iloc[0].get("risk_score") if not matched_risk.empty else None
+            director_records.append({
+                "project_id": director_row.get("project_id"),
+                "project_name": director_row.get("project_name"),
+                "SPI": director_row.get("SPI"),
+                "CPI": director_row.get("CPI"),
+                "risk_score": risk_value,
+            })
+        director_matrix = build_decision_matrix(director_records)
+        dm1, dm2, dm3, dm4 = st.columns(4)
+        dm1.metric("P1 Immediate Review", director_matrix["summary"]["p1_count"])
+        dm2.metric("P2 Recovery Review", director_matrix["summary"]["p2_count"])
+        dm3.metric("Data Review", director_matrix["summary"]["data_review_count"])
+        dm4.metric("Unassessed", director_matrix["summary"]["unassessed_count"])
+        director_df = pd.DataFrame(director_matrix["decisions"])
+        if not director_df.empty:
+            st.dataframe(director_df, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download Project Director decision matrix",
+                director_df.to_csv(index=False).encode("utf-8-sig"),
+                file_name="project_director_decision_matrix.csv",
+                mime="text/csv",
+            )
+        with st.expander("Decision matrix scoring method and limitations"):
+            st.write(director_matrix["method"])
+            st.caption("Priority is a management-review aid only; it does not approve budgets, contracts or recovery plans.")
+
+        
+        st.markdown("### Integrated Project Intelligence")
+        st.caption("Satu tampilan yang menggabungkan performa EVM, indikator risiko, dan prioritas review direktur. Indikator yang tidak tersedia tetap ditandai.")
+        try:
+            intelligence_result = build_integrated_project_intelligence(portfolio.to_dict("records"))
+            intelligence_df = pd.DataFrame(intelligence_result["projects"])
+            ix1, ix2, ix3, ix4 = st.columns(4)
+            ix1.metric("Critical risk", intelligence_result["summary"]["critical_risk_count"])
+            ix2.metric("High risk", intelligence_result["summary"]["high_risk_count"])
+            ix3.metric("Performance assessed", intelligence_result["summary"]["assessed_performance_count"])
+            ix4.metric("Incomplete risk data", intelligence_result["summary"]["incomplete_risk_count"])
+            if not intelligence_df.empty:
+                st.dataframe(intelligence_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download integrated project intelligence",
+                    intelligence_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="integrated_project_intelligence.csv",
+                    mime="text/csv",
+                )
+            with st.expander("Integrated intelligence methods and limitations"):
+                for method_name, method_text in intelligence_result["methods"].items():
+                    st.write(f"**{method_name.title()}**")
+                    st.write(method_text)
+                for limitation in intelligence_result["limitations"]:
+                    st.write("• " + limitation)
+
+            st.markdown("#### Telegram Executive Briefing")
+            st.caption("Token hanya digunakan saat tombol kirim ditekan dan tidak disimpan ke dataset proyek. Anda juga dapat mengatur TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID pada environment atau Streamlit secrets.")
+            telegram_token_input = st.text_input(
+                "Telegram bot token (optional if configured in secrets)",
+                type="password", key="portfolio_telegram_bot_token",
+            )
+            telegram_chat_input = st.text_input(
+                "Telegram chat ID (optional if configured in secrets)",
+                key="portfolio_telegram_chat_id",
+            )
+            if st.button("Send executive briefing to Telegram", key="send_portfolio_telegram_briefing"):
+                try:
+                    active_token = telegram_token_input.strip() or configured_secret("TELEGRAM_BOT_TOKEN")
+                    active_chat = telegram_chat_input.strip() or configured_secret("TELEGRAM_CHAT_ID")
+                    action_rows_for_message = ds("executive_action_register.csv")
+                    event_rows_for_message = ds("executive_action_events.csv")
+                    action_summary_for_message = build_action_register(
+                        action_rows_for_message.to_dict("records") if not action_rows_for_message.empty else [],
+                        event_rows_for_message.to_dict("records") if not event_rows_for_message.empty else [],
+                    )
+                    telegram_message = build_telegram_executive_message(
+                        project_name="Portfolio Command Center",
+                        status_date=status_date.isoformat(),
+                        intelligence=intelligence_result,
+                        action_register=action_summary_for_message,
+                    )
+                    sent_messages = send_telegram_executive_message(
+                        bot_token=active_token,
+                        chat_id=active_chat,
+                        message=telegram_message,
+                    )
+                    st.success(f"Executive briefing sent to Telegram ({len(sent_messages)} message part(s)).")
+                except Exception as telegram_error:
+                    st.error(f"Telegram briefing was not sent: {telegram_error}")
+        except Exception as intelligence_error:
+            st.error(f"Integrated project intelligence could not be calculated: {intelligence_error}")
+
+        st.markdown("### Portfolio Health Monitoring — dated snapshots")
+        st.caption("Trend assessment uses only dated snapshots explicitly saved by the operator. This history is stored in the current local project workspace.")
+        health_store = ds("portfolio_health_snapshots.csv")
+        health_date = status_date.isoformat()
+        if st.button("Capture / replace portfolio snapshot for status date", key="capture_portfolio_health_snapshot"):
+            current_snapshot_rows = []
+            for item in director_records:
+                current_snapshot_rows.append({
+                    "project_id": str(item.get("project_id", "")),
+                    "project_name": str(item.get("project_name", "")),
+                    "snapshot_date": health_date,
+                    "SPI": item.get("SPI"),
+                    "CPI": item.get("CPI"),
+                    "risk_score": item.get("risk_score"),
+                })
+            new_snapshot = pd.DataFrame(current_snapshot_rows)
+            if not health_store.empty:
+                keep = ~(
+                    health_store["project_id"].astype(str).isin(new_snapshot["project_id"].astype(str))
+                    & health_store["snapshot_date"].astype(str).eq(health_date)
+                )
+                health_store = health_store.loc[keep].copy()
+            health_store = pd.concat([health_store, new_snapshot], ignore_index=True)
+            save_dataset(project_id, "portfolio_health_snapshots.csv", health_store)
+            st.success(f"Portfolio snapshot saved for {health_date}.")
+            st.rerun()
+        if health_store.empty:
+            st.info("Belum ada snapshot tersimpan. Simpan snapshot pertama; trend baru tersedia setelah ada minimal dua tanggal berbeda per proyek.")
+        else:
+            health_result = build_health_monitoring(health_store.to_dict("records"))
+            health_df = pd.DataFrame(health_result["projects"])
+            hs1, hs2, hs3 = st.columns(3)
+            hs1.metric("Trend assessed", health_result["summary"]["trend_assessed_count"])
+            hs2.metric("No baseline", health_result["summary"]["no_baseline_count"])
+            hs3.metric("Data conflicts", health_result["summary"]["data_conflict_count"])
+            if not health_df.empty:
+                st.dataframe(health_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download portfolio health trend register",
+                    health_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="portfolio_health_trend_register.csv",
+                    mime="text/csv",
+                )
+            with st.expander("Snapshot history and trend methodology"):
+                st.dataframe(health_store.sort_values(["project_id", "snapshot_date"]), use_container_width=True, hide_index=True)
+                st.write(health_result["method"])
+        if not risk_rows.empty:
+            st.dataframe(
+                risk_rows[["project_id","project_name","risk_score","risk_status",
+                           "available_indicators","evidence","missing_indicators",
+                           "recommended_attention"]],
+                use_container_width=True, hide_index=True
+            )
+            st.download_button(
+                "Download portfolio risk & early-warning register",
+                risk_rows.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_risk_early_warning.csv",
+                mime="text/csv",
+            )
+        st.caption("Risk score saat ini menggunakan SPI dan CPI yang tersedia dari EVM. Indikator float, risk exposure/capacity, dan forecast variance tidak diasumsikan; lengkapi dataset terkait sebelum menggunakannya untuk keputusan manajemen.")
+
+        st.markdown("### Portfolio Cost Forecast by Currency")
+        forecast_rows = portfolio.copy()
+        forecast_rows["BAC"] = pd.to_numeric(forecast_rows["BAC"], errors="coerce")
+        forecast_rows["EAC"] = pd.to_numeric(forecast_rows["EAC"], errors="coerce")
+        forecast_rows["forecast_variance"] = forecast_rows["EAC"] - forecast_rows["BAC"]
+        forecast_rows["forecast_variance_pct"] = (
+            forecast_rows["forecast_variance"] / forecast_rows["BAC"].where(forecast_rows["BAC"] > 0) * 100
+        )
+        forecast_available = forecast_rows.dropna(subset=["BAC", "EAC"])
+        if forecast_available.empty:
+            st.info("Forecast biaya belum dapat dibandingkan. Pastikan BAC dan EAC tersedia untuk proyek.")
+        else:
+            currency_summary = (
+                forecast_available.groupby("currency", dropna=False)
+                .agg(projects=("project_id", "count"), total_bac=("BAC", "sum"),
+                     total_eac=("EAC", "sum"), total_variance=("forecast_variance", "sum"))
+                .reset_index()
+            )
+            st.dataframe(currency_summary, use_container_width=True, hide_index=True)
+            forecast_detail = forecast_available[[
+                "project_id", "project_name", "currency", "BAC", "EAC",
+                "forecast_variance", "forecast_variance_pct", "portfolio_status"
+            ]].copy()
+            st.dataframe(forecast_detail, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download portfolio cost forecast",
+                forecast_detail.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_cost_forecast_by_currency.csv",
+                mime="text/csv",
+            )
+        st.caption("Rekap biaya hanya dijumlahkan dalam kelompok mata uang yang sama. Variance positif menunjukkan EAC di atas BAC; hasil ini merupakan screening forecast, bukan persetujuan perubahan anggaran.")
+
+        st.markdown("### Portfolio Schedule Forecast")
+        schedule_rows = portfolio.copy()
+        schedule_rows["schedule_slip_days"] = pd.to_numeric(schedule_rows["schedule_slip_days"], errors="coerce")
+        schedule_available = schedule_rows.dropna(subset=["baseline_finish", "forecast_finish"])
+        if schedule_available.empty:
+            st.info("Forecast tanggal selesai belum tersedia. Lengkapi planned_start, planned_finish dan data SPI/EVM proyek.")
+        else:
+            schedule_available = schedule_available.sort_values("schedule_slip_days", ascending=False)
+            schedule_summary = schedule_available[[
+                "project_id", "project_name", "status_date", "planned_start",
+                "baseline_finish", "forecast_finish", "schedule_slip_days", "SPI"
+            ]].copy()
+            schedule_summary["schedule_outlook"] = schedule_summary["schedule_slip_days"].apply(
+                lambda days: "Forecast delay" if days > 0 else ("Forecast ahead" if days < 0 else "On baseline")
+            )
+            st.dataframe(schedule_summary, use_container_width=True, hide_index=True)
+            delayed_count = int((schedule_summary["schedule_slip_days"] > 0).sum())
+            sm1, sm2, sm3 = st.columns(3)
+            sm1.metric("Projects forecastable", len(schedule_summary))
+            sm2.metric("Forecast delayed", delayed_count)
+            sm3.metric("Maximum forecast slip", f'{schedule_summary["schedule_slip_days"].max():.0f} days')
+            st.download_button(
+                "Download portfolio schedule forecast",
+                schedule_summary.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_schedule_forecast.csv",
+                mime="text/csv",
+            )
+        st.markdown("### Executive Portfolio Intervention Matrix")
+        executive = portfolio[[
+            "project_id", "project_name", "currency", "SPI", "CPI",
+            "BAC", "EAC", "baseline_finish", "forecast_finish", "schedule_slip_days"
+        ]].copy()
+        executive["cost_variance_pct"] = (
+            (pd.to_numeric(executive["EAC"], errors="coerce") -
+             pd.to_numeric(executive["BAC"], errors="coerce")) /
+            pd.to_numeric(executive["BAC"], errors="coerce").where(
+                pd.to_numeric(executive["BAC"], errors="coerce") > 0
+            ) * 100
+        )
+        executive = executive.merge(
+            risk_rows[["project_id", "risk_score", "risk_status", "evidence", "recommended_attention"]],
+            on="project_id", how="left"
+        )
+        executive["schedule_slip_days"] = pd.to_numeric(executive["schedule_slip_days"], errors="coerce")
+        executive["intervention_priority"] = executive["risk_score"].apply(
+            lambda score: "Unscored" if pd.isna(score) else
+            ("P1 - Immediate" if score >= 70 else ("P2 - High" if score >= 40 else
+             ("P3 - Monitor" if score >= 20 else "P4 - Routine")))
+        )
+        def portfolio_action(row):
+            actions = []
+            if pd.notna(row["SPI"]) and row["SPI"] < 1:
+                actions.append("Review critical-path recovery and weekly look-ahead")
+            if pd.notna(row["CPI"]) and row["CPI"] < 1:
+                actions.append("Reconcile commitments, actual cost and remaining quantities")
+            if pd.notna(row["cost_variance_pct"]) and row["cost_variance_pct"] > 0:
+                actions.append("Validate EAC drivers and approve cost mitigation")
+            if pd.notna(row["schedule_slip_days"]) and row["schedule_slip_days"] > 0:
+                actions.append("Prepare schedule recovery options and resource check")
+            return "; ".join(actions) if actions else (
+                "Complete missing performance data" if row["intervention_priority"] == "Unscored"
+                else "Continue routine controls and monitor next reporting period"
+            )
+        executive["recommended_management_action"] = executive.apply(portfolio_action, axis=1)
+        executive = executive.sort_values(
+            ["risk_score", "schedule_slip_days"], ascending=[False, False], na_position="last"
+        )
+        st.dataframe(executive[[
+            "project_id", "project_name", "currency", "risk_score", "risk_status",
+            "intervention_priority", "SPI", "CPI", "cost_variance_pct",
+            "schedule_slip_days", "recommended_management_action"
+        ]], use_container_width=True, hide_index=True)
+        st.download_button(
+            "Download executive portfolio intervention matrix",
+            executive.to_csv(index=False).encode("utf-8-sig"),
+            file_name="executive_portfolio_intervention_matrix.csv",
+            mime="text/csv",
+        )
+        st.caption("Prioritas merupakan screening berbasis indikator yang tersedia. Rekomendasi adalah tindakan awal untuk ditinjau Project Manager; bukan keputusan otomatis atau pengganti validasi lapangan.")
+
+        st.markdown("### Executive Portfolio Command Center — Decision Queue")
+        command_center = build_executive_command_center(portfolio, risk_rows)
+        if not command_center["available"]:
+            st.info("Executive decision queue belum tersedia: " + "; ".join(command_center["assumptions"]))
+        else:
+            decision_queue = command_center["queue"]
+            tier_counts = decision_queue["decision_tier"].value_counts()
+            cc1, cc2, cc3, cc4 = st.columns(4)
+            cc1.metric("P1 Immediate", int(tier_counts.get("P1 - IMMEDIATE", 0)))
+            cc2.metric("P2 High", int(tier_counts.get("P2 - HIGH", 0)))
+            cc3.metric("P3 Monitor", int(tier_counts.get("P3 - MONITOR", 0)))
+            cc4.metric("Unscored", int(tier_counts.get("UNSCORED", 0)))
+            st.dataframe(command_center["summary"], use_container_width=True, hide_index=True)
+            st.markdown("**Ranked executive decision queue**")
+            queue_columns = [
+                "project_id", "project_name", "currency", "decision_tier",
+                "executive_priority_score", "risk_score", "SPI", "CPI",
+                "schedule_slip_days", "cost_variance_pct", "decision_evidence",
+                "recommended_executive_action",
+            ]
+            st.dataframe(decision_queue[[col for col in queue_columns if col in decision_queue]],
+                         use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download executive command center decision queue",
+                decision_queue.to_csv(index=False).encode("utf-8-sig"),
+                file_name="executive_portfolio_command_center.csv",
+                mime="text/csv",
+            )
+            with st.expander("Executive scoring methodology and limitations"):
+                for assumption in command_center["assumptions"]:
+                    st.write("• " + assumption)
+
+        st.markdown("### Executive Recovery Strategy Engine")
+        recovery_result = build_executive_recovery_strategies(portfolio, risk_rows)
+        if not recovery_result["available"]:
+            st.info("Recovery strategy belum tersedia: " + "; ".join(recovery_result["assumptions"]))
+        elif recovery_result["strategies"].empty:
+            st.success("Tidak ada trigger pemulihan pada indikator portofolio yang tersedia. Tetap lengkapi data dan lakukan review berkala.")
+        else:
+            recovery_summary = recovery_result["project_summary"]
+            recovery_strategies = recovery_result["strategies"]
+            rs1, rs2, rs3 = st.columns(3)
+            rs1.metric("Projects requiring strategy review", recovery_summary["project_id"].nunique())
+            rs2.metric("Strategy alternatives", len(recovery_strategies))
+            rs3.metric("Integrated recovery plans", int((recovery_strategies["category"] == "Integrated").sum()))
+            st.markdown("**Recovery review by project**")
+            st.dataframe(recovery_summary, use_container_width=True, hide_index=True)
+            st.markdown("**Strategy alternatives and evidence**")
+            st.dataframe(recovery_strategies, use_container_width=True, hide_index=True)
+            strategy_projects = recovery_strategies["project_id"].astype(str).unique().tolist()
+            selected_recovery_project = st.selectbox(
+                "Select project for recovery action review",
+                strategy_projects,
+                key="executive_recovery_project_choice",
+            )
+            selected_recovery = recovery_strategies.loc[
+                recovery_strategies["project_id"].astype(str) == selected_recovery_project
+            ]
+            st.markdown("**Selected project's recovery playbook**")
+            for _, strategy_row in selected_recovery.iterrows():
+                with st.expander(f'{strategy_row["strategy"]} — {strategy_row["readiness"]}'):
+                    st.write("**Evidence:** " + str(strategy_row["trigger_evidence"]))
+                    st.write("**Recommended action:** " + str(strategy_row["recommended_action"]))
+                    st.write("**Data required:** " + str(strategy_row["required_data_to_validate"]))
+                    st.write("**Potential benefit:** " + str(strategy_row["potential_benefit_not_quantified"]))
+                    st.warning(str(strategy_row["trade_off_and_control"]))
+            st.download_button(
+                "Download executive recovery strategy register",
+                recovery_strategies.to_csv(index=False).encode("utf-8-sig"),
+                file_name="executive_recovery_strategy_register.csv",
+                mime="text/csv",
+            )
+            with st.expander("Recovery strategy assumptions and governance"):
+                for assumption in recovery_result["assumptions"]:
+                    st.write("• " + assumption)
+
+        st.markdown("### Portfolio Resource Intelligence")
+        st.caption("Resource loading is aggregated from projects saved in this computer's local database. Resource IDs remain project-specific unless a shared resource identity is explicitly configured.")
+        portfolio_resource_inputs = []
+        for resource_project_id in list_project_ids():
+            resource_master = load_dataset(resource_project_id, "project_master.csv")
+            resource_project_name = (
+                str(resource_master.iloc[0].get("project_name", resource_project_id))
+                if not resource_master.empty else resource_project_id
+            )
+            portfolio_resource_inputs.append({
+                "project_id": resource_project_id,
+                "project_name": resource_project_name,
+                "resources": load_dataset(resource_project_id, "resources.csv"),
+                "assignments": load_dataset(resource_project_id, "resource_assignments.csv"),
+            })
+        portfolio_resource = build_portfolio_resource_summary(portfolio_resource_inputs)
+        if not portfolio_resource["available"]:
+            st.info("Data resource portfolio belum tersedia. Impor resources.csv dan resource_assignments.csv untuk masing-masing proyek.")
+        else:
+            resource_summary = portfolio_resource["project_summary"]
+            resource_detail = portfolio_resource["resources"]
+            rm1, rm2, rm3 = st.columns(3)
+            rm1.metric("Projects with resource data", resource_summary["project_id"].nunique())
+            rm2.metric("Overloaded resources", int(resource_summary["overloaded_resources"].sum()))
+            rm3.metric("Overloaded resource-days", int(resource_summary["overloaded_resource_days"].sum()))
+            st.markdown("**Resource capacity by project**")
+            st.dataframe(resource_summary, use_container_width=True, hide_index=True)
+            st.markdown("**Resource utilization and overload register**")
+            st.dataframe(resource_detail, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download portfolio resource register",
+                resource_detail.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_resource_capacity_register.csv",
+                mime="text/csv",
+            )
+            st.markdown("**Daily resource loading**")
+            st.dataframe(portfolio_resource["daily_load"], use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download portfolio daily resource loading",
+                portfolio_resource["daily_load"].to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_daily_resource_loading.csv",
+                mime="text/csv",
+            )
+            shared_conflicts = detect_shared_resource_conflicts(portfolio_resource)
+            st.markdown("**Cross-project shared resource conflicts**")
+            if not shared_conflicts["available"]:
+                st.info("Belum ada konflik lintas proyek yang dapat dihitung. Isi shared_resource_id yang sama pada resource fisik yang benar-benar dipakai bersama.")
+            else:
+                st.dataframe(shared_conflicts["summary"], use_container_width=True, hide_index=True)
+                conflict_days = shared_conflicts["daily_conflicts"]
+                conflict_days = conflict_days[
+                    conflict_days["over_capacity"] | conflict_days["capacity_mismatch"] |
+                    (conflict_days["project_count"] > 1)
+                ]
+                st.dataframe(conflict_days, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download cross-project resource conflict register",
+                    conflict_days.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="cross_project_resource_conflicts.csv",
+                    mime="text/csv",
+                )
+
+            st.markdown("**Resource Allocation Scenario Simulator**")
+            st.caption("Simulasi pembagian kapasitas resource fisik bersama berdasarkan prioritas proyek. Hasil simulasi tidak mengubah data alokasi aktual.")
+            scenario_priority = {}
+            if not risk_rows.empty:
+                scenario_priority = {
+                    str(row["project_id"]): float(row["risk_score"])
+                    for _, row in risk_rows.iterrows()
+                    if pd.notna(row.get("risk_score"))
+                }
+            scenario_result = build_resource_allocation_scenario(
+                portfolio_resource, project_priorities=scenario_priority
+            )
+            if not scenario_result["available"]:
+                st.info("Simulasi belum tersedia. Pastikan resource memiliki shared_resource_id yang sama dan demand harian valid.")
+            else:
+                scenario_summary = scenario_result["summary"]
+                scenario_allocations = scenario_result["allocations"]
+                sa1, sa2, sa3 = st.columns(3)
+                sa1.metric("Shared resource pools", len(scenario_summary))
+                sa2.metric("Total unmet demand", f'{scenario_allocations["unmet_demand_per_day"].sum():,.2f}')
+                sa3.metric("Project-days with shortfall", int((scenario_allocations["unmet_demand_per_day"] > 0).sum()))
+                st.dataframe(scenario_summary, use_container_width=True, hide_index=True)
+                st.markdown("**Recommended daily allocation by project**")
+                st.dataframe(scenario_allocations, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download resource allocation scenario",
+                    scenario_allocations.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="resource_allocation_scenario.csv",
+                    mime="text/csv",
+                )
+                st.markdown("**Scenario assumptions**")
+                for assumption in scenario_result["assumptions"]:
+                    st.caption("• " + assumption)
+
+            st.markdown("**Portfolio Resource Optimization — Compare Policies**")
+            optimization_result = compare_resource_allocation_scenarios(
+                portfolio_resource, project_priorities=scenario_priority
+            )
+            if not optimization_result["available"]:
+                st.info("Perbandingan kebijakan alokasi belum tersedia untuk data resource bersama saat ini.")
+            else:
+                policy_comparison = optimization_result["comparison"].sort_values(
+                    ["weighted_unmet", "total_unmet"], ascending=[True, True]
+                )
+                st.dataframe(policy_comparison, use_container_width=True, hide_index=True)
+                st.markdown("**Detailed allocation by scenario**")
+                scenario_choice = st.selectbox(
+                    "Choose allocation policy",
+                    policy_comparison["scenario"].tolist(),
+                    key="portfolio_resource_policy_choice",
+                )
+                selected_policy = optimization_result["allocations"].loc[
+                    optimization_result["allocations"]["scenario"] == scenario_choice
+                ]
+                st.dataframe(selected_policy, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download all resource optimization scenarios",
+                    optimization_result["allocations"].to_csv(index=False).encode("utf-8-sig"),
+                    file_name="portfolio_resource_optimization_scenarios.csv",
+                    mime="text/csv",
+                )
+                st.download_button(
+                    "Download selected allocation policy",
+                    selected_policy.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="selected_resource_allocation_policy.csv",
+                    mime="text/csv",
+                )
+                for assumption in optimization_result["assumptions"]:
+                    st.caption("• " + assumption)
+
+            st.markdown("**Project Recovery & Resource Transfer Impact Simulator**")
+            donor_release_pct = st.slider(
+                "Maximum donor release (% of baseline allocation)",
+                min_value=0, max_value=50, value=10, step=5,
+                key="portfolio_resource_donor_release_pct",
+            )
+            transfer_result = simulate_resource_transfer_impact(
+                portfolio_resource,
+                project_priorities=scenario_priority,
+                donor_release_pct=float(donor_release_pct),
+            )
+            if not transfer_result["available"]:
+                st.info("Simulasi transfer belum tersedia. Pastikan data resource bersama dan demand harian sudah lengkap.")
+            else:
+                impact_metrics = transfer_result["metrics"]
+                ti1, ti2, ti3, ti4 = st.columns(4)
+                ti1.metric("Baseline unmet demand", f'{impact_metrics["baseline_unmet"]:,.2f}')
+                ti2.metric("Scenario unmet demand", f'{impact_metrics["scenario_unmet"]:,.2f}',
+                           delta=f'{-impact_metrics["unmet_reduction"]:,.2f}')
+                ti3.metric("Transferred resource units", f'{impact_metrics["transferred_units"]:,.2f}')
+                ti4.metric("Capacity conserved", "Yes" if impact_metrics["capacity_conserved"] else "Check")
+                st.markdown("**Impact by project**")
+                st.dataframe(transfer_result["summary"], use_container_width=True, hide_index=True)
+                st.markdown("**Proposed resource transfers**")
+                if transfer_result["transfers"].empty:
+                    st.info("Tidak ada transfer yang memenuhi aturan prioritas dan batas donor pada skenario ini.")
+                else:
+                    st.dataframe(transfer_result["transfers"], use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download transfer impact register",
+                    transfer_result["impact"].to_csv(index=False).encode("utf-8-sig"),
+                    file_name="project_recovery_resource_transfer_impact.csv",
+                    mime="text/csv",
+                )
+                for assumption in transfer_result["assumptions"]:
+                    st.caption("• " + assumption)
+        st.caption("Overload dihitung per proyek dan resource ID. Sistem tidak menganggap dua ID yang sama pada proyek berbeda sebagai alat atau kru yang sama tanpa shared_resource_id yang disepakati.")
+
+        st.markdown("### AI Portfolio Advisor — Groq / Gemini")
+        st.caption("Analisis hanya dikirim ke provider setelah Anda menekan tombol. API key dibaca dari environment atau Streamlit secrets dan tidak disimpan ke database.")
+        advisor_col1, advisor_col2 = st.columns(2)
+        with advisor_col1:
+            portfolio_provider = st.selectbox("AI provider", ["Groq", "Gemini"], key="portfolio_ai_provider")
+        with advisor_col2:
+            portfolio_model = st.text_input(
+                "Model",
+                "llama-3.3-70b-versatile" if portfolio_provider == "Groq" else "gemini-2.5-flash",
+                key="portfolio_ai_model",
+            )
+        if st.button("Generate AI portfolio analysis", key="generate_ai_portfolio_analysis"):
+            portfolio_key_name = "GROQ_API_KEY" if portfolio_provider == "Groq" else "GEMINI_API_KEY"
+            portfolio_key = configured_secret(portfolio_key_name)
+            if not portfolio_key:
+                st.error(f"{portfolio_key_name} belum dikonfigurasi. Tambahkan melalui environment atau .streamlit/secrets.toml.")
+            else:
+                portfolio_metrics = {
+                    "project_count": int(len(portfolio)),
+                    "projects_with_spi": int(portfolio["SPI"].notna().sum()),
+                    "projects_with_cpi": int(portfolio["CPI"].notna().sum()),
+                    "critical_projects": int((portfolio["portfolio_status"] == "Critical").sum()),
+                    "at_risk_projects": int((portfolio["portfolio_status"] == "At Risk").sum()),
+                    "risk_status_counts": risk_rows["risk_status"].value_counts(dropna=False).to_dict(),
+                    "cost_forecast_by_currency": currency_summary.to_dict("records") if "currency_summary" in locals() and not currency_summary.empty else [],
+                    "delayed_forecast_projects": int((schedule_summary["schedule_slip_days"] > 0).sum()) if "schedule_summary" in locals() and not schedule_summary.empty else None,
+                }
+                portfolio_findings = executive[[
+                    "project_id", "project_name", "risk_score", "risk_status",
+                    "SPI", "CPI", "cost_variance_pct", "schedule_slip_days", "evidence"
+                ]].copy()
+                portfolio_actions = executive[[
+                    "project_id", "project_name", "intervention_priority",
+                    "recommended_management_action"
+                ]].copy()
+                with st.spinner(f"Meminta analisis portfolio dari {portfolio_provider}..."):
+                    portfolio_ai_result = generate_narrative_advice(
+                        portfolio_metrics,
+                        findings=portfolio_findings,
+                        action_plan=portfolio_actions,
+                        provider=portfolio_provider,
+                        groq_api_key=portfolio_key if portfolio_provider == "Groq" else None,
+                        gemini_api_key=portfolio_key if portfolio_provider == "Gemini" else None,
+                        groq_model=portfolio_model if portfolio_provider == "Groq" else "llama-3.3-70b-versatile",
+                        gemini_model=portfolio_model if portfolio_provider == "Gemini" else "gemini-2.5-flash",
+                    )
+                if portfolio_ai_result.get("ok"):
+                    st.session_state["portfolio_ai_advice"] = portfolio_ai_result
+                else:
+                    st.error(portfolio_ai_result.get("error", "AI portfolio analysis failed."))
+        if "portfolio_ai_advice" in st.session_state:
+            saved_advice = st.session_state["portfolio_ai_advice"]
+            st.markdown(f"**Provider:** {saved_advice.get('provider')} · **Model:** {saved_advice.get('model')}")
+            st.markdown(saved_advice.get("text", ""))
+            st.download_button(
+                "Download AI portfolio advice",
+                saved_advice.get("text", "").encode("utf-8"),
+                file_name="AI_Project_Control_Portfolio_Advice.md",
+                mime="text/markdown",
+            )
+
+        st.markdown("### Portfolio Executive Report")
+        st.caption("Generate a consolidated management pack from the currently saved local portfolio. Cost totals remain separated by currency.")
+        if st.button("Generate Portfolio Excel & PDF Pack", type="primary", key="generate_portfolio_pack"):
+            try:
+                excel_buffer = BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+                    portfolio.to_excel(writer, sheet_name="Portfolio KPI", index=False)
+                    risk_rows.to_excel(writer, sheet_name="Risk Register", index=False)
+                    forecast_available.to_excel(writer, sheet_name="Cost Forecast", index=False)
+                    if "schedule_summary" in locals() and not schedule_summary.empty:
+                        schedule_summary.to_excel(writer, sheet_name="Schedule Forecast", index=False)
+                    executive.to_excel(writer, sheet_name="Intervention Matrix", index=False)
+                st.session_state["portfolio_excel_report"] = excel_buffer.getvalue()
+
+                from reportlab.lib import colors
+                from reportlab.lib.pagesizes import A4, landscape
+                from reportlab.lib.styles import getSampleStyleSheet
+                from reportlab.lib.units import mm
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                pdf_buffer = BytesIO()
+                doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4),
+                                        rightMargin=12*mm, leftMargin=12*mm,
+                                        topMargin=12*mm, bottomMargin=12*mm)
+                styles = getSampleStyleSheet()
+                story = [
+                    Paragraph("AI PROJECT CONTROL - EXECUTIVE PORTFOLIO REPORT", styles["Title"]),
+                    Paragraph(f"Generated: {date.today().isoformat()} | Projects: {len(portfolio)}", styles["Normal"]),
+                    Spacer(1, 6*mm),
+                    Paragraph("Intervention Priority Matrix", styles["Heading2"]),
+                ]
+                pdf_data = [["Project", "Risk", "Priority", "SPI", "CPI", "Cost Var %", "Slip Days", "Management Action"]]
+                for _, row in executive.iterrows():
+                    pdf_data.append([
+                        str(row.get("project_name", ""))[:32],
+                        str(row.get("risk_status", "")),
+                        str(row.get("intervention_priority", "")),
+                        "" if pd.isna(row.get("SPI")) else f"{float(row['SPI']):.2f}",
+                        "" if pd.isna(row.get("CPI")) else f"{float(row['CPI']):.2f}",
+                        "" if pd.isna(row.get("cost_variance_pct")) else f"{float(row['cost_variance_pct']):.1f}%",
+                        "" if pd.isna(row.get("schedule_slip_days")) else f"{float(row['schedule_slip_days']):.0f}",
+                        str(row.get("recommended_management_action", ""))[:100],
+                    ])
+                table = Table(pdf_data, repeatRows=1, colWidths=[36*mm,22*mm,26*mm,14*mm,14*mm,22*mm,18*mm,90*mm])
+                table.setStyle(TableStyle([
+                    ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#20354A")),
+                    ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+                    ("GRID", (0,0), (-1,-1), 0.35, colors.grey),
+                    ("FONTSIZE", (0,0), (-1,-1), 7),
+                    ("VALIGN", (0,0), (-1,-1), "TOP"),
+                    ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#EEF2F5")]),
+                ]))
+                story.extend([table, Spacer(1, 5*mm),
+                              Paragraph("Notes: Risk score and priority are screening indicators based on available project data. Verify source records and management assumptions before action.", styles["BodyText"])])
+                doc.build(story)
+                st.session_state["portfolio_pdf_report"] = pdf_buffer.getvalue()
+                st.success("Portfolio executive report generated.")
+            except Exception as exc:
+                st.error(f"Portfolio report generation failed: {exc}")
+        if "portfolio_excel_report" in st.session_state:
+            st.download_button("Download Portfolio Executive Report.xlsx",
+                               st.session_state["portfolio_excel_report"],
+                               file_name="AI_Project_Control_Portfolio_Report.xlsx",
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        if "portfolio_pdf_report" in st.session_state:
+            st.download_button("Download Portfolio Executive Report.pdf",
+                               st.session_state["portfolio_pdf_report"],
+                               file_name="AI_Project_Control_Portfolio_Report.pdf",
+                               mime="application/pdf")
+
+
+        st.markdown("### Recovery Governance & Approval Workflow")
+        st.caption("Register keputusan pemulihan untuk workspace proyek aktif. Data tersimpan pada database lokal proyek ini.")
+        governance_register = ds("recovery_governance.csv")
+        governance_counts = governance_summary(governance_register)
+        gcols = st.columns(6)
+        for col, status_name in zip(gcols, ["Proposed", "PM Approved", "Director Approved", "COO Approved", "In Progress", "Closed"]):
+            col.metric(status_name, governance_counts.get(status_name, 0))
+        with st.expander("Submit a recovery action for approval", expanded=governance_register.empty):
+            with st.form("recovery_governance_submit_form"):
+                gov_scenario = st.text_input("Recovery scenario / reference")
+                gov_action = st.text_area("Proposed recovery action")
+                gov_owner = st.text_input("Accountable action owner")
+                gov_requester = st.text_input("Requested by")
+                gov_currency = st.text_input("Project currency (e.g. IDR, USD)", value=str(portfolio.iloc[0].get("currency", "IDR") if not portfolio.empty else "IDR"))
+                gov_budget = st.number_input("Proposed incremental budget", min_value=0.0, value=0.0, step=100000.0)
+                submit_gov = st.form_submit_button("Submit recovery action")
+            if submit_gov:
+                try:
+                    created = submit_recovery_action(
+                        governance_register, project_id=project_id, scenario=gov_scenario,
+                        recovery_action=gov_action, owner=gov_owner, requested_by=gov_requester,
+                        proposed_budget=gov_budget, currency=gov_currency,
+                    )
+                    save_dataset(project_id, "recovery_governance.csv", created["register"])
+                    st.success("Recovery request submitted: " + created["request_id"])
+                    st.rerun()
+                except Exception as gov_error:
+                    st.error(f"Cannot submit recovery action: {gov_error}")
+        governance_register = ds("recovery_governance.csv")
+        if not governance_register.empty:
+            st.markdown("**Recovery action register**")
+            gov_view_cols = [col for col in ["request_id", "project_id", "scenario", "recovery_action", "owner", "proposed_budget", "currency", "status", "requested_by", "created_at"] if col in governance_register]
+            st.dataframe(governance_register[gov_view_cols], use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download recovery governance register",
+                governance_register.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_recovery_governance_register.csv",
+                mime="text/csv",
+            )
+            request_ids = governance_register["request_id"].astype(str).tolist()
+            selected_request = st.selectbox("Select recovery request for decision", request_ids, key="governance_selected_request")
+            selected_row = governance_register.loc[governance_register["request_id"].astype(str) == selected_request].iloc[0]
+            current_gov_status = str(selected_row["status"])
+            allowed_transitions = sorted(TRANSITIONS.get(current_gov_status, set()))
+            if allowed_transitions:
+                st.markdown("**Record approval, rejection or execution status**")
+                gov_target = st.selectbox("Decision / next status", allowed_transitions, key="governance_target_status")
+                gov_role = st.selectbox("Acting role", ["Project Manager", "Project Director", "COO"], key="governance_actor_role")
+                gov_actor = st.text_input("Decision maker name", key="governance_actor_name")
+                gov_note = st.text_area("Decision note / rejection reason / closure evidence", key="governance_actor_note")
+                if st.button("Record governance decision", type="primary", key="governance_record_decision"):
+                    try:
+                        updated_governance = transition_recovery_action(
+                            governance_register, selected_request, gov_target, gov_actor, gov_role, gov_note
+                        )
+                        save_dataset(project_id, "recovery_governance.csv", updated_governance)
+                        st.success(f"Request {selected_request} updated to {gov_target}.")
+                        st.rerun()
+                    except Exception as gov_error:
+                        st.error(f"Decision not recorded: {gov_error}")
+            else:
+                st.info(f"Request is {current_gov_status}; no further transitions are allowed.")
+            with st.expander("Selected request audit history"):
+                try:
+                    history_value = selected_row.get("decision_history", "[]")
+                    history_items = json.loads(history_value) if isinstance(history_value, str) else history_value
+                    st.dataframe(pd.DataFrame(history_items), use_container_width=True, hide_index=True)
+                except Exception:
+                    st.warning("Audit history could not be parsed.")
+        st.warning("Governance limitation: role is selected by the operator and is not authenticated against individual user accounts. This is an operational register, not a tamper-proof or legally binding e-signature system. Deploy with authenticated role-based access, database audit controls and approval policy before production use.")
+
+
+        st.markdown("### Portfolio-wide Recovery Governance & Decision Queue")
+        st.caption("Konsolidasi seluruh register recovery yang tersedia pada database lokal komputer ini.")
+        governance_registers = {pid: load_dataset(pid, "recovery_governance.csv") for pid in list_project_ids()}
+        portfolio_governance = build_portfolio_governance_overview(
+            governance_registers, portfolio=portfolio, risk_register=risk_rows
+        )
+        if not portfolio_governance["available"]:
+            st.info(portfolio_governance["assumptions"][0])
+        else:
+            pg_queue = portfolio_governance["decision_queue"]
+            active_governance_statuses = ["Proposed", "PM Approved", "Director Approved", "COO Approved", "In Progress"]
+            active_governance = pg_queue[pg_queue["status"].isin(active_governance_statuses)]
+            pg1, pg2, pg3, pg4 = st.columns(4)
+            pg1.metric("Recovery requests", len(pg_queue))
+            pg2.metric("Active requests", len(active_governance))
+            pg3.metric("Projects involved", int(active_governance["project_id"].nunique()))
+            pg4.metric("Awaiting first review", int((pg_queue["status"] == "Proposed").sum()))
+            st.markdown("**Cross-project decision queue**")
+            queue_cols = [
+                "request_id", "project_id", "project_name", "scenario", "recovery_action",
+                "owner", "status", "risk_score", "risk_status", "request_age_days",
+                "proposed_budget", "currency", "requested_by", "created_at",
+            ]
+            st.dataframe(pg_queue[[col for col in queue_cols if col in pg_queue]],
+                         use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download portfolio governance decision queue",
+                pg_queue.to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_recovery_governance_decision_queue.csv",
+                mime="text/csv",
+            )
+            st.markdown("**Recovery request status summary**")
+            st.dataframe(portfolio_governance["status_summary"], use_container_width=True, hide_index=True)
+            st.markdown("**Active proposed budget by currency**")
+            st.dataframe(portfolio_governance["budget_by_currency"], use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download active recovery budget by currency",
+                portfolio_governance["budget_by_currency"].to_csv(index=False).encode("utf-8-sig"),
+                file_name="portfolio_active_recovery_budget_by_currency.csv",
+                mime="text/csv",
+            )
+            with st.expander("Portfolio governance methodology and limitations"):
+                for assumption in portfolio_governance["assumptions"]:
+                    st.write("• " + assumption)
+
+            st.markdown("**Recovery budget prioritization simulator**")
+            st.caption("Uji batas dana yang tersedia per mata uang. Simulasi ini tidak mencadangkan dana atau menyetujui permintaan.")
+            budget_currencies = sorted({
+                str(value).strip().upper()
+                for value in pg_queue.get("currency", pd.Series(dtype=str)).dropna().tolist()
+                if str(value).strip()
+            })
+            if not budget_currencies:
+                st.info("Mata uang belum tersedia pada permintaan recovery.")
+            else:
+                with st.form("portfolio_recovery_budget_simulation_form"):
+                    st.write("Masukkan batas dana maksimum untuk setiap mata uang.")
+                    budget_caps = {}
+                    budget_cols = st.columns(min(3, len(budget_currencies)))
+                    for idx, currency_code in enumerate(budget_currencies):
+                        with budget_cols[idx % len(budget_cols)]:
+                            budget_caps[currency_code] = st.number_input(
+                                f"Available budget ({currency_code})",
+                                min_value=0.0, value=0.0, step=100000.0,
+                                key=f"recovery_budget_cap_{currency_code}",
+                            )
+                    run_budget_simulation = st.form_submit_button(
+                        "Simulate recovery budget priority", type="primary"
+                    )
+                if run_budget_simulation:
+                    try:
+                        st.session_state["portfolio_recovery_budget_simulation"] = (
+                            simulate_recovery_budget_allocation(portfolio_governance, budget_caps)
+                        )
+                    except Exception as budget_error:
+                        st.error(f"Budget simulation failed: {budget_error}")
+                budget_result = st.session_state.get("portfolio_recovery_budget_simulation")
+                if budget_result and budget_result.get("available"):
+                    st.markdown("**Funding scenario by currency**")
+                    st.dataframe(budget_result["summary"], use_container_width=True, hide_index=True)
+                    st.markdown("**Request-level funding recommendation**")
+                    funding_cols = [
+                        "request_id", "project_id", "scenario", "recovery_action", "status",
+                        "risk_score", "currency", "proposed_budget", "allocated_budget",
+                        "funding_gap", "funding_decision", "remaining_budget_after_decision",
+                    ]
+                    funding_detail = budget_result["allocations"]
+                    st.dataframe(
+                        funding_detail[[col for col in funding_cols if col in funding_detail]],
+                        use_container_width=True, hide_index=True,
+                    )
+                    st.download_button(
+                        "Download recovery budget prioritization scenario",
+                        funding_detail.to_csv(index=False).encode("utf-8-sig"),
+                        file_name="portfolio_recovery_budget_prioritization.csv",
+                        mime="text/csv",
+                    )
+                    with st.expander("Budget prioritization rules and limitations"):
+                        for assumption in budget_result["assumptions"]:
+                            st.write("• " + assumption)
+
+
+        st.markdown("### Executive Action Register")
+        st.caption("Action register tersimpan pada database lokal workspace ini. Nama pencatat merupakan atribusi operator, bukan autentikasi akun.")
+        action_store = ds("executive_action_register.csv")
+        event_store = ds("executive_action_events.csv")
+        with st.form("executive_action_create_form"):
+            st.write("**Create corrective / preventive action**")
+            action_project_options = portfolio["project_id"].astype(str).tolist()
+            action_project = st.selectbox("Related project", action_project_options, key="action_project")
+            action_title = st.text_input("Action title", key="action_title")
+            action_owner = st.text_input("Accountable owner", key="action_owner")
+            action_due = st.date_input("Due date", value=date.today(), key="action_due")
+            action_priority = st.selectbox("Priority", ["P1", "P2", "P3"], index=1, key="action_priority")
+            action_description = st.text_area("Required action / expected evidence", key="action_description")
+            action_creator = st.text_input("Recorded by", key="action_creator")
+            create_action_submit = st.form_submit_button("Add executive action")
+        if create_action_submit:
+            try:
+                created_action = create_action(
+                    title=action_title, owner=action_owner, due_date=action_due,
+                    project_id=action_project, priority=action_priority,
+                    description=action_description, created_by=action_creator,
+                )
+                action_store = pd.concat([action_store, pd.DataFrame([created_action])], ignore_index=True)
+                save_dataset(project_id, "executive_action_register.csv", action_store)
+                st.success("Executive action added: " + created_action["action_id"])
+                st.rerun()
+            except Exception as action_error:
+                st.error(f"Action was not saved: {action_error}")
+
+        if not action_store.empty:
+            action_result = build_action_register(
+                action_store.to_dict("records"),
+                event_store.to_dict("records") if not event_store.empty else [],
+            )
+            action_view = pd.DataFrame(action_result["actions"])
+            ac1, ac2, ac3, ac4 = st.columns(4)
+            ac1.metric("Open", action_result["summary"]["open_count"])
+            ac2.metric("In progress", action_result["summary"]["in_progress_count"])
+            ac3.metric("Blocked", action_result["summary"]["blocked_count"])
+            ac4.metric("Overdue", action_result["summary"]["overdue_count"])
+            st.dataframe(action_view, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download executive action register",
+                action_view.to_csv(index=False).encode("utf-8-sig"),
+                file_name="executive_action_register.csv",
+                mime="text/csv",
+            )
+            active_action_ids = action_view.loc[
+                ~action_view["status"].astype(str).isin(["COMPLETED", "CANCELLED"]),
+                "action_id"
+            ].astype(str).tolist()
+            if active_action_ids:
+                st.markdown("**Update action status and record audit event**")
+                with st.form("executive_action_transition_form"):
+                    selected_action_id = st.selectbox("Action ID", active_action_ids, key="transition_action_id")
+                    selected_action_row = action_view.loc[
+                        action_view["action_id"].astype(str) == selected_action_id
+                    ].iloc[0]
+                    allowed_action_transitions = sorted(
+                        ALLOWED_TRANSITIONS.get(str(selected_action_row["status"]).upper(), set())
+                    )
+                    if allowed_action_transitions:
+                        next_action_status = st.selectbox(
+                            "New status", allowed_action_transitions,
+                            key="transition_action_status",
+                        )
+                    else:
+                        next_action_status = None
+                        st.info("No further status transitions are allowed.")
+                    action_actor = st.text_input("Changed by", key="transition_action_actor")
+                    action_note = st.text_area("Update note / completion evidence", key="transition_action_note")
+                    transition_submit = st.form_submit_button(
+                        "Save status change", disabled=not bool(allowed_action_transitions)
+                    )
+                if transition_submit:
+                    try:
+                        current_action = action_view.loc[
+                            action_view["action_id"].astype(str) == selected_action_id
+                        ].iloc[0].to_dict()
+                        updated_action, action_event = transition_action(
+                            current_action, new_status=next_action_status,
+                            changed_by=action_actor, note=action_note,
+                        )
+                        action_store.loc[
+                            action_store["action_id"].astype(str) == selected_action_id,
+                            list(updated_action.keys())
+                        ] = list(updated_action.values())
+                        event_store = pd.concat([event_store, pd.DataFrame([action_event])], ignore_index=True)
+                        save_dataset(project_id, "executive_action_register.csv", action_store)
+                        save_dataset(project_id, "executive_action_events.csv", event_store)
+                        st.success("Action status and audit event saved.")
+                        st.rerun()
+                    except Exception as action_error:
+                        st.error(f"Status change was not saved: {action_error}")
+            if not event_store.empty:
+                with st.expander("Executive action audit history"):
+                    st.dataframe(event_store, use_container_width=True, hide_index=True)
+            with st.expander("Action register governance limitations"):
+                for limitation in action_result["limitations"]:
+                    st.write("• " + limitation)
+
+
+        st.markdown("### Project Recovery Control")
+        st.caption("Bandingkan baseline, forecast terkini, target pemulihan dan estimasi biaya. Masukkan nilai dari laporan proyek yang sudah divalidasi.")
+        with st.form("project_recovery_control_form"):
+            recovery_project_ids = portfolio["project_id"].astype(str).tolist()
+            recovery_project_id = st.selectbox("Project for recovery assessment", recovery_project_ids, key="recovery_control_project")
+            recovery_baseline = st.text_input("Approved baseline finish (YYYY-MM-DD)", key="recovery_baseline")
+            recovery_forecast = st.text_input("Current forecast finish (YYYY-MM-DD)", key="recovery_forecast")
+            recovery_target_finish = st.text_input("Recovery target finish (YYYY-MM-DD)", key="recovery_target_finish")
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                recovery_current_spi = st.text_input("Current SPI", key="recovery_current_spi")
+                recovery_budget = st.text_input("Approved recovery budget", key="recovery_budget")
+            with rc2:
+                recovery_target_spi = st.text_input("Target SPI", key="recovery_target_spi")
+                recovery_cost = st.text_input("Estimated recovery cost", key="recovery_cost")
+            run_recovery_assessment = st.form_submit_button("Assess recovery gap")
+        if run_recovery_assessment:
+            try:
+                recovery_assessment = assess_recovery_control(
+                    baseline_finish=recovery_baseline,
+                    current_forecast_finish=recovery_forecast,
+                    recovery_target_finish=recovery_target_finish,
+                    current_spi=recovery_current_spi,
+                    target_spi=recovery_target_spi,
+                    approved_recovery_budget=recovery_budget,
+                    estimated_recovery_cost=recovery_cost,
+                )
+                st.session_state["project_recovery_control_result"] = {
+                    "project_id": recovery_project_id,
+                    **recovery_assessment,
+                }
+            except Exception as recovery_error:
+                st.error(f"Recovery assessment could not be calculated: {recovery_error}")
+        recovery_assessment = st.session_state.get("project_recovery_control_result")
+        if recovery_assessment and recovery_assessment.get("project_id") == recovery_project_id:
+            recovery_status = recovery_assessment["status"]
+            if recovery_status == "RECOVERY_GAP":
+                st.warning("Recovery gaps detected — management review required.")
+            elif recovery_status == "TARGETS_MET":
+                st.success("Supplied recovery targets are met by the current inputs.")
+            else:
+                st.info("Assessment incomplete. Missing inputs: " + ", ".join(recovery_assessment["missing_inputs"]))
+            rcm1, rcm2, rcm3 = st.columns(3)
+            rcm1.metric("Baseline variance", "—" if recovery_assessment["baseline_variance_days"] is None else f'{recovery_assessment["baseline_variance_days"]:+.0f} days')
+            rcm2.metric("Recovery target gap", "—" if recovery_assessment["recovery_target_gap_days"] is None else f'{recovery_assessment["recovery_target_gap_days"]:+.0f} days')
+            rcm3.metric("Funding gap", "—" if recovery_assessment["funding_gap"] is None else f'{recovery_assessment["funding_gap"]:,.2f}')
+            st.write("**Evidence signals**")
+            for signal in recovery_assessment["signals"]:
+                st.write("• " + signal)
+            with st.expander("Recovery control methodology and limitations"):
+                for limitation in recovery_assessment["limitations"]:
+                    st.write("• " + limitation)
+            recovery_export = pd.DataFrame([recovery_assessment])
+            st.download_button(
+                "Download project recovery assessment",
+                recovery_export.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{recovery_project_id}_recovery_assessment.csv",
+                mime="text/csv",
+            )
+
+
+        st.markdown("### Recovery Scenario Comparator")
+        st.caption("Bandingkan alternatif percepatan berdasarkan penghematan durasi, biaya tambahan, dan skor risiko yang Anda masukkan. Semua angka adalah estimasi pengguna, bukan prediksi otomatis.")
+        with st.form("recovery_scenario_comparison_form"):
+            scenario_project_id = st.selectbox(
+                "Project for scenario comparison",
+                portfolio["project_id"].astype(str).tolist(),
+                key="scenario_compare_project",
+            )
+            scenario_current_duration = st.number_input(
+                "Current forecast duration (days)", min_value=1.0, value=100.0, step=1.0,
+                key="scenario_current_duration",
+            )
+            scenario_target_duration = st.number_input(
+                "Target duration (days)", min_value=1.0, value=90.0, step=1.0,
+                key="scenario_target_duration",
+            )
+            scenario_inputs = []
+            for scenario_number in range(1, 4):
+                st.markdown(f"**Scenario {scenario_number}**")
+                sc1, sc2, sc3 = st.columns(3)
+                with sc1:
+                    scenario_name = st.text_input(
+                        "Scenario name", key=f"scenario_name_{scenario_number}",
+                        value=f"Option {scenario_number}",
+                    )
+                    scenario_saving = st.number_input(
+                        "Days saved", min_value=0.0, value=0.0, step=1.0,
+                        key=f"scenario_saving_{scenario_number}",
+                    )
+                with sc2:
+                    scenario_cost = st.number_input(
+                        "Incremental cost", min_value=0.0, value=0.0, step=1000.0,
+                        key=f"scenario_cost_{scenario_number}",
+                    )
+                with sc3:
+                    scenario_risk = st.number_input(
+                        "Risk score (0–100)", min_value=0.0, max_value=100.0,
+                        value=25.0, step=1.0, key=f"scenario_risk_{scenario_number}",
+                    )
+                if scenario_name.strip():
+                    scenario_inputs.append({
+                        "scenario_id": f"OPTION-{scenario_number}",
+                        "name": scenario_name.strip(),
+                        "duration_saving_days": scenario_saving,
+                        "incremental_cost": scenario_cost,
+                        "risk_score": scenario_risk,
+                    })
+            run_scenario_comparison = st.form_submit_button("Compare recovery scenarios")
+        if run_scenario_comparison:
+            try:
+                scenario_result = compare_recovery_scenarios_control(
+                    scenario_inputs,
+                    current_forecast_duration_days=scenario_current_duration,
+                    target_duration_days=scenario_target_duration,
+                )
+                st.session_state["recovery_scenario_comparison_result"] = {
+                    "project_id": scenario_project_id,
+                    **scenario_result,
+                }
+            except Exception as scenario_error:
+                st.error(f"Scenario comparison could not be calculated: {scenario_error}")
+        scenario_result = st.session_state.get("recovery_scenario_comparison_result")
+        if scenario_result and scenario_result.get("project_id") == scenario_project_id:
+            summary = scenario_result["summary"]
+            sm1, sm2, sm3 = st.columns(3)
+            sm1.metric("Options compared", summary["scenario_count"])
+            sm2.metric("Target met", summary["target_met_count"])
+            sm3.metric("No schedule benefit", summary["no_schedule_benefit_count"])
+            scenario_df = pd.DataFrame(scenario_result["scenarios"])
+            if not scenario_df.empty:
+                st.dataframe(scenario_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Download recovery scenario comparison",
+                    scenario_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"{scenario_project_id}_recovery_scenarios.csv",
+                    mime="text/csv",
+                )
+            with st.expander("Scenario ranking methodology and limitations"):
+                st.write(scenario_result["method"])
+
+
+        st.markdown("### Integrated Portfolio Executive Report")
+        st.caption("Menggabungkan register proyek, prioritas direktur, tindakan korektif, tren, dan assessment pemulihan yang tersedia. Bagian yang tidak memiliki data akan ditandai, bukan diisi dengan asumsi.")
+        integrated_report_language = st.selectbox(
+            "Integrated report language", ["Bahasa Indonesia", "English"],
+            key="integrated_portfolio_report_language",
+        )
+        if st.button("Build integrated portfolio executive report", key="build_integrated_portfolio_report"):
+            try:
+                report_actions_df = ds("executive_action_register.csv")
+                report_events_df = ds("executive_action_events.csv")
+                report_actions = build_action_register(
+                    report_actions_df.to_dict("records") if not report_actions_df.empty else [],
+                    report_events_df.to_dict("records") if not report_events_df.empty else [],
+                )
+                report_health_df = ds("portfolio_health_snapshots.csv")
+                report_health = build_health_monitoring(
+                    report_health_df.to_dict("records") if not report_health_df.empty else []
+                )
+                report_recovery = st.session_state.get("project_recovery_control_result")
+                if report_recovery and report_recovery.get("project_id") != project_id:
+                    report_recovery = None
+                report_scenarios = st.session_state.get("recovery_scenario_comparison_result")
+                if report_scenarios and report_scenarios.get("project_id") != project_id:
+                    report_scenarios = None
+                integrated_report_text = build_integrated_executive_report(
+                    portfolio_records=portfolio.to_dict("records"),
+                    status_date=status_date,
+                    director_decisions=director_matrix,
+                    action_register=report_actions,
+                    health_monitoring=report_health,
+                    recovery_assessment=report_recovery,
+                    scenario_comparison=report_scenarios,
+                    language="id" if integrated_report_language == "Bahasa Indonesia" else "en",
+                )
+                st.session_state["integrated_portfolio_executive_report"] = integrated_report_text
+            except Exception as integrated_report_error:
+                st.error(f"Integrated report could not be built: {integrated_report_error}")
+        if st.session_state.get("integrated_portfolio_executive_report"):
+            st.markdown(st.session_state["integrated_portfolio_executive_report"])
+            st.download_button(
+                "Download integrated portfolio executive report",
+                st.session_state["integrated_portfolio_executive_report"].encode("utf-8"),
+                file_name=f"portfolio_executive_report_{status_date.isoformat()}.md",
+                mime="text/markdown",
+                key="download_integrated_portfolio_executive_report",
+            )
+
+with overview:
+    master=ds("project_master.csv")
+    wbs=ds("wbs.csv"); acts=ds("activities.csv"); boq=ds("boq_budget.csv")
+    risks=ds("risk_register.csv")
+    st.subheader(project_name)
+    metric_row([("Project code",project_id),("Status date",status_date.strftime("%d %b %Y")),
+                ("Activities",len(acts)),("WBS elements",len(wbs)),("BOQ items",len(boq))])
+    st.markdown("### Executive Project Health")
+    executive_cols = st.columns(4)
+    executive_cpm = None
+    executive_evm = None
+    executive_commitment_stats = None
+    executive_currency = str(master.iloc[0].get("currency", "IDR")) if not master.empty else "IDR"
+    if not acts.empty:
+        try:
+            executive_cpm, executive_cpm_stats = calculate_cpm(acts)
+            critical_count = int(executive_cpm["is_critical"].astype(bool).sum())
+            executive_cols[0].metric("CPM duration", f'{executive_cpm_stats.get("project_duration", 0):,.0f} days')
+            executive_cols[1].metric("Critical activities", critical_count)
+        except Exception as exc:
+            executive_cols[0].metric("CPM duration", "Unavailable")
+            executive_cols[1].metric("Critical activities", "Unavailable")
+            st.caption(f"CPM dashboard: {exc}")
+    else:
+        executive_cols[0].metric("CPM duration", "—")
+        executive_cols[1].metric("Critical activities", "—")
+    if not boq.empty and not acts.empty:
+        try:
+            executive_evm = calculate_evm(master, acts, boq, ds("progress.csv"), ds("actual_cost.csv"), status_date)
+            executive_cols[2].metric("SPI", f'{executive_evm["SPI"]:.2f}' if pd.notna(executive_evm["SPI"]) else "—")
+            executive_cols[3].metric("CPI", f'{executive_evm["CPI"]:.2f}' if pd.notna(executive_evm["CPI"]) else "—")
+        except Exception as exc:
+            executive_cols[2].metric("SPI", "Unavailable")
+            executive_cols[3].metric("CPI", "Unavailable")
+            st.caption(f"EVM dashboard: {exc}")
+    else:
+        executive_cols[2].metric("SPI", "—")
+        executive_cols[3].metric("CPI", "—")
+    health_findings = []
+    if executive_evm:
+        if pd.notna(executive_evm["SPI"]) and executive_evm["SPI"] < 1:
+            health_findings.append(("Schedule", f'SPI {executive_evm["SPI"]:.2f}: behind earned-value plan'))
+        if pd.notna(executive_evm["CPI"]) and executive_evm["CPI"] < 1:
+            health_findings.append(("Cost", f'CPI {executive_evm["CPI"]:.2f}: cost efficiency below plan'))
+    if executive_cpm is not None and not executive_cpm.empty:
+        near_critical = executive_cpm[pd.to_numeric(executive_cpm["total_float_days"], errors="coerce").between(0, 5)]
+        if not near_critical.empty:
+            health_findings.append(("Schedule risk", f"{len(near_critical)} activities have total float of 5 days or less"))
+    try:
+        _, executive_commitment_stats = analyze_commitments(
+            ds("commitments.csv"), status_date, executive_currency
+        )
+    except Exception as exc:
+        st.caption(f"Commitment reconciliation: {exc}")
+    if executive_commitment_stats:
+        st.caption(
+            f'Commitments: {executive_commitment_stats["commitment_count"]} active | '
+            f'Outstanding: {executive_currency} {executive_commitment_stats["outstanding_total"]:,.0f} '
+            f'(shown separately from actual cost)'
+        )
+    if health_findings:
+        st.warning(" | ".join(f"{name}: {detail}" for name, detail in health_findings))
+    else:
+        st.success("No schedule or cost warning identified from the available validated EVM metrics.")
+    st.caption("Executive health is a screening view. It does not replace approved project controls or management review.")
+    st.markdown("### Predictive Project Warnings")
+    try:
+        warning_trend, warning_history = predict_project_trend(
+            master, acts, boq, ds("progress.csv"), ds("actual_cost.csv")
+        ) if not acts.empty and not boq.empty else (None, pd.DataFrame())
+        warning_cpm = executive_cpm
+        baseline_finish = master.iloc[0].get("planned_finish") if not master.empty else None
+        warning_result = build_predictive_warnings(
+            warning_trend, warning_history, warning_cpm, status_date, baseline_finish
+        )
+        warning_df = warning_result["warnings"]
+        if not warning_df.empty:
+            for item in warning_df.to_dict("records"):
+                level = item["priority"]
+                message = f'{item["signal"]} Action: {item["recommended_action"]}'
+                if level == "High":
+                    st.error(message)
+                elif level == "Medium":
+                    st.warning(message)
+                else:
+                    st.info(message)
+        st.caption(
+            f'Basis: {warning_result["method"]} | '
+            f'Valid reporting periods: {warning_result["reporting_periods"]}'
+        )
+        if not warning_df.empty:
+            st.download_button(
+                "Download predictive warning register",
+                warning_df.to_csv(index=False).encode("utf-8-sig"),
+                f"{project_id}_predictive_warnings.csv", "text/csv"
+            )
+    except Exception as warning_error:
+        st.info(f"Predictive warnings unavailable: {warning_error}")
+    st.markdown("### Integrated platform modules")
+    modules=[
+      ("Project Data Hub","CSV / Excel import, validation, project dataset storage"),
+      ("Planning Engine","CPM, critical path, early/late dates, total float, Gantt"),
+      ("Cost & EVM Engine","BOQ budget, PV, EV, AC, CV, SV, CPI, SPI, EAC, ETC, VAC, TCPI"),
+      ("Progress Engine","Physical quantities, reporting period, weighted progress"),
+      ("Risk Engine","Risk exposure and Monte Carlo cost / schedule scenarios"),
+      ("Optimization Engine","Minimum-cost schedule crashing where crash data is supplied"),
+      ("Primavera XER","PyP6Xer P6 object model, calendars, resources and DCMA14"),
+      ("Resources & Manpower","Resource assignments, planned loading and capacity screening"),
+      ("Milestones & Change Control","Milestone slippage and approved / pending change impact"),
+      ("Drawing to BOQ","Gemini vision takeoff draft from PDF drawings with manual review"),
+      ("AI Project Advisor","Optional Groq / Gemini analysis and prioritized action recommendations"),
+      ("AI Reporting","Integrated Excel management workbook and CSV exports"),
+    ]
+    cols=st.columns(2)
+    for i,(name,desc) in enumerate(modules):
+        with cols[i%2]:
+            with st.container(border=True):
+                st.markdown(f"**{name}**")
+                st.caption(desc)
+    st.markdown("### Data readiness")
+    readiness=pd.DataFrame([{"Dataset":n,"Rows":len(ds(n)),"Status":"Loaded" if not ds(n).empty else "Not loaded"} for n in TEMPLATES])
+    show_df(readiness,250)
+    st.caption("AI prediction requires a sufficient history of approved reporting periods. It is not fabricated from a single synthetic snapshot.")
+
+with hub:
+    st.subheader("Project Data Hub")
+    st.write("Download templates, import CSV/Excel, validate relationships and save data into the local project database.")
+    c1,c2=st.columns([1,1])
+    with c1:
+        for name,(columns,row) in TEMPLATES.items():
+            data=pd.DataFrame(columns=[*columns]).to_csv(index=False).encode("utf-8-sig")
+            st.download_button(f"⬇️ Template {name}",data,file_name=name,mime="text/csv",key="template_"+name)
+    with c2:
+        selected=st.selectbox("Dataset type",list(TEMPLATES),key="hub_dataset")
+        upload=st.file_uploader("Upload CSV or Excel",type=["csv","xlsx","xls"],key="hub_upload")
+        if upload:
+            try:
+                frame=pd.read_csv(upload) if upload.name.lower().endswith(".csv") else pd.read_excel(upload)
+                project_snapshot={n:ds(n) for n in TEMPLATES}
+                project_snapshot[selected]=frame
+                issues=validate_project_datasets(project_snapshot).get(selected,[])
+                cross_issues=validate_project_datasets(project_snapshot)
+                st.write(f"Rows: **{len(frame)}** | Columns: **{len(frame.columns)}**")
+                show_df(frame,300)
+                if issues:
+                    for issue in issues: st.error(issue)
+                elif cross_issues:
+                    st.warning("Dataset ini lolos validasi lokal, tetapi ada masalah pada dataset proyek lain:")
+                    for dataset_name, findings in cross_issues.items():
+                        for issue in findings: st.error(f"{dataset_name}: {issue}")
+                    if st.button("Save dataset with other-dataset warnings",type="secondary"):
+                        save_dataset(project_id,selected,frame)
+                        st.warning(f"{selected} saved. Resolve the listed project-wide validation issues before relying on reports.")
+                        st.rerun()
+                else:
+                    st.success("Project-wide dataset validation passed.")
+                    if st.button("Save dataset to project",type="primary"):
+                        save_dataset(project_id,selected,frame)
+                        st.success(f"{selected} saved for {project_id}.")
+                        st.rerun()
+            except Exception as exc: st.exception(exc)
+    st.divider()
+    st.markdown("#### Project backup & restore")
+    backup_bytes=export_project_backup(project_id)
+    st.download_button("Download full project backup (.zip)",backup_bytes,
+      f"{project_id}_AI_Project_Control_Backup.zip","application/zip")
+    backup_upload=st.file_uploader("Restore project from backup ZIP",type=["zip"],key="restore_project_zip")
+    if backup_upload and st.button("Restore backup into this project",type="secondary"):
+        try:
+            restored=import_project_backup(project_id,backup_upload.getvalue())
+            st.success(f"Restored {len(restored)} datasets: {', '.join(restored)}")
+            st.rerun()
+        except Exception as exc: st.error(f"Backup restore failed: {exc}")
+    st.divider()
+    st.markdown("#### Currently saved project data")
+    for name in TEMPLATES:
+        frame=ds(name)
+        with st.expander(f"{name} — {len(frame)} rows"):
+            show_df(frame,230)
+            if not frame.empty:
+                st.download_button(f"Export {name}",frame.to_csv(index=False).encode("utf-8-sig"),
+                  file_name=name,mime="text/csv",key="export_"+name)
+
+with planning:
+    st.subheader("Planning Engine — CPM / Critical Path")
+    activities=ds("activities.csv")
+    if not activities.empty:
+        try:
+            cpm,stats=calculate_cpm(activities)
+            metric_row([("Project duration (working periods)",stats["project_duration"]),
+                        ("Activities",int(stats["n_activities"])),("Critical activities",int(stats["n_critical"]))])
+            st.markdown("#### Activity schedule calculation")
+            show_df(cpm,500)
+            chart=cpm.copy()
+            chart["start"]=chart["early_start_day"]
+            chart["finish"]=chart["early_finish_day"]
+            fig=px.timeline(chart,x_start="start",x_end="finish",y="activity_name",color="is_critical",
+                hover_data=["activity_id","wbs_id","total_float_days"],title="CPM early-start schedule (relative working periods)")
+            fig.update_yaxes(autorange="reversed")
+            st.plotly_chart(fig,use_container_width=True)
+            st.download_button("Download CPM results CSV",cpm.to_csv(index=False).encode("utf-8-sig"),
+                "cpm_results.csv","text/csv")
+            calendar_data=ds("calendars.csv")
+            if not calendar_data.empty and "calendar_id" in activities.columns:
+                st.markdown("#### Working calendar date check")
+                try:
+                    calendar_schedule=calculate_calendar_schedule(activities,calendar_data)
+                    date_check=cpm[["activity_id","early_start_day","early_finish_day","total_float_days","is_critical"]].merge(
+                        calendar_schedule,on="activity_id",how="left")
+                    show_df(date_check,350)
+                    st.download_button("Download calendar date check CSV",
+                        date_check.to_csv(index=False).encode("utf-8-sig"),
+                        "calendar_date_check.csv","text/csv")
+                    st.caption("Calendar dates are a separate date-arithmetic check. They are not yet fed back into CPM network passes or Primavera P6 constraints.")
+                except Exception as cal_exc:
+                    st.error(f"Working calendar validation: {cal_exc}")
+            else:
+                st.info("Impor calendars.csv dengan calendar_id, workdays_per_week, hours_per_day dan holidays untuk mengaktifkan pemeriksaan tanggal kalender.")
+        except Exception as exc: st.error(f"CPM calculation needs correction: {exc}")
+    else: st.info("Impor activities.csv terlebih dahulu.")
+    st.warning("CSV CPM uses FS predecessor logic and relative working periods. The calendar date check applies weekly 5/6/7-day patterns and listed holidays, but does not yet alter CPM network passes. XER adapter supports FS, SS, FF and SF with lag; full P6 calendars, constraints and resource levelling remain outside this calculation. Primavera P6 remains the schedule authority.")
+
+with cost:
+    st.subheader("Cost & EVM Engine")
+    st.caption("BAC pada EVM dihitung dari nilai BOQ aktif. Perubahan yang disetujui ditampilkan terpisah pada Milestones & Change dan tidak otomatis mengubah BOQ baseline. Perbarui BOQ/baseline secara terkendali setelah persetujuan perubahan agar PV, EV, EAC dan laporan memakai baseline revisi yang sama.")
+    master=ds("project_master.csv"); activities=ds("activities.csv"); boq=ds("boq_budget.csv")
+    prog=ds("progress.csv"); actual=ds("actual_cost.csv")
+    if not boq.empty and not activities.empty:
+        try:
+            evm=calculate_evm(master,activities,boq,prog,actual,status_date)
+            evm=add_earned_schedule_metrics(evm,master,activities,status_date)
+            metric_row([(k,f"{v:,.2f}" if pd.notna(v) else "—") for k,v in evm.items() if k in ["BAC","PV","EV","AC"]])
+            metric_row([(k,f"{v:,.3f}" if pd.notna(v) else "—") for k,v in evm.items() if k in ["SPI","CPI","EAC","ETC","VAC","TCPI"]])
+            if "SPI(t)" in evm:
+                st.markdown("#### Earned Schedule — time performance")
+                metric_row([(k,f"{evm[k]:,.2f}" if pd.notna(evm[k]) else "—")
+                    for k in ["ES","SV(t)","SPI(t)","IEAC(t)"] if k in evm])
+                st.caption("ES = earned schedule time; SV(t) = time variance; SPI(t) = time efficiency; IEAC(t) = duration forecast using earned schedule.")
+            st.caption(f"Weighted earned value progress: {evm['physical_progress_pct']:.2f}%")
+            if not master.empty and {"planned_start","planned_finish"}.issubset(master.columns) and pd.notna(evm["SPI"]):
+                forecast=forecast_completion_date(evm["SPI"],str(master.iloc[0]["planned_start"]),str(master.iloc[0]["planned_finish"]))
+                if forecast is not None:
+                    st.metric("SPI-based forecast finish",forecast.strftime("%d %b %Y"))
+                else:
+                    st.caption("Finish forecast unavailable: SPI must be positive.")
+            chart=pd.DataFrame({"Metric":["PV","EV","AC"],"Amount":[evm["PV"],evm["EV"],evm["AC"]]})
+            st.plotly_chart(px.bar(chart,x="Metric",y="Amount",title="Planned Value vs Earned Value vs Actual Cost"),use_container_width=True)
+        except Exception as exc: st.error(f"EVM cannot be calculated: {exc}")
+    else:
+        st.info("Impor activities.csv dan boq_budget.csv untuk mengaktifkan EVM.")
+    st.divider()
+    st.markdown("#### Purchase Commitments & Outstanding Exposure")
+    commitments=ds("commitments.csv")
+    try:
+        project_currency=str(master.iloc[0]["currency"]) if not master.empty and "currency" in master else None
+        commitment_detail,commitment_stats=analyze_commitments(commitments,status_date,project_currency)
+        metric_row([
+            ("Active commitments",commitment_stats["commitment_count"]),
+            ("Committed total",f"{commitment_stats['committed_total']:,.2f}"),
+            ("Paid against commitments",f"{commitment_stats['paid_total']:,.2f}"),
+            ("Outstanding commitment",f"{commitment_stats['outstanding_total']:,.2f}")
+        ])
+        if not commitment_detail.empty:
+            show_df(commitment_detail,300)
+            st.download_button("Download commitment reconciliation CSV",
+                commitment_detail.to_csv(index=False).encode("utf-8-sig"),
+                "commitment_reconciliation.csv","text/csv")
+        st.caption("Commitment paid amounts are reconciliation only. They are not added to actual cost (AC), preventing double counting. Cancelled, rejected and void commitments are excluded.")
+    except Exception as exc:
+        st.error(f"Commitment reconciliation needs correction: {exc}")
+    st.divider()
+    st.markdown("#### Monthly Cash Flow & Cost Forecast")
+    try:
+        cashflow, cash_stats, _ = build_cost_cashflow(
+            master, activities, boq, actual, commitments, status_date, prog)
+        metric_row([
+            ("Baseline Budget (BAC)",f"{cash_stats['BAC']:,.2f}"),
+            ("Actual Cost to Date",f"{cash_stats['actual_to_date']:,.2f}"),
+            ("Forecast at Completion",f"{cash_stats['forecast_at_completion']:,.2f}"),
+            ("Remaining Forecast",f"{cash_stats['remaining_forecast']:,.2f}")
+        ])
+        st.caption(cash_stats["forecast_method"])
+        if cash_stats["unallocated_remaining"]>0:
+            st.warning(f"Remaining forecast {cash_stats['unallocated_remaining']:,.2f} is unallocated because no future project months remain.")
+        if not cashflow.empty:
+            st.plotly_chart(px.bar(cashflow,x="period",y=["baseline_cost","actual_cost","remaining_forecast"],
+                title="Monthly Baseline, Actual and Remaining Forecast Cost",barmode="group"),
+                use_container_width=True)
+            st.plotly_chart(px.line(cashflow,x="period",
+                y=["cumulative_baseline","cumulative_actual","cumulative_forecast"],
+                markers=True,title="Cumulative Project Cost Curve"),use_container_width=True)
+            st.download_button("Download monthly cash flow CSV",
+                cashflow.to_csv(index=False).encode("utf-8-sig"),
+                "monthly_project_cashflow.csv","text/csv")
+    except Exception as exc:
+        st.error(f"Cash flow forecast needs correction: {exc}")
+    st.markdown("#### EVM definitions")
+    st.caption("CV = EV − AC | SV = EV − PV | CPI = EV / AC | SPI = EV / PV | EAC = BAC / CPI | ETC = EAC − AC | VAC = BAC − EAC.")
+
+with progress_tab:
+    st.subheader("Progress Intelligence")
+    activities=ds("activities.csv"); prog=ds("progress.csv"); boq_progress=ds("boq_budget.csv")
+    if not activities.empty:
+        if prog.empty:
+            st.info("Progress belum dilaporkan. Impor progress.csv dengan actual_quantity_to_date dan BOQ references.")
+        else:
+            try:
+                latest_progress,progress_stats=calculate_progress(activities,prog,boq_progress)
+                if progress_stats["weighted_progress_pct"] is not None:
+                    metric_row([("Weighted physical progress",f"{progress_stats['weighted_progress_pct']:.2f}%"),
+                      ("Activities reported",f"{progress_stats['reported_activities']} / {progress_stats['total_activities']}"),
+                      ("Activities not reported",progress_stats["unreported_activities"])])
+                else:
+                    st.warning("BOQ budget belum tersedia; hanya kuantitas aktual yang dapat ditampilkan. Weighted progress memerlukan BOQ quantity dan activity weights.")
+                st.caption(f"Latest reporting date: {progress_stats['status_date']}")
+                show_df(latest_progress,350)
+                st.caption("Progress is calculated from cumulative actual BOQ quantities against approved budget quantities, allocated to activities by WBS weight share.")
+                if "period_end" in prog:
+                    p=prog.copy(); p["period_end"]=pd.to_datetime(p["period_end"],errors="coerce")
+                    st.plotly_chart(px.line(p.sort_values("period_end"),x="period_end",y="actual_quantity_to_date",
+                        color="activity_id",markers=True,title="Reported cumulative quantity by activity"),use_container_width=True)
+            except Exception as exc: st.error(f"Progress calculation needs review: {exc}")
+    else: st.info("Import activity schedule first.")
+
+with risk_tab:
+    st.subheader("Risk Engine — Expected Exposure & Monte Carlo")
+    risks=ds("risk_register.csv")
+    if not risks.empty:
+        iterations=st.slider("Simulation iterations",1000,50000,10000,1000)
+        try:
+            ranked,stats,samples=risk_analysis(risks,iterations)
+            if not ds("activities.csv").empty:
+                schedule_pert,pert_stats,pert_meta=calculate_schedule_pert(ds("activities.csv"),iterations)
+                st.markdown("#### PERT schedule uncertainty (activity three-point estimate)")
+                st.caption("Asumsi screening otomatis: optimistic = 90% durasi dasar, most likely = durasi dasar, pessimistic = 125%. Ini bukan estimasi tiga titik dari estimator proyek; ganti dengan data optimistik / paling mungkin / pesimistik yang disetujui sebelum dipakai sebagai baseline risiko resmi.")
+                metric_row([("PERT expected duration",pert_stats["expected_duration"]),
+                  ("Schedule P50",pert_stats["mc_p50"]),("Schedule P80",pert_stats["mc_p80"]),
+                  ("Schedule P95",pert_stats["mc_p95"])])
+                show_df(schedule_pert,300)
+            else:
+                st.info("Import activities.csv to run schedule PERT simulation.")
+            metric_row([("Expected cost exposure",f"{stats['expected_cost_exposure']:,.0f}"),
+                        ("Schedule exposure (days)",f"{stats['expected_schedule_exposure_days']:,.1f}"),
+                        ("Cost P80",f"{stats['cost_p80']:,.0f}"),("Cost P90",f"{stats['cost_p90']:,.0f}")])
+            metric_row([("Delay P50 (days)",f"{stats['delay_p50']:,.1f}"),
+                        ("Delay P80 (days)",f"{stats['delay_p80']:,.1f}"),
+                        ("Delay P90 (days)",f"{stats['delay_p90']:,.1f}"),
+                        ("Simulation runs",f"{stats['iterations']:,}")])
+            show_df(ranked,350)
+            st.plotly_chart(px.histogram(samples,x="cost",nbins=40,title="Monte Carlo risk cost distribution"),use_container_width=True)
+            st.plotly_chart(px.histogram(samples,x="delay_days",nbins=40,title="Monte Carlo schedule impact distribution"),use_container_width=True)
+            st.download_button("Download Monte Carlo samples",samples.to_csv(index=False).encode("utf-8-sig"),
+              "risk_monte_carlo.csv","text/csv")
+        except Exception as exc: st.error(f"Risk analysis error: {exc}")
+    else: st.info("Import risk_register.csv to activate risk analysis.")
+    st.caption("Scenario model assumes independent Bernoulli occurrence for each risk. Correlation, mitigation effectiveness and P6 calendar impact are not inferred.")
+
+with optimization:
+    st.subheader("Optimization Engine — Minimum Cost Schedule Crashing")
+    activities=ds("activities.csv")
+    if not activities.empty:
+        try:
+            _,base_stats=calculate_cpm(activities)
+            target=st.number_input("Target project duration (periods)",min_value=0.0,
+                max_value=float(base_stats["project_duration"]),value=max(0.0,float(base_stats["project_duration"])-1),step=1.0)
+            if {"crash_duration_days","crash_cost_per_day"}.issubset(activities.columns):
+                if st.button("Optimize schedule",type="primary"):
+                    result,summary=optimize_crash(activities,target)
+                    metric_row([("Normal duration",summary["normal_duration_total"]),
+                      ("Achieved duration",summary["achieved_duration"]),("Crash cost",summary["total_crash_cost"])])
+                    show_df(result,400)
+            else:
+                st.info("Optimization is ready when activity data includes crash_duration_days and crash_cost_per_day. These inputs must come from approved contractor/productivity and cost assumptions.")
+                st.code("Add columns: crash_duration_days, crash_cost_per_day")
+        except Exception as exc: st.error(str(exc))
+
+with xer_tab:
+    st.subheader("Primavera P6 XER Integration")
+    xer_file=st.file_uploader("Upload Primavera P6 .XER",type=["xer"],key="xer_upload")
+    if xer_file:
+        try:
+            tables=parse_xer(xer_file.getvalue())
+            st.success(f"XER parsed: {len(tables)} tables.")
+            names=list(tables)
+            chosen=st.selectbox("Inspect XER table",names)
+            show_df(tables[chosen],300)
+            try:
+                xer_cpm,xer_stats=calculate_xer_cpm(tables)
+                st.markdown("#### Primavera network analysis (FS / SS / FF / SF + lag)")
+                metric_row([("Calculated duration (days)",xer_stats["project_duration_days"]),
+                  ("Activities",xer_stats["activities"]),("Critical activities",xer_stats["critical_activities"])])
+                show_df(xer_cpm,380)
+                st.download_button("Download XER CPM results",xer_cpm.to_csv(index=False).encode("utf-8-sig"),
+                  "primavera_xer_cpm.csv","text/csv")
+            except Exception as exc:
+                st.warning(f"XER CPM: {exc}")
+            try:
+                p6_detail=parse_xer_with_pyp6xer(xer_file.getvalue())
+                st.markdown("#### PyP6Xer — complete P6 object model")
+                metric_row([(k,v) for k,v in p6_detail["summary"].items()])
+                st.markdown("#### DCMA 14-point schedule quality analysis")
+                show_df(p6_detail["dcma14"],430)
+                with st.expander("Activities parsed by PyP6Xer"):
+                    show_df(p6_detail["activities"],350)
+                with st.expander("Resources and resource assignments"):
+                    st.markdown("**Resources**"); show_df(p6_detail["resources"],220)
+                    st.markdown("**Assignments**"); show_df(p6_detail["resource_assignments"],220)
+                with st.expander("P6 calendars, WBS and relationships"):
+                    st.markdown("**Calendars**"); show_df(p6_detail["calendars"],220)
+                    st.markdown("**WBS**"); show_df(p6_detail["wbs"],220)
+                    st.markdown("**Relationships**"); show_df(p6_detail["relationships"],220)
+            except Exception as exc:
+                st.warning(f"PyP6Xer detailed parser / DCMA14 could not complete; raw XER parser remains available. Details: {exc}")
+                try:
+                    dcma=calculate_dcma14(tables)
+                    st.markdown("#### Fallback DCMA schedule-health screening")
+                    show_df(dcma,430)
+                except Exception as fallback_exc:
+                    st.warning(f"Fallback DCMA screening: {fallback_exc}")
+            if st.button("Convert XER to project WBS + activities",type="primary"):
+                act_frame,wbs_frame=xer_to_frames(tables)
+                save_dataset(project_id,"activities.csv",act_frame)
+                if not wbs_frame.empty: save_dataset(project_id,"wbs.csv",wbs_frame)
+                try:
+                    p6_data=parse_xer_with_pyp6xer(xer_file.getvalue())
+                    for dataset,key in [("resources.csv","resources"),("resource_assignments.csv","resource_assignments"),
+                        ("calendars.csv","calendars"),("relationships.csv","relationships")]:
+                        if not p6_data[key].empty: save_dataset(project_id,dataset,p6_data[key])
+                except Exception as exc:
+                    st.warning(f"XER core converted; detailed resource/calendar extraction was skipped: {exc}")
+                st.success(f"Imported {len(act_frame)} activities and {len(wbs_frame)} WBS rows, with available P6 resource, calendar and relationship data.")
+                st.rerun()
+            st.download_button("Download XER table CSV",tables[chosen].to_csv(index=False).encode("utf-8-sig"),
+                chosen.lower()+".csv","text/csv")
+        except Exception as exc: st.exception(exc)
+    st.warning("XER network analysis currently supports FS, SS, FF and SF relationships with lag using duration-based periods. P6 calendars, resource assignments, cost accounts, activity codes and constraints can be inspected/imported where available, but are not yet fully recalculated by the CPM engine. Primavera P6 remains the schedule authority.")
+
+with resources_tab:
+    st.subheader("Resource, Equipment & Manpower Intelligence")
+    resource_data=ds("resources.csv")
+    assignment_data=ds("resource_assignments.csv")
+    if not assignment_data.empty:
+        try:
+            resource_summary,daily_load=calculate_resource_load(resource_data,assignment_data)
+            st.markdown("#### Resource allocation & utilization")
+            metric_row([
+                ("Assigned resources",f"{resource_summary['rsrc_id'].nunique():,}"),
+                ("Planned quantity",f"{resource_summary['target_qty'].sum():,.2f}"),
+                ("Actual quantity",f"{resource_summary['actual_qty'].sum():,.2f}"),
+                ("Overloaded resource-days",f"{int(daily_load['over_capacity'].sum()) if not daily_load.empty else 0:,}")
+            ])
+            show_df(resource_summary,350)
+            if not daily_load.empty:
+                st.markdown("#### Daily resource demand and capacity")
+                chart=daily_load.copy()
+                chart["capacity_line"]=chart["capacity_per_day"]
+                st.plotly_chart(px.line(chart,x="date",y=["planned_load_per_day","capacity_line"],
+                    color="rsrc_id",facet_col="rsrc_id",title="Daily demand vs available capacity"),
+                    use_container_width=True)
+                if daily_load["over_capacity"].any():
+                    st.error(f"Capacity overload detected on {int(daily_load['over_capacity'].sum())} resource-days.")
+                    show_df(daily_load[daily_load["over_capacity"]],250)
+                elif daily_load["capacity_per_day"].isna().all():
+                    st.info("Capacity belum diisi. Isi capacity_per_day pada resources.csv untuk mengukur overload.")
+                st.download_button("Download daily resource loading CSV",
+                    daily_load.to_csv(index=False).encode("utf-8-sig"),
+                    "daily_resource_loading.csv","text/csv")
+            st.download_button("Download resource allocation summary CSV",
+                resource_summary.to_csv(index=False).encode("utf-8-sig"),
+                "resource_allocation_summary.csv","text/csv")
+        except Exception as exc:
+            st.error(f"Resource analysis needs data correction: {exc}")
+    else:
+        st.info("Impor resources.csv dan resource_assignments.csv, atau gunakan konversi XER Primavera untuk mengisi keduanya.")
+    st.caption("Kapasitas dibandingkan dalam unit yang sama dengan target_qty per hari. Distribusi saat ini diratakan pada hari kalender, bukan shift/hari kerja. Ini adalah screening overload, bukan resource leveling resmi Primavera P6.")
+
+    st.markdown("#### Resource Smoothing What-if")
+    st.caption("Simulasi menggeser penugasan non-kritis dalam batas total float. Baseline dan relasi aktivitas tidak diubah.")
+    shift_limit=st.number_input("Batas pergeseran maksimum (hari)",min_value=0,max_value=365,value=30,step=1,key="resource_smoothing_limit")
+    if st.button("Simulate Resource Smoothing",key="run_resource_smoothing"):
+        try:
+            smoothed=simulate_resource_smoothing(ds("activities.csv"),resource_data,assignment_data,int(shift_limit))
+            st.session_state["resource_smoothing_result"]=smoothed
+        except Exception as exc:
+            st.error(f"Resource smoothing scenario failed: {exc}")
+    smoothed=st.session_state.get("resource_smoothing_result")
+    if smoothed and smoothed.get("available"):
+        sm_cols=st.columns(2)
+        sm_cols[0].metric("Baseline overloaded resource-days",smoothed["baseline_overloaded_days"])
+        sm_cols[1].metric("Scenario overloaded resource-days",smoothed["scenario_overloaded_days"])
+        st.dataframe(smoothed["scenario"],use_container_width=True,hide_index=True)
+        st.download_button("Download resource smoothing scenario",
+            smoothed["scenario"].to_csv(index=False).encode("utf-8-sig"),
+            "resource_smoothing_scenario.csv","text/csv")
+        st.caption(smoothed["reason"])
+
+    st.markdown("#### Shift Capacity What-if")
+    st.caption("Masukkan faktor kapasitas efektif berdasarkan kebijakan site, produktivitas aktual, fatigue, dan aturan jam kerja. Faktor bukan otomatis sama dengan jumlah shift.")
+    shift_2_factor = st.number_input("Faktor kapasitas efektif untuk 2 shift", min_value=0.1, max_value=4.0, value=1.5, step=0.1, key="shift_2_capacity_factor")
+    shift_3_factor = st.number_input("Faktor kapasitas efektif untuk 3 shift", min_value=0.1, max_value=5.0, value=2.0, step=0.1, key="shift_3_capacity_factor")
+    if st.button("Compare shift capacity scenarios", key="run_shift_capacity"):
+        try:
+            shift_result = compare_shift_capacity_scenarios(
+                resource_data, assignment_data,
+                {1: 1.0, 2: float(shift_2_factor), 3: float(shift_3_factor)}
+            )
+            st.session_state["shift_capacity_result"] = shift_result
+        except Exception as exc:
+            st.error(f"Shift capacity comparison failed: {exc}")
+    shift_result = st.session_state.get("shift_capacity_result")
+    if shift_result is not None:
+        show_df(shift_result, 250)
+        st.download_button(
+            "Download shift capacity comparison CSV",
+            shift_result.to_csv(index=False).encode("utf-8-sig"),
+            "shift_capacity_comparison.csv", "text/csv"
+        )
+        st.warning("Biaya shift belum dihitung karena tarif lembur, tunjangan, mobilisasi, konsumsi BBM, maintenance dan produktivitas aktual belum dimasukkan. Hasil hanya membandingkan kapasitas berdasarkan faktor yang Anda tetapkan.")
+
+with milestones_tab:
+    st.subheader("Milestone & Change Control")
+    milestone_data=ds("milestones.csv")
+    if not milestone_data.empty:
+        milestone_result,milestone_stats=calculate_milestones(milestone_data,status_date)
+        metric_row([("Milestones",milestone_stats["total"]),("Completed",milestone_stats["completed"]),
+          ("Delayed",milestone_stats["delayed"]),("Overdue / at risk",milestone_stats["at_risk"])])
+        show_df(milestone_result,350)
+    else:
+        st.info("Impor milestones.csv untuk memantau target, forecast, actual finish dan slippage.")
+    change_data=ds("change_register.csv")
+    if not change_data.empty:
+        bac=float(pd.to_numeric(ds("boq_budget.csv").get("budget_amount",pd.Series(dtype=float)),errors="coerce").fillna(0).sum()) if not ds("boq_budget.csv").empty else 0.0
+        change_result,change_stats=calculate_change_impact(change_data,bac)
+        st.markdown("#### Change impact")
+        st.info("Revised BAC di bawah adalah simulasi dampak perubahan yang disetujui terhadap BAC awal BOQ. Angka ini belum menggantikan baseline EVM sampai BOQ/baseline proyek diperbarui dan divalidasi.")
+        metric_row([("Approved cost impact",f"{change_stats['approved_cost_impact']:,.0f}"),
+          ("Approved schedule impact (days)",change_stats["approved_schedule_days"]),
+          ("Revised BAC",f"{change_stats['revised_budget']:,.0f}"),
+          ("Pending exposure",f"{change_stats['pending_cost_exposure']:,.0f}")])
+        show_df(change_result,350)
+    else:
+        st.info("Impor change_register.csv untuk mengendalikan perubahan scope, biaya, dan jadwal.")
+
+with drawing_tab:
+    st.subheader("AI Drawing to BOQ — PDF Takeoff Draft")
+    st.warning("AI takeoff is an initial quantity-survey draft. Verify drawing scale, dimensions, units, scope and every quantity before using it as a contractual BOQ.")
+    drawing_file=st.file_uploader("Upload engineering drawing PDF",type=["pdf"],key="drawing_pdf")
+    if drawing_file:
+        try:
+            page_count=render_pdf_page(drawing_file.getvalue(),0)[2]
+            page_number=st.number_input("Drawing page",min_value=1,max_value=max(1,page_count),value=1,step=1)
+            image_bytes,page_text,_=render_pdf_page(drawing_file.getvalue(),int(page_number)-1)
+            st.image(image_bytes,caption=f"{drawing_file.name} — page {page_number}",use_container_width=True)
+            with st.expander("Selectable text extracted from this page"):
+                st.text_area("PDF text",page_text,height=140,disabled=True)
+            gemini_key=st.text_input("Google Gemini API key (not stored)",type="password",key="drawing_gemini_key")
+            gemini_model=st.text_input("Gemini model","gemini-2.5-flash",key="drawing_gemini_model")
+            if st.button("Analyze drawing and draft BOQ items",type="primary"):
+                if not gemini_key:
+                    st.error("Gemini API key is required for drawing image analysis.")
+                else:
+                    try:
+                        takeoff=analyze_drawing_page_gemini(image_bytes,gemini_key,gemini_model)
+                        takeoff["drawing_id"]=drawing_file.name
+                        takeoff["page"]=int(page_number)
+                        st.session_state["drawing_takeoff_draft"]=takeoff
+                    except Exception as exc:
+                        st.error(f"Drawing analysis failed: {exc}")
+        except Exception as exc:
+            st.error(f"Could not read drawing PDF: {exc}")
+    takeoff_saved=ds("drawing_takeoff.csv")
+    takeoff_draft=st.session_state.get("drawing_takeoff_draft",takeoff_saved)
+    if isinstance(takeoff_draft,pd.DataFrame) and not takeoff_draft.empty:
+        st.markdown("#### Review and edit takeoff lines")
+        st.caption("Assign each takeoff line to a project WBS before converting it into a BOQ draft. Unassigned lines remain draft-only and cannot be used in EVM.")
+        wbs_options=ds("wbs.csv")
+        if not wbs_options.empty and "wbs_id" in wbs_options:
+            valid_wbs=sorted(wbs_options["wbs_id"].dropna().astype(str).unique().tolist())
+            if "wbs_id" not in takeoff_draft.columns:
+                takeoff_draft["wbs_id"]=""
+            edited=st.data_editor(takeoff_draft,use_container_width=True,num_rows="dynamic",key="takeoff_editor",
+                column_config={"wbs_id":st.column_config.SelectboxColumn("WBS mapping",options=valid_wbs,required=False)})
+        else:
+            edited=st.data_editor(takeoff_draft,use_container_width=True,num_rows="dynamic",key="takeoff_editor")
+            st.warning("Import the project WBS first. BOQ draft lines will have no WBS mapping until assigned.")
+        if st.button("Save reviewed takeoff to project database"):
+            save_dataset(project_id,"drawing_takeoff.csv",edited)
+            st.success("Takeoff draft saved. Review status remains under your control.")
+        boq_draft=takeoff_to_boq_draft(edited)
+        st.markdown("#### BOQ draft — unit rates intentionally blank")
+        show_df(boq_draft,300)
+        st.download_button("Download BOQ draft CSV",boq_draft.to_csv(index=False).encode("utf-8-sig"),
+            "BOQ_DRAFT_from_Drawing.csv","text/csv")
+    else:
+        st.info("Upload a PDF drawing and run Gemini vision analysis to create a takeoff draft.")
+
+with ai_advisor:
+    st.subheader("AI Project Advisor & Prediction")
+    st.markdown("#### Rules-based Mitigation & Recovery")
+    st.caption("Rekomendasi awal berbasis CPM, EVM, risiko dan kapasitas. Angka penghematan hanya ditampilkan jika data crash cost tersedia.")
+    try:
+        mitigation_activities = ds("activities.csv")
+        mitigation_evm = {}
+        if not ds("boq_budget.csv").empty and not mitigation_activities.empty:
+            mitigation_evm = calculate_evm(ds("project_master.csv"), mitigation_activities,
+                ds("boq_budget.csv"), ds("progress.csv"), ds("actual_cost.csv"), status_date)
+        mitigation_resource_summary, _ = calculate_resource_load(ds("resources.csv"), ds("resource_assignments.csv"))
+        mitigation = build_mitigation_advice(mitigation_activities, mitigation_evm,
+            ds("risk_register.csv"), mitigation_resource_summary, status_date)
+        metric_row([("Critical activities", len(mitigation["critical_activity_ids"])),
+                    ("CPM duration (days)", mitigation["cpm_project_duration_days"]),
+                    ("Recommended actions", len(mitigation["actions"]))])
+        st.dataframe(mitigation["actions"], use_container_width=True, hide_index=True)
+        st.markdown("#### Evidence-linked project driver diagnosis")
+        driver_diagnosis = diagnose_project_drivers(
+            mitigation_activities, ds("boq_budget.csv"), ds("progress.csv"),
+            ds("actual_cost.csv"), ds("risk_register.csv")
+        )
+        driver_findings = driver_diagnosis["findings"]
+        if not driver_findings.empty:
+            show_df(driver_findings, 360)
+            st.download_button(
+                "Download project driver diagnosis CSV",
+                driver_findings.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_project_driver_diagnosis.csv",
+                mime="text/csv",
+            )
+        else:
+            st.info("Belum ada driver terukur yang dapat dikonfirmasi dari dataset yang tersedia.")
+        for gap in driver_diagnosis["data_gaps"]:
+            st.warning(gap)
+        st.caption("Diagnosis menunjukkan sinyal yang didukung data; penyebab akhir tetap memerlukan verifikasi lapangan dan pemeriksaan cut-off.")
+        st.markdown("#### Root Cause Review & Corrective Action Register")
+        action_plan_result = build_root_cause_action_plan(
+            driver_findings, status_date=status_date
+        )
+        action_plan = action_plan_result["action_plan"]
+        if not action_plan.empty:
+            show_df(action_plan, 420)
+            st.download_button(
+                "Download RCA & corrective action register",
+                action_plan.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_rca_action_register.csv",
+                mime="text/csv",
+            )
+        else:
+            st.info(action_plan_result["message"])
+        st.caption("Root-cause entries are hypotheses to verify, not automatically confirmed causes. Due dates are proposed from the project status date.")
+        st.markdown("#### AI Narrative Intelligence — Groq / Gemini")
+        st.caption("Opsional. Data ringkasan proyek, temuan, dan tindakan akan dikirim ke provider yang dipilih untuk dibuatkan narasi manajemen. Jangan kirim data rahasia/terbatas tanpa otorisasi perusahaan.")
+        ai_provider = st.selectbox("AI provider", ["Groq", "Gemini"], key="project_ai_provider")
+        ai_model = st.text_input(
+            "Model (opsional; kosong = default)",
+            value="",
+            key="project_ai_model",
+            help="Groq default: llama-3.3-70b-versatile | Gemini default: gemini-2.5-flash",
+        )
+        if st.button("Generate AI project analysis", key="generate_ai_project_narrative"):
+            ai_metrics = {
+                "project_id": project_id,
+                "project_name": project_name,
+                "status_date": str(status_date),
+                "critical_activity_count": len(mitigation.get("critical_activity_ids", [])),
+                "cpm_project_duration_days": mitigation.get("cpm_project_duration_days"),
+                "evm": mitigation_evm,
+            }
+            try:
+                ai_result = generate_narrative_advice(
+                    ai_metrics, driver_findings, action_plan, provider=ai_provider,
+                    groq_api_key=configured_secret("GROQ_API_KEY"),
+                    gemini_api_key=configured_secret("GEMINI_API_KEY"),
+                    groq_model=(ai_model.strip() or "llama-3.3-70b-versatile") if ai_provider == "Groq" else "llama-3.3-70b-versatile",
+                    gemini_model=(ai_model.strip() or "gemini-2.5-flash") if ai_provider == "Gemini" else "gemini-2.5-flash",
+                )
+                st.session_state["ai_project_narrative"] = ai_result
+            except Exception as ai_exc:
+                st.error(f"AI analysis failed: {ai_exc}")
+        ai_result = st.session_state.get("ai_project_narrative")
+        if ai_result:
+            if ai_result.get("ok"):
+                st.success(f'Generated by {ai_result["provider"]} ({ai_result["model"]})')
+                st.markdown(ai_result["text"])
+                st.download_button(
+                    "Download AI management analysis",
+                    ai_result["text"].encode("utf-8"),
+                    file_name=f"{project_id}_ai_management_analysis.md",
+                    mime="text/markdown",
+                )
+            else:
+                st.warning(ai_result.get("error", "AI analysis unavailable."))
+        st.markdown("#### Recovery scenario comparison")
+        reduction = st.number_input("Target duration reduction (days)", min_value=1, max_value=365,
+            value=5, step=1, key="recovery_target_reduction")
+        recovery = compare_recovery_scenarios(mitigation_activities, int(reduction))
+        if recovery["scenario_available"]:
+            metric_row([("Baseline duration", f'{recovery["baseline_duration_days"]:,.1f} days'),
+                        ("Scenario duration", f'{recovery["scenario_duration_days"]:,.1f} days'),
+                        ("Days saved", f'{recovery["days_saved"]:,.1f}'),
+                        ("Incremental crash cost", f'{recovery["incremental_crash_cost"]:,.0f}'),
+                        ("Cost per day saved", f'{recovery["cost_per_day_saved"]:,.0f}' if pd.notna(recovery["cost_per_day_saved"]) else "—")])
+            st.dataframe(recovery["crash_detail"], use_container_width=True, hide_index=True)
+            st.download_button("Download recovery scenario detail",
+                recovery["crash_detail"].to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_recovery_scenario.csv", mime="text/csv")
+        else:
+            st.info(recovery["note"])
+
+        st.markdown("#### Multi-target recovery alternatives")
+        st.caption("Setiap target dihitung independen dari baseline CPM yang sama. Rekomendasi hanya memilih biaya terendah di antara alternatif yang layak.")
+        recovery_targets = st.multiselect(
+            "Target penghematan untuk dibandingkan (hari)",
+            options=[1, 2, 3, 5, 7, 10, 14, 21, 30],
+            default=[1, 3, 5, 7, 10],
+            key="multi_recovery_targets",
+        )
+        if st.button("Compare recovery alternatives", key="run_multi_recovery"):
+            try:
+                if not recovery_targets:
+                    st.warning("Pilih minimal satu target penghematan.")
+                else:
+                    multi_recovery = compare_multiple_recovery_scenarios(
+                        mitigation_activities, recovery_targets
+                    )
+                    st.session_state["multi_recovery_result"] = multi_recovery
+            except Exception as multi_error:
+                st.error(f"Multi-scenario recovery failed: {multi_error}")
+        multi_recovery = st.session_state.get("multi_recovery_result")
+        if multi_recovery:
+            show_df(multi_recovery["scenarios"], 360)
+            if multi_recovery["recommended_scenario"]:
+                best = multi_recovery["recommended_scenario"]
+                st.success(
+                    f'Rekomendasi biaya terendah: {best["scenario"]} | '
+                    f'Biaya tambahan {best["incremental_cost"]:,.2f} | '
+                    f'Hari dihemat {best["actual_days_saved"]:,.2f}'
+                )
+            else:
+                st.info(multi_recovery["recommendation_basis"])
+            with st.expander("Assumptions & limitations"):
+                for assumption in multi_recovery["assumptions"]:
+                    st.write("• " + assumption)
+            st.download_button(
+                "Download multi-scenario comparison CSV",
+                multi_recovery["scenarios"].to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"{project_id}_multi_recovery_scenarios.csv",
+                mime="text/csv",
+            )
+            st.markdown("#### Recovery Scenario Optimizer — Budget & Trade-off Controls")
+            optimizer_col1, optimizer_col2, optimizer_col3 = st.columns(3)
+            budget_limit = optimizer_col1.number_input(
+                "Maximum incremental recovery budget (project currency)",
+                min_value=0.0, value=0.0, step=100000.0,
+                help="Set 0 to leave the budget unconstrained. Currency follows this project's cost inputs.",
+                key="recovery_optimizer_budget",
+            )
+            min_days_saved = optimizer_col2.number_input(
+                "Minimum realized days saved", min_value=0.0, value=0.0, step=1.0,
+                key="recovery_optimizer_min_days",
+            )
+            max_cost_day = optimizer_col3.number_input(
+                "Maximum cost per day saved (project currency)",
+                min_value=0.0, value=0.0, step=10000.0,
+                help="Set 0 to leave cost/day unconstrained.",
+                key="recovery_optimizer_max_cost_day",
+            )
+            try:
+                optimizer_result = optimize_recovery_scenarios(
+                    multi_recovery["scenarios"],
+                    budget_limit=float(budget_limit) if budget_limit > 0 else None,
+                    minimum_days_saved=float(min_days_saved),
+                    maximum_cost_per_day=float(max_cost_day) if max_cost_day > 0 else None,
+                )
+                if optimizer_result["available"]:
+                    if optimizer_result["recommended"]:
+                        best_option = optimizer_result["recommended"]
+                        st.success(
+                            f'Rekomendasi sesuai batasan: {best_option["scenario"]} | '
+                            f'{best_option["actual_days_saved"]:,.2f} hari | '
+                            f'{best_option["incremental_cost"]:,.2f} biaya tambahan | '
+                            f'{best_option["cost_per_day_saved"]:,.2f} biaya/hari'
+                        )
+                    else:
+                        st.info(optimizer_result["recommendation_basis"])
+                    st.markdown("**Eligible alternatives — ranked by cost per day saved**")
+                    show_df(optimizer_result["eligible"], 300)
+                    st.markdown("**Pareto-efficient alternatives**")
+                    show_df(optimizer_result["pareto"], 240)
+                    with st.expander("Excluded alternatives and reasons"):
+                        show_df(optimizer_result["excluded"], 260)
+                    st.download_button(
+                        "Download recovery optimizer results",
+                        optimizer_result["eligible"].to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"{project_id}_recovery_optimizer_eligible.csv",
+                        mime="text/csv",
+                    )
+                    for assumption in optimizer_result["assumptions"]:
+                        st.caption("• " + assumption)
+            except Exception as optimizer_error:
+                st.warning(f"Recovery optimizer belum dapat dihitung: {optimizer_error}")
+
+            st.markdown("#### Integrated Recovery Impact — Schedule, Cost, Resource & Risk")
+            st.caption("Analisis menggabungkan dampak yang benar-benar tersedia. Domain yang belum memiliki data skenario ditandai NOT ASSESSED, bukan dianggap aman.")
+            shift_assessment = st.session_state.get("shift_capacity_result")
+            if isinstance(shift_assessment, pd.DataFrame) and "scenario" not in shift_assessment.columns:
+                shift_assessment = None
+            try:
+                integrated_impact = build_integrated_recovery_impact(
+                    multi_recovery["scenarios"],
+                    resource_assessment=shift_assessment,
+                )
+                if integrated_impact["available"]:
+                    impact_table = integrated_impact["comparison"]
+                    show_df(impact_table, 360)
+                    st.download_button(
+                        "Download integrated recovery impact register",
+                        impact_table.to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"{project_id}_integrated_recovery_impact.csv",
+                        mime="text/csv",
+                    )
+                    with st.expander("Integrated impact assumptions and validation gates"):
+                        for item in integrated_impact["assumptions"]:
+                            st.write("• " + item)
+                else:
+                    st.info("Integrated impact belum dapat dihitung: " + "; ".join(integrated_impact["assumptions"]))
+            except Exception as integrated_error:
+                st.warning(f"Integrated recovery impact belum dapat dihitung: {integrated_error}")
+
+            st.markdown("#### Executive recovery decision matrix")
+            shift_context = st.session_state.get("shift_capacity_result")
+            try:
+                decision = build_recovery_decision_matrix(
+                    multi_recovery["scenarios"],
+                    shift_context,
+                    ds("risk_register.csv"),
+                )
+                if decision["recommended_option"]:
+                    chosen = decision["recommended_option"]
+                    st.success(
+                        f'Rekomendasi ekonomis: {chosen["scenario"]} | '
+                        f'Biaya tambahan {chosen["incremental_cost"]:,.2f} | '
+                        f'Hari dihemat {chosen["actual_days_saved"]:,.2f}'
+                    )
+                else:
+                    st.info(decision["decision_basis"])
+                if not decision["ranked_options"].empty:
+                    show_df(decision["ranked_options"], 300)
+                if not decision["resource_screening"].empty:
+                    st.markdown("Resource/shift screening (belum dinilai secara ekonomi)")
+                    show_df(decision["resource_screening"], 220)
+                if decision["risk_exposure"]:
+                    st.caption(
+                        "Expected risk exposure — cost: "
+                        f'{decision["risk_exposure"]["expected_cost_exposure"]:,.2f}; '
+                        "schedule: "
+                        f'{decision["risk_exposure"]["expected_schedule_exposure_days"]:.2f} days. '
+                        "Ditampilkan terpisah dari biaya crash."
+                    )
+                with st.expander("Decision assumptions and limitations"):
+                    for item in decision["limitations"]:
+                        st.write("• " + item)
+                st.download_button(
+                    "Download executive recovery decision CSV",
+                    decision["ranked_options"].to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"{project_id}_recovery_decision_matrix.csv",
+                    mime="text/csv",
+                )
+            except Exception as decision_error:
+                st.warning(f"Decision matrix belum dapat dihitung: {decision_error}")
+        st.download_button("Download mitigation action register",
+            mitigation["actions"].to_csv(index=False).encode("utf-8-sig"),
+            file_name=f"{project_id}_mitigation_actions.csv", mime="text/csv")
+    except Exception as mitigation_error:
+        st.warning(f"Mitigation analysis belum dapat dihitung: {mitigation_error}")
+
+    st.warning("Mengirim ringkasan proyek ke penyedia AI eksternal hanya setelah Anda menekan Analyze. Jangan kirim data rahasia klien tanpa persetujuan.")
+    provider=st.selectbox("AI provider",["Groq","Google Gemini"],key="ai_provider")
+    api_key=st.text_input("API key (hanya untuk sesi ini; tidak disimpan)",type="password",key="ai_api_key")
+    model=st.text_input("Model", "llama-3.3-70b-versatile" if provider=="Groq" else "gemini-2.5-flash",key="ai_model")
+    context={"project_code":project_id,"project_name":project_name,"status_date":str(status_date),
+      "dataset_rows":{n:len(ds(n)) for n in TEMPLATES}}
+    try:
+        if not ds("activities.csv").empty:
+            cpm_frame,cpm_stats=calculate_cpm(ds("activities.csv"))
+            context["schedule"]={"duration":cpm_stats["project_duration"],"critical_activities":cpm_frame.loc[cpm_frame["is_critical"],"activity_id"].tolist()}
+        if not ds("boq_budget.csv").empty and not ds("activities.csv").empty:
+            context["evm"]=calculate_evm(ds("project_master.csv"),ds("activities.csv"),ds("boq_budget.csv"),ds("progress.csv"),ds("actual_cost.csv"),status_date)
+        if not ds("risk_register.csv").empty:
+            _,risk_stats,_=risk_analysis(ds("risk_register.csv"),3000)
+            context["risk"]=risk_stats
+        trend_prediction,_=predict_project_trend(ds("project_master.csv"),ds("activities.csv"),
+          ds("boq_budget.csv"),ds("progress.csv"),ds("actual_cost.csv"))
+        if trend_prediction: context["trend_prediction"]=trend_prediction
+    except Exception as exc:
+        context["data_quality_note"]=str(exc)
+    st.json(context)
+    if st.button("Analyze project with AI",type="primary"):
+        if not api_key:
+            st.error("Masukkan API key Groq atau Gemini terlebih dahulu.")
+        else:
+            prompt=("You are a senior project controls advisor. Analyze the supplied project data. "
+              "Separate verified metrics from assumptions, identify schedule/cost/risk red flags, "
+              "give prioritized actions with owner and timing, and state missing data. Never invent values. "
+              "Respond in Indonesian. Project data: "+json.dumps(context,default=str))
+            try:
+                if provider=="Groq":
+                    response=requests.post("https://api.groq.com/openai/v1/chat/completions",
+                      headers={"Authorization":"Bearer "+api_key,"Content-Type":"application/json"},
+                      json={"model":model,"messages":[{"role":"user","content":prompt}],"temperature":0.2},timeout=90)
+                    response.raise_for_status()
+                    answer=response.json()["choices"][0]["message"]["content"]
+                else:
+                    url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                    response=requests.post(url,headers={"x-goog-api-key":api_key},
+                      json={"contents":[{"parts":[{"text":prompt}]}]},timeout=90)
+                    response.raise_for_status()
+                    answer=response.json()["candidates"][0]["content"]["parts"][0]["text"]
+                st.markdown(answer)
+            except Exception as exc:
+                st.error(f"AI provider request failed: {exc}")
+    st.markdown("#### Predictive readiness")
+    trend_prediction,trend_history=predict_project_trend(ds("project_master.csv"),ds("activities.csv"),
+        ds("boq_budget.csv"),ds("progress.csv"),ds("actual_cost.csv"))
+    if trend_prediction:
+        st.markdown("#### Historical trend forecast")
+        metric_row([("Reporting periods",trend_prediction["reporting_periods"]),
+          ("Latest SPI",trend_prediction["latest_SPI"]),("Latest CPI",trend_prediction["latest_CPI"]),
+          ("Trend EAC",f"{trend_prediction['trend_EAC']:,.0f}" if pd.notna(trend_prediction["trend_EAC"]) else "—")])
+        if trend_prediction["trend_finish_forecast"] is not None:
+            st.metric("Trend-based finish forecast",pd.Timestamp(trend_prediction["trend_finish_forecast"]).strftime("%d %b %Y"))
+        st.plotly_chart(px.line(trend_history,x="period_end",y=["PV","EV","AC"],markers=True,
+            title="Historical cumulative PV / EV / AC"),use_container_width=True)
+        st.caption(trend_prediction["method"]+". This is a trend projection, not a trained machine-learning model.")
+    else:
+        periods=ds("progress.csv")["period_end"].nunique() if not ds("progress.csv").empty and "period_end" in ds("progress.csv") else 0
+        st.info(f"Available reporting periods: {periods}. At least 3 valid reporting periods with BOQ quantities and actual costs are needed for a trend forecast. ML prediction needs a longer, validated project history.")
+
+with reports:
+    st.subheader("Management Reports & Data Export")
+    datasets={n:ds(n) for n in TEMPLATES}
+    analysis={}
+    report_metrics={}
+    report_errors=[]
+    if not datasets["activities.csv"].empty:
+        try:
+            cpm_frame,cpm_stats=calculate_cpm(datasets["activities.csv"])
+            analysis["CPM Results"]=cpm_frame
+            report_metrics["Planned duration (periods)"]=round(cpm_stats["project_duration"],2)
+            report_metrics["Critical activities"]=int(cpm_stats["n_critical"])
+        except Exception as exc: report_errors.append(f"CPM: {exc}")
+    if not datasets["boq_budget.csv"].empty and not datasets["activities.csv"].empty and not datasets["project_master.csv"].empty:
+        try:
+            evm_values=calculate_evm(datasets["project_master.csv"],datasets["activities.csv"],
+                datasets["boq_budget.csv"],datasets["progress.csv"],datasets["actual_cost.csv"],status_date)
+            evm_values=add_earned_schedule_metrics(evm_values,datasets["project_master.csv"],
+                datasets["activities.csv"],status_date)
+            report_metrics.update({k:round(float(evm_values[k]),2) for k in
+                ["BAC","PV","EV","AC","SPI","CPI","EAC","ETC","VAC","ES","SV(t)","SPI(t)","IEAC(t)"]
+                if k in evm_values and pd.notna(evm_values[k])})
+            cashflow,cash_stats,commitment_detail=build_cost_cashflow(datasets["project_master.csv"],
+                datasets["activities.csv"],datasets["boq_budget.csv"],datasets["actual_cost.csv"],
+                datasets["commitments.csv"],status_date,datasets["progress.csv"])
+            analysis["Monthly Cash Flow"]=cashflow
+            analysis["Commitment Reconciliation"]=commitment_detail
+            for key in ["forecast_at_completion","remaining_forecast","commitment_outstanding","commitment_paid_reconciliation"]:
+                report_metrics[key.replace("_"," ").title()]=round(float(cash_stats[key]),2)
+            report_metrics["Forecast Method"]=cash_stats["forecast_method"]
+        except Exception as exc: report_errors.append(f"EVM / Cash flow: {exc}")
+    elif not datasets["commitments.csv"].empty:
+        try:
+            commitment_detail,commit_stats=analyze_commitments(datasets["commitments.csv"],status_date,
+                str(datasets["project_master.csv"].iloc[0].get("currency","")) if not datasets["project_master.csv"].empty else None)
+            analysis["Commitment Reconciliation"]=commitment_detail
+            report_metrics["Outstanding commitments"]=round(commit_stats["outstanding_total"],2)
+            report_metrics["Commitment paid reconciliation"]=round(commit_stats["paid_total"],2)
+        except Exception as exc: report_errors.append(f"Commitments: {exc}")
+    if not datasets["risk_register.csv"].empty:
+        try:
+            risk_frame,risk_stats,_=risk_analysis(datasets["risk_register.csv"],10000)
+            analysis["Risk Register Ranked"]=risk_frame
+            report_metrics["Expected risk cost exposure"]=round(risk_stats["expected_cost_exposure"],2)
+            report_metrics["Risk schedule exposure (days)"]=round(risk_stats["expected_schedule_exposure_days"],2)
+        except Exception as exc: report_errors.append(f"Risk: {exc}")
+    if not datasets["milestones.csv"].empty:
+        try:
+            milestone_frame,milestone_stats=calculate_milestones(datasets["milestones.csv"],status_date)
+            analysis["Milestone Status"]=milestone_frame
+            report_metrics["Milestones total"]=milestone_stats["total"]
+            report_metrics["Milestones completed"]=milestone_stats["completed"]
+            report_metrics["Milestones delayed"]=milestone_stats["delayed"]
+            report_metrics["Milestones at risk"]=milestone_stats["at_risk"]
+        except Exception as exc: report_errors.append(f"Milestones: {exc}")
+    if not datasets["resource_assignments.csv"].empty and not datasets["resources.csv"].empty:
+        try:
+            resource_summary,daily_load=calculate_resource_load(datasets["resources.csv"],datasets["resource_assignments.csv"])
+            analysis["Resource Allocation"]=resource_summary
+            analysis["Daily Resource Loading"]=daily_load
+            report_metrics["Resources assigned"]=int(resource_summary["rsrc_id"].nunique())
+            report_metrics["Overloaded resource days"]=int(resource_summary["overloaded_days"].sum())
+        except Exception as exc: report_errors.append(f"Resources: {exc}")
+    if not datasets["change_register.csv"].empty:
+        try:
+            original_bac=report_metrics.get("BAC",0.0)
+            change_frame,change_stats=calculate_change_impact(datasets["change_register.csv"],original_bac)
+            analysis["Change Control"]=change_frame
+            report_metrics["Approved change cost impact"]=round(change_stats["approved_cost_impact"],2)
+            report_metrics["Approved schedule impact days"]=round(change_stats["approved_schedule_days"],2)
+            report_metrics["Revised budget after approved changes"]=round(change_stats["revised_budget"],2)
+            report_metrics["Pending change cost exposure"]=round(change_stats["pending_cost_exposure"],2)
+        except Exception as exc: report_errors.append(f"Change control: {exc}")
+    if not datasets["activities.csv"].empty:
+        try:
+            advisor_evm = {}
+            if not datasets["boq_budget.csv"].empty and not datasets["project_master.csv"].empty:
+                advisor_evm = calculate_evm(datasets["project_master.csv"], datasets["activities.csv"],
+                    datasets["boq_budget.csv"], datasets["progress.csv"], datasets["actual_cost.csv"], status_date)
+            advisor_resources, _ = calculate_resource_load(datasets["resources.csv"], datasets["resource_assignments.csv"])
+            advisor_result = build_mitigation_advice(datasets["activities.csv"], advisor_evm,
+                datasets["risk_register.csv"], advisor_resources, status_date)
+            analysis["Mitigation Action Register"] = advisor_result["actions"]
+            report_metrics["Advisor critical activities"] = len(advisor_result["critical_activity_ids"])
+            report_metrics["Advisor recommended actions"] = len(advisor_result["actions"])
+        except Exception as exc:
+            report_errors.append(f"Mitigation advisor: {exc}")
+        try:
+            integrated = build_integrated_forecast(
+                activities=datasets["activities.csv"], boq_budget=datasets["boq_budget.csv"],
+                progress=datasets["progress.csv"], actual_cost=datasets["actual_cost.csv"],
+                resources=datasets["resources.csv"], resource_assignments=datasets["resource_assignments.csv"],
+                risk_register=datasets["risk_register.csv"], project_master=datasets["project_master.csv"],
+                commitments=datasets["commitments.csv"], status_date=status_date, simulations=1000, seed=42
+            )
+            analysis["Integrated CPM Detail"] = integrated["cpm_activity_detail"]
+            if not integrated["cashflow"].empty:
+                analysis["Integrated Forecast Cash Flow"] = integrated["cashflow"]
+            report_metrics.update({
+                "Integrated forecast finish": integrated["forecast_finish"],
+                "Risk-adjusted finish P80": integrated["risk_adjusted_finish_p80"],
+                "Critical activities (integrated)": integrated["critical_activity_count"],
+                "Risk cost P80": round(float(integrated["risk_cost_p80"]), 2),
+                "Risk schedule days P80": round(float(integrated["risk_days_p80"]), 2),
+            })
+            if pd.notna(integrated["risk_adjusted_cost_p80"]):
+                report_metrics["Risk-adjusted cost P80"] = round(float(integrated["risk_adjusted_cost_p80"]), 2)
+        except Exception as exc:
+            report_errors.append(f"Integrated forecast: {exc}")
+    if report_errors:
+        for issue in report_errors: st.warning(issue)
+    st.markdown("#### Bilingual Executive Summary")
+    report_language = st.selectbox(
+        "Report language", ["Bahasa Indonesia", "English"], key="executive_report_language"
+    )
+    executive_summary = build_executive_summary(
+        project_id, project_name, status_date, report_metrics, report_errors,
+        "id" if report_language == "Bahasa Indonesia" else "en"
+    )
+    st.markdown(executive_summary)
+    st.download_button(
+        "Download Executive Summary (Markdown)",
+        executive_summary.encode("utf-8"),
+        file_name=f"{project_id}_executive_summary.md",
+        mime="text/markdown",
+    )
+    if st.button("Generate integrated Excel workbook",type="primary"):
+        try:
+            book=export_workbook(datasets,analysis)
+            st.session_state["report_excel"]=book
+        except Exception as exc: st.exception(exc)
+    if "report_excel" in st.session_state:
+        st.download_button("⬇️ Download AI Project Control Report.xlsx",st.session_state["report_excel"],
+            "AI_Project_Control_Report.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    if st.button("Generate PDF management report"):
+        try:
+            st.session_state["report_pdf"]=generate_pdf_report(project_id,project_name,status_date,datasets,analysis,report_metrics)
+        except Exception as exc: st.exception(exc)
+    if "report_pdf" in st.session_state:
+        st.download_button("⬇️ Download AI Project Control Report.pdf",st.session_state["report_pdf"],
+            "AI_Project_Control_Report.pdf","application/pdf")
+    st.divider()
+    st.markdown("#### Optional Telegram delivery")
+    st.caption("The PDF is sent only when you explicitly press Send. Bot token is not saved.")
+    telegram_token=st.text_input("Telegram bot token",type="password",key="telegram_token")
+    telegram_chat=st.text_input("Telegram chat ID",key="telegram_chat")
+    if st.button("Send PDF report to Telegram"):
+        try:
+            pdf_bytes=st.session_state.get("report_pdf")
+            if pdf_bytes is None:
+                pdf_bytes=generate_pdf_report(project_id,project_name,status_date,datasets,analysis,report_metrics)
+            if not telegram_token or not telegram_chat:
+                st.error("Bot token and chat ID are required.")
+            else:
+                send_telegram_document(telegram_token,telegram_chat,pdf_bytes,"AI_Project_Control_Report.pdf",
+                    f"{project_name} | {project_id} | {status_date}")
+                st.success("PDF report sent to Telegram.")
+        except Exception as exc: st.error(f"Telegram delivery failed: {exc}")
+    st.markdown("#### Individual dataset exports")
+    for name,frame in datasets.items():
+        if not frame.empty:
+            st.download_button(f"Download {name}",frame.to_csv(index=False).encode("utf-8-sig"),
+                name,"text/csv",key="report_"+name)
+
+
+with forecast_tab:
+    st.subheader("Integrated Project Forecast")
+    st.caption("Menggabungkan jadwal, EVM, resource capacity dan risiko dalam satu ringkasan forecast.")
+    forecast_simulations = st.number_input("Jumlah simulasi risiko", min_value=1000, max_value=50000,
+        value=5000, step=1000, key="integrated_forecast_simulations")
+    if st.button("Run Integrated Forecast", type="primary", key="run_integrated_forecast"):
+        try:
+            forecast_result = build_integrated_forecast(
+                activities=ds("activities.csv"),
+                boq_budget=ds("boq_budget.csv"),
+                progress=ds("progress.csv"),
+                actual_cost=ds("actual_cost.csv"),
+                resources=ds("resources.csv"),
+                resource_assignments=ds("resource_assignments.csv"),
+                risk_register=ds("risk_register.csv"),
+                project_master=ds("project_master.csv"),
+                commitments=ds("commitments.csv"),
+                status_date=status_date,
+                simulations=int(forecast_simulations),
+            )
+            st.session_state["integrated_forecast_result"] = forecast_result
+            st.success("Integrated forecast berhasil dihitung dari dataset yang tersimpan.")
+        except Exception as exc:
+            st.error(f"Forecast tidak dapat dihitung: {exc}")
+    result = st.session_state.get("integrated_forecast_result")
+    if result:
+        st.markdown("#### Schedule outlook")
+        cols = st.columns(4)
+        cols[0].metric("Baseline finish", result["baseline_finish"])
+        cols[1].metric("Forecast finish", result["forecast_finish"])
+        cols[2].metric("Risk-adjusted P80", result["risk_adjusted_finish_p80"])
+        cols[3].metric("Forecast basis", result["schedule_basis"])
+        st.markdown("#### CPM critical path")
+        cpm_cols = st.columns(3)
+        cpm_cols[0].metric("CPM network duration", f'{result["cpm_project_duration_days"]:.1f} days')
+        cpm_cols[1].metric("Critical activities", result["critical_activity_count"])
+        cpm_cols[2].metric("Activities in network", len(result["cpm_activity_detail"]))
+        if result["critical_activity_ids"]:
+            st.caption("Critical activity IDs: " + ", ".join(result["critical_activity_ids"][:40]))
+        st.dataframe(result["cpm_activity_detail"], use_container_width=True, hide_index=True)
+        st.markdown("#### Cost & EVM outlook")
+        if result["evm_available"]:
+            cols = st.columns(5)
+            for col, label, key, fmt in [
+                (cols[0], "BAC", "bac", ",.0f"), (cols[1], "PV", "pv", ",.0f"),
+                (cols[2], "EV", "ev", ",.0f"), (cols[3], "AC", "ac", ",.0f"),
+                (cols[4], "EAC", "eac", ",.0f")
+            ]:
+                value = result[key]
+                col.metric(label, f"{value:{fmt}}" if pd.notna(value) else "—")
+            cols = st.columns(3)
+            cols[0].metric("CPI", f'{result["cpi"]:.3f}' if pd.notna(result["cpi"]) else "—")
+            cols[1].metric("SPI", f'{result["spi"]:.3f}' if pd.notna(result["spi"]) else "—")
+            cols[2].metric("ETC", f'{result["etc"]:,.0f}' if pd.notna(result["etc"]) else "—")
+        else:
+            st.info("EVM belum tersedia. Lengkapi BOQ Budget, Progress, dan Actual Cost untuk menghitung BAC/PV/EV/AC/EAC.")
+        st.markdown("#### Risk-adjusted exposure")
+        cols = st.columns(4)
+        cols[0].metric("Risk cost P50", f'{result["risk_cost_p50"]:,.0f}')
+        cols[1].metric("Risk cost P80", f'{result["risk_cost_p80"]:,.0f}')
+        cols[2].metric("Schedule impact P50", f'{result["risk_days_p50"]:.1f} days')
+        cols[3].metric("Schedule impact P80", f'{result["risk_days_p80"]:.1f} days')
+        if pd.notna(result["risk_adjusted_cost_p80"]):
+            st.metric("Risk-adjusted cost forecast P80", f'{result["risk_adjusted_cost_p80"]:,.0f}')
+        if result["cashflow_stats"]:
+            st.markdown("#### Integrated cost cash flow")
+            stats = result["cashflow_stats"]
+            cf_cols = st.columns(4)
+            cf_cols[0].metric("Cash flow BAC", f'{stats["BAC"]:,.0f}')
+            cf_cols[1].metric("Actual cost to date", f'{stats["actual_to_date"]:,.0f}')
+            cf_cols[2].metric("Forecast at completion", f'{stats["forecast_at_completion"]:,.0f}')
+            cf_cols[3].metric("Outstanding commitments", f'{stats["commitment_outstanding"]:,.0f}')
+            st.caption(stats["forecast_method"])
+            if not result["cashflow"].empty:
+                st.line_chart(result["cashflow"].set_index("period")[[
+                    "cumulative_baseline", "cumulative_actual", "cumulative_forecast"
+                ]])
+                st.dataframe(result["cashflow"], use_container_width=True, hide_index=True)
+        st.markdown("#### Resource capacity screening")
+        st.metric("Assignments above 100% capacity", result["resource_overload_assignments"])
+        if not result["resource_summary"].empty:
+            st.dataframe(result["resource_summary"], use_container_width=True, hide_index=True)
+        with st.expander("Forecast assumptions and limitations"):
+            for assumption in result["assumptions"]:
+                st.write("• " + assumption)
+    else:
+        st.info("Pilih Run Integrated Forecast untuk menghitung proyeksi berdasarkan data proyek yang sudah diimpor.")
+
+with guide:
+    st.subheader("User Guide")
+    st.markdown("""
+    **Recommended workflow**
+    1. Create or select a project code in the sidebar.
+    2. Import project master, WBS, activities, BOQ, progress, actual cost, risk register and commitments.
+    3. Open Planning & CPM to inspect early/late dates, float and critical activities.
+    4. Open Cost & EVM to inspect PV, EV, AC, SPI, CPI and forecasts.
+    5. Update progress and actual cost each reporting period.
+    6. Maintain risk register and run Monte Carlo scenarios.
+    7. Import P6 resources, assignments and calendars or upload resource datasets.
+    8. Maintain milestones and change register to monitor slippage and scope impact.
+    9. Add approved crash duration and crash cost assumptions to eligible activities before optimization.
+    10. Export the integrated workbook for management review.
+
+    **Calculation policy**
+    - CPM and EVM are deterministic engineering calculations.
+    - Monte Carlo outputs are scenario distributions based on the entered uncertainty assumptions.
+    - AI forecasting is intentionally not presented until sufficient historical, time-phased project data is available.
+    - Primavera P6 remains the schedule authority for working calendars, resource levelling and native constraints.
+    """)
+    st.info("This integrated build is a local-first application. Project datasets are saved to SQLite on this computer. Backup restore validates the incoming datasets before an atomic database update; keep backup copies outside this computer.")
+
+st.divider()
+st.caption("AI Project Control System | Integrated V1 | Local-first project controls")
