@@ -45,8 +45,9 @@ except (OSError, RuntimeError, sqlite3.Error) as exc:
 
 st.info(
     "P6 XER dipetakan ke dataset Project Master, WBS dan Activities pada workspace utama. "
-    "Durasi jam P6 dikonversi menjadi hari nominal 8 jam; kalender kerja, lag, constraint, "
-    "resource leveling dan relasi non-FS tetap perlu ditinjau di Primavera P6."
+    "Relasi FS, SS, FF, SF serta lag/lead disimpan dan dihitung oleh CPM workspace; "
+    "durasi dan lag jam dikonversi menjadi hari nominal 8 jam. Kalender kerja, hari libur, "
+    "constraint, resource leveling dan kalender native P6 tetap perlu diverifikasi di Primavera P6."
 )
 
 with st.expander("A. Import Primavera P6 XER", expanded=True):
