@@ -52,7 +52,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
           transition:all .2s ease;text-decoration:none!important;
         }
         a[data-testid="stPageLink-NavLink"]:hover{
-          border-color:#65eff4;background:linear-gradient(135deg,rgba(117,65,166,.95),rgba(91,39,126,.98));
+          border-color:#e0c5ff;background:linear-gradient(135deg,rgba(117,65,166,.95),rgba(91,39,126,.98));
           transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,205,210,.18);
         }
         a[data-testid="stPageLink-NavLink"] p{font-family:"DM Mono",monospace;font-size:10px;
@@ -61,9 +61,9 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
           padding:10px 14px;margin:0 0 23px;border:1px solid rgba(85,190,211,.17);
           border-radius:9px;background:rgba(28,17,48,.76);color:#c0afd5;
           font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.12em;}
-        .pc-status-strip span:first-child{color:#68edc4;}
+        .pc-status-strip span:first-child{color:#efb0ff;}
         .pc-status-strip i{display:inline-block;width:6px;height:6px;border-radius:50%;
-          background:#35e0b3;box-shadow:0 0 10px #35e0b3;margin-right:6px;}
+          background:#ed9fff;box-shadow:0 0 10px #ed9fff;margin-right:6px;}
         .pc-notice{padding:12px 15px;margin:0 0 17px;border-left:3px solid #ffbd66;
           border-top:1px solid rgba(255,189,102,.2);border-right:1px solid rgba(255,189,102,.2);
           border-bottom:1px solid rgba(255,189,102,.2);border-radius:8px;
@@ -71,7 +71,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
           color:#f3d8ad;font-size:12px;line-height:1.6;}
         [data-testid="stSubheader"]{
           position:relative;margin:27px 0 13px;padding:12px 15px 11px 18px;
-          border:1px solid rgba(85,190,211,.20);border-left:3px solid #55e6f2;
+          border:1px solid rgba(85,190,211,.20);border-left:3px solid #c99cff;
           border-radius:8px;background:linear-gradient(90deg,rgba(54,31,83,.92),rgba(20,12,37,.48));
           box-shadow:inset 0 1px rgba(255,255,255,.025);
         }
@@ -148,14 +148,15 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         p,label,.stCaption,[data-testid="stMarkdownContainer"]{color:var(--pc-text);}
         .pc-topline{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 10px;
           color:#7fa8bd;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;}
-        .pc-live{display:inline-flex;align-items:center;gap:7px;color:#68edc4;}
-        .pc-live:before{content:"";width:7px;height:7px;border-radius:50%;background:#35e0b3;box-shadow:0 0 12px #35e0b3;}
+        .pc-live{display:inline-flex;align-items:center;gap:7px;color:#efb0ff;}
+        .pc-live:before{content:"";width:7px;height:7px;border-radius:50%;background:#ed9fff;box-shadow:0 0 12px #ed9fff;}
         .pc-hero{
           position:relative;isolation:isolate;overflow:hidden;min-height:190px;
           padding:28px 32px 26px;margin:0 0 22px;border-radius:18px;
-          border:1px solid rgba(85,230,242,.38);border-left:4px solid #55e6f2;
+          border:1px solid rgba(85,230,242,.38);border-left:4px solid #c99cff;
           background:
-            linear-gradient(100deg,rgba(7,25,41,.98) 0%,rgba(9,45,61,.96) 55%,rgba(5,75,72,.88) 100%);
+            radial-gradient(ellipse at 78% 20%,rgba(211,153,255,.24),transparent 38%),
+            linear-gradient(105deg,rgba(22,12,42,.99) 0%,rgba(65,34,96,.97) 52%,rgba(91,43,111,.94) 100%);
           box-shadow:0 18px 48px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.06);
         }
         .pc-hero:before{content:"";position:absolute;inset:0;z-index:-1;opacity:.24;
@@ -166,15 +167,15 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
           border:1px solid rgba(85,230,242,.32);border-radius:50%;
           box-shadow:0 0 0 24px rgba(85,230,242,.035),0 0 0 52px rgba(85,230,242,.025),0 0 65px rgba(40,220,210,.10);}
         .pc-hero-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;}
-        .pc-kicker{font-family:"DM Mono",monospace;color:#62eaf2;font-size:10px;letter-spacing:.22em;font-weight:500;}
+        .pc-kicker{font-family:"DM Mono",monospace;color:#d6b5ff;font-size:10px;letter-spacing:.22em;font-weight:500;}
         .pc-title{font-family:"Barlow Condensed",Inter,sans-serif;color:#f6fdff;font-size:clamp(38px,5vw,58px);
           line-height:.98;font-weight:800;letter-spacing:.015em;text-transform:uppercase;margin:12px 0 10px;
           text-shadow:0 0 24px rgba(85,230,242,.12);}
         .pc-subtitle{color:#b5cfdd;font-size:13px;line-height:1.65;margin:0;max-width:780px;}
         .pc-hero-side{min-width:150px;text-align:right;border-left:1px solid rgba(85,230,242,.22);padding-left:22px;}
-        .pc-hero-side strong{display:block;color:#6df2d1;font-family:"Barlow Condensed",sans-serif;font-size:28px;letter-spacing:.08em;}
+        .pc-hero-side strong{display:block;color:#f0b4ff;font-family:"Barlow Condensed",sans-serif;font-size:28px;letter-spacing:.08em;}
         .pc-hero-side span{display:block;color:#8eafc1;font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.13em;}
-        .pc-section-label{display:flex;align-items:center;gap:10px;margin:25px 0 12px;color:#75dfe8;
+        .pc-section-label{display:flex;align-items:center;gap:10px;margin:25px 0 12px;color:#d9baff;
           font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;}
         .pc-section-label:after{content:"";height:1px;flex:1;background:linear-gradient(90deg,rgba(85,230,242,.35),transparent);}
         [data-testid="stMetric"]{
@@ -184,7 +185,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
           box-shadow:0 10px 26px rgba(0,0,0,.23),inset 0 1px rgba(255,255,255,.045);
         }
         [data-testid="stMetric"]:before{content:"";position:absolute;top:0;left:0;width:48px;height:2px;
-          background:linear-gradient(90deg,#55e6f2,transparent);box-shadow:0 0 12px #55e6f2;}
+          background:linear-gradient(90deg,#c99cff,transparent);box-shadow:0 0 12px #c99cff;}
         [data-testid="stMetricLabel"]{color:#91b2c4!important;font-family:"DM Mono",monospace;font-size:10px!important;letter-spacing:.08em;text-transform:uppercase;}
         [data-testid="stMetricValue"]{color:#f2fcff!important;font-family:"Barlow Condensed",sans-serif;font-size:32px!important;font-weight:700;}
         [data-testid="stMetricDelta"]{font-family:"DM Mono",monospace;font-size:11px;}
@@ -213,14 +214,14 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         button[kind="secondary"]{background:linear-gradient(110deg,#132b40,#102638)!important;border-color:#31556d!important;}
         [data-testid="stAlert"]{border-radius:11px;border:1px solid rgba(85,190,211,.24);background:rgba(12,31,47,.86);}
         [data-testid="stTabs"] button{color:#9bb8c8;font-weight:750;}
-        [data-testid="stTabs"] button[aria-selected="true"]{color:#62eaf2;border-bottom-color:#62eaf2;}
+        [data-testid="stTabs"] button[aria-selected="true"]{color:#d6b5ff;border-bottom-color:#d6b5ff;}
         [data-testid="stProgressBar"]>div>div{background:linear-gradient(90deg,#9a65db,#e58be8);}
         [data-testid="stPlotlyChart"],[data-testid="stVegaLiteChart"],[data-testid="stArrowVegaLiteChart"]{
           border:1px solid rgba(85,190,211,.18);border-radius:13px;background:rgba(29,17,48,.72);padding:5px;
         }
         hr{border-color:rgba(85,190,211,.2);}
         code{color:#72eaf0;background:#10283b;border-radius:5px;}
-        a{color:#62eaf2!important;}
+        a{color:#d6b5ff!important;}
         @media(max-width:850px){.pc-hero-grid{grid-template-columns:1fr}.pc-hero-side{display:none}.pc-hero{padding:23px 20px}.pc-title{font-size:39px}}
         @media(max-width:760px){.block-container{padding-left:1rem;padding-right:1rem}}
         /* Command-center motion layer: restrained ambient motion, no JS required. */
@@ -246,13 +247,13 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         }
         [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"]:before {
           content:"";position:absolute;left:0;top:0;width:42px;height:2px;
-          background:linear-gradient(90deg,#55e6f2,transparent);
+          background:linear-gradient(90deg,#c99cff,transparent);
           box-shadow:0 0 12px rgba(85,230,242,.65);pointer-events:none;
         }
         [data-testid="stSidebar"] [aria-current="page"] {
           background:linear-gradient(90deg,rgba(20,112,125,.30),rgba(8,40,57,.35))!important;
           border:1px solid rgba(85,230,242,.34)!important;
-          box-shadow:inset 3px 0 #55e6f2;
+          box-shadow:inset 3px 0 #c99cff;
         }
         [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"] p {
           font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.025em;
@@ -264,7 +265,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         }
         [data-baseweb="input"]:focus-within,[data-baseweb="select"]:focus-within,
         [data-testid="stDateInput"] input:focus,[data-testid="stNumberInput"] input:focus {
-          border-color:#55e6f2!important;
+          border-color:#c99cff!important;
           box-shadow:0 0 0 2px rgba(85,230,242,.13)!important;
         }
         @media(prefers-reduced-motion:reduce) {
@@ -283,7 +284,7 @@ def apply_project_control_theme(section: str, subtitle: str, code: str = "PROJEC
         unsafe_allow_html=True,
     )
     st.sidebar.markdown(
-        '<div style="margin:4px 10px 18px;padding:10px 11px;border-left:2px solid #35e0b3;'
+        '<div style="margin:4px 10px 18px;padding:10px 11px;border-left:2px solid #ed9fff;'
         'background:rgba(10,31,46,.62);border-radius:0 8px 8px 0;">'
         '<div style="font-family:DM Mono,monospace;font-size:8px;letter-spacing:.14em;color:#7fa8bd;">'
         'APPLICATION CREATOR</div>'
