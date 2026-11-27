@@ -185,8 +185,10 @@ def prepare_xer_workspace_import(
     task_ids = set(task_id_values)
     code_by_id = dict(zip(task_id_values, activity_id_values))
     predecessor_map: dict[str, list[str]] = {}
+    relationship_map: dict[str, list[dict[str, Any]]] = {}
     seen_relationships: set[tuple[str, str, str, float]] = set()
     duplicate_relationship_count = 0
+    relationship_type_count = {kind: 0 for kind in ("FS", "SS", "FF", "SF")}
     for relation in tables.get("TASKPRED", []):
         successor = str(relation.get("task_id", "")).strip()
         predecessor = str(relation.get("pred_task_id", "")).strip()
@@ -197,10 +199,12 @@ def prepare_xer_workspace_import(
                 f"P6 activity {successor} references predecessor {predecessor} outside the selected project."
             )
         relation_type = str(relation.get("pred_type") or "PR_FS").strip().upper()
-        if relation_type not in {"PR_FS", "FS"}:
+        if relation_type.startswith("PR_"):
+            relation_type = relation_type[3:]
+        if relation_type not in {"FS", "SS", "FF", "SF"}:
             raise ValueError(
-                f"P6 relationship {predecessor} → {successor} uses unsupported type "
-                f"{relation_type}; only Finish-to-Start relationships are imported."
+                f"P6 relationship {predecessor} → {successor} has unknown type "
+                f"{relation_type!r}; expected PR_FS, PR_SS, PR_FF or PR_SF."
             )
         raw_lag = relation.get("lag_hr_cnt", "0")
         try:
@@ -209,19 +213,24 @@ def prepare_xer_workspace_import(
             raise ValueError(
                 f"P6 relationship {predecessor} → {successor} has an invalid lag."
             ) from None
-        if not math.isfinite(lag_hours) or abs(lag_hours) > 1e-9:
-            raise ValueError(
-                f"P6 relationship {predecessor} → {successor} has a non-zero lag; "
-                "lags are not supported by the workspace CPM engine."
-            )
-        # XER exports can repeat an identical TASKPRED row. Collapse only exact
-        # duplicates; do not silently merge links with different types or lags.
+        if not math.isfinite(lag_hours):
+            raise ValueError(f"P6 relationship {predecessor} → {successor} has a non-finite lag.")
         signature = (successor, predecessor, relation_type, lag_hours)
         if signature in seen_relationships:
             duplicate_relationship_count += 1
             continue
         seen_relationships.add(signature)
-        predecessor_map.setdefault(successor, []).append(code_by_id[predecessor])
+        relationship_type_count[relation_type] += 1
+        predecessor_code = code_by_id[predecessor]
+        predecessor_map.setdefault(successor, [])
+        if predecessor_code not in predecessor_map[successor]:
+            predecessor_map[successor].append(predecessor_code)
+        relationship_map.setdefault(successor, []).append({
+            "predecessor_id": predecessor_code,
+            "relationship_type": relation_type,
+            "lag_days": lag_hours / 8.0,
+            "lag_hours_source": lag_hours,
+        })
 
     activities = []
     for index, row in enumerate(selected_tasks, 1):
@@ -247,6 +256,7 @@ def prepare_xer_workspace_import(
             "planned_start": _first_date(row.get("target_start_date"), row.get("early_start_date")),
             "planned_finish": _first_date(row.get("target_end_date"), row.get("early_end_date")),
             "predecessor_ids": ",".join(predecessor_map.get(source_task_id, [])),
+            "predecessor_relationships": relationship_map.get(source_task_id, []),
             "source_format": "PRIMAVERA_P6_XER",
             "source_task_id": source_task_id,
         })
@@ -329,11 +339,13 @@ def prepare_xer_workspace_import(
             "wbs": len(wbs_rows),
             "activities": len(activities),
             "duplicate_relationships_removed": duplicate_relationship_count,
+            "relationship_types": relationship_type_count,
         },
         "limitations": [
             *([f"Removed {duplicate_relationship_count} exact duplicate P6 predecessor link(s) from the import preview; source XER was not modified."] if duplicate_relationship_count else []),
-            "P6 target duration hours are converted to nominal 8-hour days for the workspace CPM engine.",
-            "Calendars, holidays, constraints, resource leveling, relationship types and lags are not recalculated by this import.",
+            "P6 target duration hours and relationship lag hours are converted to nominal 8-hour days for workspace CPM.",
+            "All four P6 relationship types (FS, SS, FF, SF) and signed lag/lead are retained in predecessor_relationships and used by workspace CPM.",
+            "Calendars, holidays, constraints, resource leveling and native Primavera calendar semantics are not recalculated by this import.",
             "Imported P6 dates are source references; validate calendars and baseline meaning before using them for forecasts.",
         ],
     }
